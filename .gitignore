@@ -42,3 +42,8 @@ dev-server.*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 확장 설계 문서 구현하기 전 시각화 자료
+/.superpowers/
+/docs/
+/supabase/

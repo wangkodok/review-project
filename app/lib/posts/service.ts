@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "../supabase/server";
+import { getCategoryForWrite } from "../categories/service";
 import { getPostLikedByUser } from "./likes";
 import { increaseViewCountIfNeeded } from "./views";
 
@@ -9,6 +10,8 @@ type GetPostsParams = {
   limit: number;
   search: string;
   sort: SortValue;
+  currentUserId?: string;
+  categoryId?: string;
 };
 
 type GetMyPostsParams = {
@@ -21,6 +24,7 @@ type CreatePostParams = {
   userId: string;
   title: string;
   content: string;
+  categoryId: string;
 };
 
 type UpdatePostParams = {
@@ -28,6 +32,7 @@ type UpdatePostParams = {
   userId: string;
   title: string;
   content: string;
+  categoryId?: string;
 };
 
 type DeletePostParams = {
@@ -38,6 +43,7 @@ type DeletePostParams = {
 type PostRow = {
   id: string;
   user_id: string;
+  category_id: string | null;
   title: string;
   content: string;
   view_count: number;
@@ -46,18 +52,77 @@ type PostRow = {
   updated_at: string;
 };
 
-type PostListRow = Omit<PostRow, "user_id">;
-
 type UserRow = {
   id: string;
   anonymous_id: string;
 };
 
-function sanitizeSearch(value: string) {
-  return value.replace(/[,%()]/g, " ").trim();
+type CategoryRow = {
+  id: string;
+  name: string;
+  slug: string;
+  is_active: boolean;
+};
+
+type RelatedRow<T> = T | T[] | null;
+
+type PostWithRelationsRow = PostRow & {
+  author: RelatedRow<Pick<UserRow, "anonymous_id">>;
+  category: RelatedRow<CategoryRow>;
+};
+
+type PostForEditRow = Pick<PostRow, "id" | "user_id" | "category_id" | "title" | "content"> & {
+  category: RelatedRow<CategoryRow>;
+};
+
+type PublicCategory = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+function getSingleRelatedRow<T>(value: RelatedRow<T>): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value;
 }
 
-export async function getPosts({ page, limit, search, sort }: GetPostsParams) {
+function toPublicCategory(category: RelatedRow<CategoryRow>): PublicCategory | null {
+  const relatedCategory = getSingleRelatedRow(category);
+
+  if (!relatedCategory) {
+    return null;
+  }
+
+  return {
+    id: relatedCategory.id,
+    name: relatedCategory.name,
+    slug: relatedCategory.slug,
+  };
+}
+
+function requiresCategorySelection(category: RelatedRow<CategoryRow>) {
+  return !getSingleRelatedRow(category)?.is_active;
+}
+
+function sanitizeSearch(value: string) {
+  return value
+    .trim()
+    .replace(/\\/g, "\\\\")
+    .replace(/[%_]/g, "\\$&")
+    .replace(/[,()]/g, "\\$&");
+}
+
+export async function getPosts({
+  page,
+  limit,
+  search,
+  sort,
+  currentUserId,
+  categoryId,
+}: GetPostsParams) {
   const supabase = createSupabaseServerClient();
   const from = (page - 1) * limit;
   const to = from + limit - 1;
@@ -65,13 +130,20 @@ export async function getPosts({ page, limit, search, sort }: GetPostsParams) {
 
   let query = supabase
     .from("posts")
-    .select("id,title,content,view_count,like_count,created_at,updated_at", {
+    .select(
+      "id,user_id,category_id,title,content,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      {
       count: "exact",
-    });
+      },
+    );
 
   if (normalizedSearch) {
     const pattern = `%${normalizedSearch}%`;
     query = query.or(`title.ilike.${pattern},content.ilike.${pattern}`);
+  }
+
+  if (categoryId) {
+    query = query.eq("category_id", categoryId);
   }
 
   if (sort === "likes") {
@@ -95,7 +167,20 @@ export async function getPosts({ page, limit, search, sort }: GetPostsParams) {
   const totalCount = count ?? 0;
 
   return {
-    posts: (data ?? []) as PostListRow[],
+    posts: ((data ?? []) as PostWithRelationsRow[]).map((post) => ({
+      id: post.id,
+      title: post.title,
+      content: post.content,
+      likeCount: post.like_count,
+      viewCount: post.view_count,
+      createdAt: post.created_at,
+      category: toPublicCategory(post.category),
+      author: {
+        anonymousId: getSingleRelatedRow(post.author)?.anonymous_id ?? "",
+      },
+      isOwner: currentUserId === post.user_id,
+      requiresCategorySelection: requiresCategorySelection(post.category),
+    })),
     page,
     limit,
     totalCount,
@@ -124,7 +209,7 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
   const totalCount = count ?? 0;
 
   return {
-    posts: (data ?? []) as PostListRow[],
+    posts: data ?? [],
     page,
     limit,
     totalCount,
@@ -132,12 +217,19 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
   };
 }
 
-export async function createPost({ userId, title, content }: CreatePostParams) {
+export async function createPost({ userId, title, content, categoryId }: CreatePostParams) {
+  const category = await getCategoryForWrite(categoryId);
+
+  if (!category) {
+    return { status: "invalid_category" as const };
+  }
+
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
     .from("posts")
     .insert({
       user_id: userId,
+      category_id: category.id,
       title,
       content,
     })
@@ -148,25 +240,34 @@ export async function createPost({ userId, title, content }: CreatePostParams) {
     throw new Error(error.message);
   }
 
-  return data;
+  return { status: "ok" as const, post: data };
 }
 
 export async function getPostForEdit(postId: string) {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
     .from("posts")
-    .select("id,user_id,title,content")
+    .select(
+      "id,user_id,category_id,title,content,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+    )
     .eq("id", postId)
-    .maybeSingle<Pick<PostRow, "id" | "user_id" | "title" | "content">>();
+    .maybeSingle<PostForEditRow>();
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data;
+  if (!data) {
+    return null;
+  }
+
+  return {
+    ...data,
+    requiresCategorySelection: requiresCategorySelection(data.category),
+  };
 }
 
-export async function updatePost({ postId, userId, title, content }: UpdatePostParams) {
+export async function updatePost({ postId, userId, title, content, categoryId }: UpdatePostParams) {
   const supabase = createSupabaseServerClient();
   const existingPost = await getPostForEdit(postId);
 
@@ -178,9 +279,24 @@ export async function updatePost({ postId, userId, title, content }: UpdatePostP
     return { status: "forbidden" as const };
   }
 
+  let nextCategoryId = existingPost.category_id;
+
+  if (categoryId !== undefined) {
+    const category = await getCategoryForWrite(categoryId);
+
+    if (!category) {
+      return { status: "invalid_category" as const };
+    }
+
+    nextCategoryId = category.id;
+  } else if (requiresCategorySelection(existingPost.category)) {
+    return { status: "invalid_category" as const };
+  }
+
   const { data, error } = await supabase
     .from("posts")
     .update({
+      category_id: nextCategoryId,
       title,
       content,
       updated_at: new Date().toISOString(),
@@ -227,9 +343,11 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
 
   const { data: post, error: postError } = await supabase
     .from("posts")
-    .select("id,user_id,title,content,view_count,like_count,created_at,updated_at")
+    .select(
+      "id,user_id,category_id,title,content,view_count,like_count,created_at,updated_at,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+    )
     .eq("id", postId)
-    .maybeSingle<PostRow>();
+    .maybeSingle<PostRow & { category: RelatedRow<CategoryRow> }>();
 
   if (postError) {
     throw new Error(postError.message);
@@ -266,11 +384,13 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
     likeCount: post.like_count,
     createdAt: post.created_at,
     updatedAt: post.updated_at,
+    category: toPublicCategory(post.category),
     author: {
       id: author.id,
       anonymousId: author.anonymous_id,
     },
     isOwner: currentUserId === post.user_id,
     isLiked,
+    requiresCategorySelection: requiresCategorySelection(post.category),
   };
 }

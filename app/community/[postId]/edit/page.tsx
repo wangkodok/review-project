@@ -69,12 +69,16 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
     );
   }
 
+  const currentCategory = Array.isArray(post.category) ? post.category[0] : post.category;
+
   return (
     <PostForm
+      initialCategoryId={post.requiresCategorySelection ? "" : (currentCategory?.id ?? "")}
       initialContent={post.content}
       initialTitle={post.title}
       mode="edit"
       postId={post.id}
+      requiresCategorySelection={post.requiresCategorySelection}
     />
   );
 }

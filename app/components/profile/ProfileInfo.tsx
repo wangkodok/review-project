@@ -110,15 +110,15 @@ export default function ProfileInfo() {
         <h2 className="text-lg font-semibold text-neutral-950">내 정보</h2>
         <dl className="mt-5 space-y-4">
           <div>
-            <dt className="text-sm font-medium text-neutral-500">익명ID</dt>
-            <dd className="mt-1 break-all text-base font-semibold text-neutral-950">
-              {user.anonymousId}
-            </dd>
-          </div>
-          <div>
             <dt className="text-sm font-medium text-neutral-500">Google 이메일</dt>
             <dd className="mt-1 break-all text-base font-semibold text-neutral-950">
               {user.email}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm font-medium text-neutral-500">익명ID</dt>
+            <dd className="mt-1 break-all text-base font-semibold text-neutral-950">
+              {user.anonymousId}
             </dd>
           </div>
           <div>

@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/app/lib/auth/options";
+import { getActiveCategoryBySlug } from "@/app/lib/categories/service";
 import { createPost, getPosts } from "@/app/lib/posts/service";
 
 const DEFAULT_PAGE = 1;
@@ -34,8 +35,30 @@ export async function GET(request: Request) {
     const limit = parsePositiveNumber(searchParams.get("limit"), DEFAULT_LIMIT);
     const search = searchParams.get("search")?.trim() ?? "";
     const sort = parseSort(searchParams.get("sort"));
+    const categorySlug = searchParams.get("category")?.trim() || undefined;
+    const category = categorySlug ? await getActiveCategoryBySlug(categorySlug) : null;
 
-    const data = await getPosts({ page, limit, search, sort });
+    if (categorySlug && !category) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택할 수 없는 카테고리입니다.",
+          code: "INVALID_CATEGORY",
+        },
+        { status: 400 },
+      );
+    }
+
+    const session = await getServerSession(authOptions);
+    const data = await getPosts({
+      page,
+      limit,
+      search,
+      sort,
+      currentUserId: session?.user.id,
+      categoryId: category?.id,
+    });
 
     return NextResponse.json({
       success: true,
@@ -71,9 +94,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json()) as { title?: unknown; content?: unknown };
+    const body = (await request.json()) as {
+      title?: unknown;
+      content?: unknown;
+      categoryId?: unknown;
+    };
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const content = typeof body.content === "string" ? body.content.trim() : "";
+    const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : "";
 
     if (title.length < 2 || title.length > 50) {
       return NextResponse.json(
@@ -103,12 +131,25 @@ export async function POST(request: Request) {
       userId: session.user.id,
       title,
       content,
+      categoryId,
     });
+
+    if (post.status === "invalid_category") {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "카테고리를 선택해주세요.",
+          code: "INVALID_CATEGORY",
+        },
+        { status: 400 },
+      );
+    }
 
     return NextResponse.json(
       {
         success: true,
-        data: { post },
+        data: { post: post.post },
         message: "게시글이 등록되었습니다.",
       },
       { status: 201 },

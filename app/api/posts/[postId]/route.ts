@@ -70,9 +70,16 @@ export async function PATCH(request: Request, context: RouteContext) {
     const body = (await request.json()) as {
       title?: unknown;
       content?: unknown;
+      categoryId?: unknown;
     };
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const content = typeof body.content === "string" ? body.content.trim() : "";
+    const categoryId =
+      body.categoryId === undefined
+        ? undefined
+        : typeof body.categoryId === "string"
+          ? body.categoryId.trim()
+          : "";
 
     if (title.length < TITLE_MIN_LENGTH || title.length > TITLE_MAX_LENGTH) {
       return NextResponse.json(
@@ -103,6 +110,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       userId: session.user.id,
       title,
       content,
+      categoryId,
     });
 
     if (result.status === "not_found") {
@@ -126,6 +134,18 @@ export async function PATCH(request: Request, context: RouteContext) {
           code: "FORBIDDEN",
         },
         { status: 403 },
+      );
+    }
+
+    if (result.status === "invalid_category") {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "카테고리를 선택해주세요.",
+          code: "INVALID_CATEGORY",
+        },
+        { status: 400 },
       );
     }
 

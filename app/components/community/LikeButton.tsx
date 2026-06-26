@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart } from "lucide-react";
+import { ThumbsUp } from "lucide-react";
 import { useState } from "react";
 
 type LikeResponse = {
@@ -68,7 +68,7 @@ export default function LikeButton({
         onClick={handleClick}
         type="button"
       >
-        <Heart aria-hidden="true" fill={isLiked ? "currentColor" : "none"} size={18} />
+        <ThumbsUp aria-hidden="true" fill={isLiked ? "currentColor" : "none"} size={18} />
         {likeCount}
       </button>
       {message ? <p className="text-sm font-medium text-neutral-500">{message}</p> : null}

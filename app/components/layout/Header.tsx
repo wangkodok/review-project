@@ -1,5 +1,7 @@
 "use client";
 
+import { Search } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const titles = [
@@ -29,8 +31,19 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-neutral-100 bg-white/95 px-5 py-4 backdrop-blur">
+    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-neutral-100 bg-white/95 px-5 backdrop-blur">
       <h1 className="text-xl font-bold tracking-normal text-neutral-950">{getTitle(pathname)}</h1>
+      {pathname === "/community" ? (
+        <Link
+          aria-label="게시글 검색"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-950 active:bg-neutral-100"
+          href="/community/search"
+        >
+          <Search aria-hidden="true" size={22} />
+        </Link>
+      ) : (
+        <div className="h-11 w-11" />
+      )}
     </header>
   );
 }

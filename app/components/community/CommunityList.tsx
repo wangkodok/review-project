@@ -1,56 +1,46 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { Eye, Heart, Plus, Search } from "lucide-react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
-
-type SortValue = "latest" | "likes" | "views";
-
-type Post = {
-  id: string;
-  title: string;
-  content: string;
-  view_count: number;
-  like_count: number;
-};
+import { useMemo, useState } from "react";
+import type { PostCategory, PostsPage } from "@/app/types/post";
+import PostRows from "./PostRows";
 
 type PostsResponse = {
   success: boolean;
-  data: {
-    posts: Post[];
-    page: number;
-    limit: number;
-    totalCount: number;
-    hasMore: boolean;
-  } | null;
+  data: PostsPage | null;
   message: string;
-  code?: string;
 };
 
-const SORT_OPTIONS: { label: string; value: SortValue }[] = [
-  { label: "최신순", value: "latest" },
-  { label: "좋아요순", value: "likes" },
-  { label: "조회수순", value: "views" },
-];
+type CategoriesResponse = {
+  success: boolean;
+  data: {
+    categories: PostCategory[];
+  } | null;
+  message: string;
+};
 
-async function fetchPosts({
-  pageParam,
-  search,
-  sort,
-}: {
-  pageParam: number;
-  search: string;
-  sort: SortValue;
-}) {
+async function fetchCategories() {
+  const response = await fetch("/api/categories");
+  const result = (await response.json()) as CategoriesResponse;
+
+  if (!response.ok || !result.success || !result.data) {
+    throw new Error(result.message || "카테고리 목록을 불러오지 못했습니다.");
+  }
+
+  return result.data.categories;
+}
+
+async function fetchPosts({ pageParam, categorySlug }: { pageParam: number; categorySlug: string }) {
   const params = new URLSearchParams({
     page: String(pageParam),
     limit: "10",
-    sort,
+    sort: "latest",
   });
 
-  if (search.trim()) {
-    params.set("search", search.trim());
+  if (categorySlug) {
+    params.set("category", categorySlug);
   }
 
   const response = await fetch(`/api/posts?${params.toString()}`);
@@ -65,85 +55,109 @@ async function fetchPosts({
 
 function PostSkeleton() {
   return (
-    <div className="space-y-3 rounded-lg border border-neutral-200 bg-white p-5">
-      <div className="h-5 w-3/4 rounded bg-neutral-100" />
-      <div className="space-y-2">
-        <div className="h-4 w-full rounded bg-neutral-100" />
-        <div className="h-4 w-2/3 rounded bg-neutral-100" />
-      </div>
+    <div className="space-y-3 border-b border-neutral-200 py-5">
+      <div className="h-4 w-28 rounded bg-neutral-100" />
+      <div className="h-6 w-4/5 rounded bg-neutral-100" />
+      <div className="h-4 w-full rounded bg-neutral-100" />
       <div className="h-4 w-24 rounded bg-neutral-100" />
     </div>
   );
 }
 
-export default function CommunityList() {
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortValue>("latest");
-
-  const query = useInfiniteQuery({
-    queryKey: ["posts", search, sort],
-    queryFn: ({ pageParam }) => fetchPosts({ pageParam, search, sort }),
+export default function CommunityList({ isAuthenticated }: { isAuthenticated: boolean }) {
+  const [categorySlug, setCategorySlug] = useState("");
+  const categoriesQuery = useQuery({
+    queryKey: ["categories"],
+    queryFn: fetchCategories,
+  });
+  const postsQuery = useInfiniteQuery({
+    queryKey: ["posts", "latest", categorySlug],
+    queryFn: ({ pageParam }) => fetchPosts({ pageParam, categorySlug }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
   });
 
   const posts = useMemo(
-    () => query.data?.pages.flatMap((page) => page.posts) ?? [],
-    [query.data],
+    () => postsQuery.data?.pages.flatMap((page) => page.posts) ?? [],
+    [postsQuery.data],
   );
-  const hasNoPosts = !query.isLoading && posts.length === 0;
-  const isSearching = Boolean(search);
-
-  function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSearch(searchInput.trim());
-  }
+  const hasNoPosts = !postsQuery.isLoading && !postsQuery.isError && posts.length === 0;
 
   return (
-    <section className="relative space-y-5">
-      <form className="space-y-3" onSubmit={handleSearch}>
-        <div className="flex h-12 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4">
-          <Search aria-hidden="true" className="shrink-0 text-neutral-400" size={20} />
-          <input
-            className="min-w-0 flex-1 border-0 bg-transparent text-base text-neutral-950 outline-none placeholder:text-neutral-400"
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="제목과 내용을 검색해 보세요"
-            type="search"
-            value={searchInput}
-          />
-          <button className="text-sm font-semibold text-neutral-950" type="submit">
-            검색
-          </button>
-        </div>
+    <section className="relative">
+      <div className="pb-4">
+        {categoriesQuery.isLoading ? (
+          <div className="flex gap-2">
+            <div className="h-9 w-14 rounded-full bg-neutral-100" />
+            <div className="h-9 w-14 rounded-full bg-neutral-100" />
+            <div className="h-9 w-14 rounded-full bg-neutral-100" />
+          </div>
+        ) : null}
 
-        <select
-          className="h-11 w-full rounded-lg border border-neutral-200 bg-white px-4 text-sm font-semibold text-neutral-950 outline-none"
-          onChange={(event) => setSort(event.target.value as SortValue)}
-          value={sort}
-        >
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </form>
+        {categoriesQuery.isError ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-neutral-100 px-4 py-3">
+            <p className="text-sm font-semibold text-neutral-950">카테고리 목록을 불러오지 못했습니다.</p>
+            <button
+              className="shrink-0 text-sm font-bold text-neutral-950 underline"
+              onClick={() => categoriesQuery.refetch()}
+              type="button"
+            >
+              다시 시도
+            </button>
+          </div>
+        ) : null}
 
-      {query.isLoading ? (
-        <div className="space-y-3">
+        {categoriesQuery.data ? (
+          <div className="flex flex-wrap gap-2" role="group" aria-label="게시글 카테고리 필터">
+            <button
+              aria-pressed={!categorySlug}
+              className={`h-9 rounded-full border px-4 text-sm font-semibold ${
+                !categorySlug
+                  ? "border-neutral-950 bg-neutral-950 text-white"
+                  : "border-neutral-300 bg-white text-neutral-700 active:bg-neutral-100"
+              }`}
+              onClick={() => setCategorySlug("")}
+              type="button"
+            >
+              전체
+            </button>
+            {categoriesQuery.data.map((category) => {
+              const isSelected = categorySlug === category.slug;
+
+              return (
+                <button
+                  aria-pressed={isSelected}
+                  className={`h-9 rounded-full border px-4 text-sm font-semibold ${
+                    isSelected
+                      ? "border-neutral-950 bg-neutral-950 text-white"
+                      : "border-neutral-300 bg-white text-neutral-700 active:bg-neutral-100"
+                  }`}
+                  key={category.id}
+                  onClick={() => setCategorySlug(category.slug)}
+                  type="button"
+                >
+                  {category.name}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+
+      {postsQuery.isLoading ? (
+        <div>
           <PostSkeleton />
           <PostSkeleton />
           <PostSkeleton />
         </div>
       ) : null}
 
-      {query.isError ? (
-        <div className="rounded-lg border border-neutral-200 bg-white p-5 text-center">
+      {postsQuery.isError ? (
+        <div className="py-10 text-center">
           <p className="text-sm font-semibold text-neutral-950">게시글을 불러오지 못했습니다.</p>
           <button
             className="mt-4 h-10 rounded-lg bg-neutral-950 px-4 text-sm font-semibold text-white"
-            onClick={() => query.refetch()}
+            onClick={() => postsQuery.refetch()}
             type="button"
           >
             다시 시도
@@ -151,61 +165,43 @@ export default function CommunityList() {
         </div>
       ) : null}
 
-      {!query.isLoading && !query.isError ? (
-        <div className="space-y-3">
-          {posts.map((post) => (
-            <Link
-              className="block rounded-lg border border-neutral-200 bg-white p-5 active:bg-neutral-50"
-              href={`/community/${post.id}`}
-              key={post.id}
-            >
-              <h2 className="line-clamp-2 break-all text-lg font-bold leading-7 text-neutral-950">
-                {post.title}
-              </h2>
-              <p className="mt-2 line-clamp-2 break-all text-sm leading-6 text-neutral-600">
-                {post.content}
-              </p>
-              <div className="mt-4 flex items-center gap-4 text-sm font-medium text-neutral-500">
-                <span className="inline-flex items-center gap-1">
-                  <Heart aria-hidden="true" size={16} />
-                  {post.like_count}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Eye aria-hidden="true" size={16} />
-                  {post.view_count}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
+      {!postsQuery.isLoading && !postsQuery.isError ? (
+        <PostRows
+          isAuthenticated={isAuthenticated}
+          onDeleteSuccess={() => postsQuery.refetch()}
+          posts={posts}
+        />
       ) : null}
 
       {hasNoPosts ? (
-        <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center">
+        <div className="py-12 text-center">
           <p className="text-sm font-semibold text-neutral-500">
-            {isSearching ? "검색 결과가 없습니다." : "아직 등록된 음식 리뷰가 없습니다."}
+            아직 등록된 음식 리뷰가 없습니다.
           </p>
         </div>
       ) : null}
 
-      {query.hasNextPage ? (
+      {postsQuery.hasNextPage ? (
         <button
-          className="h-12 w-full rounded-lg border border-neutral-200 bg-white text-base font-semibold text-neutral-950 disabled:text-neutral-400"
-          disabled={query.isFetchingNextPage}
-          onClick={() => query.fetchNextPage()}
+          className="mt-5 h-12 w-full rounded-lg border border-neutral-200 bg-white text-base font-semibold text-neutral-950 disabled:text-neutral-400"
+          disabled={postsQuery.isFetchingNextPage}
+          onClick={() => postsQuery.fetchNextPage()}
           type="button"
         >
-          {query.isFetchingNextPage ? "불러오는 중" : "더보기"}
+          {postsQuery.isFetchingNextPage ? "불러오는 중" : "더보기"}
         </button>
       ) : null}
 
-      <Link
-        aria-label="글쓰기"
-        className="fixed bottom-20 left-1/2 z-20 ml-[115px] flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full bg-neutral-950 text-white shadow-lg"
-        href="/community/write"
-      >
-        <Plus color="#fff" aria-hidden="true" size={24} />
-      </Link>
+      <div className="pointer-events-none fixed bottom-20 left-1/2 z-20 flex w-full max-w-[375px] -translate-x-1/2 justify-end px-5">
+        <Link
+          aria-label="글쓰기"
+          className="pointer-events-auto inline-flex h-11 items-center gap-1 rounded-full bg-neutral-950 px-4 text-sm font-semibold text-white shadow-lg active:bg-neutral-800"
+          href="/community/write"
+        >
+          <Plus aria-hidden="true" size={18} />
+          글쓰기
+        </Link>
+      </div>
     </section>
   );
 }

@@ -38,7 +38,8 @@ export default function BottomTab() {
         return (
           <Link
             aria-current={isActive ? "page" : undefined}
-            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold"
+            // className="flex flex-col items-center justify-center gap-1 text-xs font-semibold"
+            className={`flex flex-col items-center justify-center gap-1 text-xs ${isActive ? "font-semibold" : ""}`}
             href={tab.href}
             key={tab.href}
           >
@@ -46,7 +47,8 @@ export default function BottomTab() {
               aria-hidden="true"
               className={isActive ? "text-neutral-950" : "text-neutral-400"}
               size={22}
-              strokeWidth={isActive ? 2.4 : 2}
+              // strokeWidth={isActive ? 2.4 : 2}
+              strokeWidth={isActive ? 2 : 1}
             />
             <span className={isActive ? "text-neutral-950" : "text-neutral-400"}>
               {tab.label}
