@@ -1,7 +1,14 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import { BAD_REVIEW_OPTIONS, GOOD_REVIEW_OPTIONS } from "@/app/constants/reviewOptions";
 import { authOptions } from "@/app/lib/auth/options";
 import { deletePost, getPostDetail, updatePost } from "@/app/lib/posts/service";
+import {
+  buildStructuredReviewContent,
+  MENU_NAME_MAX_LENGTH,
+  MENU_NAME_MIN_LENGTH,
+  parseReviewPointKeys,
+} from "@/app/lib/posts/structuredReview";
 
 type RouteContext = {
   params: Promise<{
@@ -71,15 +78,70 @@ export async function PATCH(request: Request, context: RouteContext) {
       title?: unknown;
       content?: unknown;
       categoryId?: unknown;
+      menuName?: unknown;
+      goodPoints?: unknown;
+      badPoints?: unknown;
     };
-    const title = typeof body.title === "string" ? body.title.trim() : "";
-    const content = typeof body.content === "string" ? body.content.trim() : "";
     const categoryId =
       body.categoryId === undefined
         ? undefined
         : typeof body.categoryId === "string"
           ? body.categoryId.trim()
           : "";
+    const isStructuredReviewRequest =
+      body.menuName !== undefined ||
+      body.goodPoints !== undefined ||
+      body.badPoints !== undefined;
+    let title = typeof body.title === "string" ? body.title.trim() : "";
+    let content = typeof body.content === "string" ? body.content.trim() : "";
+    let menuName: string | undefined;
+    let goodPoints: string[] | undefined;
+    let badPoints: string[] | undefined;
+
+    if (isStructuredReviewRequest) {
+      menuName = typeof body.menuName === "string" ? body.menuName.trim() : "";
+      goodPoints = parseReviewPointKeys(body.goodPoints, GOOD_REVIEW_OPTIONS) ?? undefined;
+      badPoints = parseReviewPointKeys(body.badPoints, BAD_REVIEW_OPTIONS) ?? undefined;
+
+      if (menuName.length < MENU_NAME_MIN_LENGTH || menuName.length > MENU_NAME_MAX_LENGTH) {
+        return NextResponse.json(
+          {
+            success: false,
+            data: null,
+            message: "메뉴 이름은 2~50자여야 합니다.",
+            code: "INVALID_MENU_NAME",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!goodPoints) {
+        return NextResponse.json(
+          {
+            success: false,
+            data: null,
+            message: "좋았던 점은 1~3개 선택해야 합니다.",
+            code: "INVALID_GOOD_POINTS",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!badPoints) {
+        return NextResponse.json(
+          {
+            success: false,
+            data: null,
+            message: "아쉬웠던 점은 1~3개 선택해야 합니다.",
+            code: "INVALID_BAD_POINTS",
+          },
+          { status: 400 },
+        );
+      }
+
+      title = menuName;
+      content = buildStructuredReviewContent({ goodPoints, badPoints });
+    }
 
     if (title.length < TITLE_MIN_LENGTH || title.length > TITLE_MAX_LENGTH) {
       return NextResponse.json(
@@ -111,6 +173,9 @@ export async function PATCH(request: Request, context: RouteContext) {
       title,
       content,
       categoryId,
+      menuName,
+      goodPoints,
+      badPoints,
     });
 
     if (result.status === "not_found") {

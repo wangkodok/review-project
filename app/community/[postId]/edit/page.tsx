@@ -75,6 +75,9 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
     <PostForm
       initialCategoryId={post.requiresCategorySelection ? "" : (currentCategory?.id ?? "")}
       initialContent={post.content}
+      initialBadPoints={post.bad_points ?? []}
+      initialGoodPoints={post.good_points ?? []}
+      initialMenuName={post.menu_name ?? post.title}
       initialTitle={post.title}
       mode="edit"
       postId={post.id}

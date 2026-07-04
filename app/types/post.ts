@@ -8,6 +8,11 @@ export type CommunityPost = {
   id: string;
   title: string;
   content: string;
+  menuName: string;
+  goodPoints: string[];
+  badPoints: string[];
+  goodPointLabels: string[];
+  badPointLabels: string[];
   likeCount: number;
   viewCount: number;
   createdAt: string;

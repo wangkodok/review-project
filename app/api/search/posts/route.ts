@@ -5,7 +5,7 @@ import { normalizeSearchKeyword, searchPosts } from "@/app/lib/search/service";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
-const MAX_LIMIT = 50;
+const MAX_LIMIT = 20;
 
 function parsePositiveNumber(value: string | null, fallback: number) {
   const parsed = Number(value);

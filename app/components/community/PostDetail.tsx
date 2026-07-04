@@ -12,6 +12,11 @@ type PostDetailData = {
   id: string;
   title: string;
   content: string;
+  menuName: string;
+  goodPoints: string[];
+  badPoints: string[];
+  goodPointLabels: string[];
+  badPointLabels: string[];
   viewCount: number;
   likeCount: number;
   createdAt: string;
@@ -83,6 +88,8 @@ export default function PostDetail({
   });
   const errorName = query.error instanceof Error ? query.error.name : "";
   const isNotFound = errorName === "POST_NOT_FOUND";
+  const goodPointLabels = query.data?.goodPointLabels ?? [];
+  const badPointLabels = query.data?.badPointLabels ?? [];
 
   return (
     <section className="space-y-6">
@@ -147,12 +154,43 @@ export default function PostDetail({
               </span>
             ) : null}
             <h2 className="break-all text-2xl font-bold leading-9 text-neutral-950">
-              {query.data.title}
+              {query.data.menuName}
             </h2>
           </div>
-          <p className="whitespace-pre-wrap break-all text-base leading-8 text-neutral-800">
-            {query.data.content}
-          </p>
+          {goodPointLabels.length || badPointLabels.length ? (
+            <div className="space-y-5">
+              <section className="space-y-3">
+                <h3 className="text-sm font-bold text-neutral-950">좋았던 점</h3>
+                <div className="flex flex-wrap gap-2">
+                  {goodPointLabels.map((label) => (
+                    <span
+                      className="inline-flex min-h-9 items-center rounded-full bg-neutral-950 px-3 py-1 text-sm font-semibold text-white"
+                      key={label}
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </section>
+              <section className="space-y-3">
+                <h3 className="text-sm font-bold text-neutral-950">아쉬웠던 점</h3>
+                <div className="flex flex-wrap gap-2">
+                  {badPointLabels.map((label) => (
+                    <span
+                      className="inline-flex min-h-9 items-center rounded-full bg-neutral-100 px-3 py-1 text-sm font-semibold text-neutral-700"
+                      key={label}
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            </div>
+          ) : (
+            <p className="whitespace-pre-wrap break-all text-base leading-8 text-neutral-800">
+              {query.data.content}
+            </p>
+          )}
           <PostActionSummary
             isLiked={query.data.isLiked}
             likeCount={query.data.likeCount}

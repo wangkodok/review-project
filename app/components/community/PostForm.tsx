@@ -3,6 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import {
+  BAD_REVIEW_OPTIONS,
+  GOOD_REVIEW_OPTIONS,
+  REVIEW_OPTION_LIMITS,
+} from "@/app/constants/reviewOptions";
 import PageBackHeader from "../common/PageBackHeader";
 import CategoryReselectionDialog from "./CategoryReselectionDialog";
 
@@ -22,6 +27,9 @@ type PostFormProps = {
   postId?: string;
   initialTitle?: string;
   initialContent?: string;
+  initialMenuName?: string;
+  initialGoodPoints?: string[];
+  initialBadPoints?: string[];
   initialCategoryId?: string;
   requiresCategorySelection?: boolean;
 };
@@ -40,8 +48,12 @@ type CategoriesResponse = {
   message: string;
 };
 
-const TITLE_MAX_LENGTH = 50;
-const CONTENT_MAX_LENGTH = 3000;
+type ReviewOption = {
+  key: string;
+  label: string;
+};
+
+const MENU_NAME_MAX_LENGTH = 50;
 
 async function fetchCategories() {
   const response = await fetch("/api/categories");
@@ -54,17 +66,31 @@ async function fetchCategories() {
   return result.data.categories;
 }
 
+function hasSameItems(left: string[], right: string[]) {
+  return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+
+function getInitialReviewPoints(value?: string[]) {
+  return Array.isArray(value) ? value : [];
+}
+
 export default function PostForm({
   mode = "create",
   postId,
   initialTitle = "",
-  initialContent = "",
+  initialMenuName,
+  initialGoodPoints,
+  initialBadPoints,
   initialCategoryId = "",
   requiresCategorySelection = false,
 }: PostFormProps) {
   const router = useRouter();
-  const [title, setTitle] = useState(initialTitle);
-  const [content, setContent] = useState(initialContent);
+  const initialMenuValue = initialMenuName?.trim() || initialTitle;
+  const initialGoodPointValues = getInitialReviewPoints(initialGoodPoints);
+  const initialBadPointValues = getInitialReviewPoints(initialBadPoints);
+  const [menuName, setMenuName] = useState(initialMenuValue);
+  const [goodPoints, setGoodPoints] = useState<string[]>(initialGoodPointValues);
+  const [badPoints, setBadPoints] = useState<string[]>(initialBadPointValues);
   const [categoryId, setCategoryId] = useState(initialCategoryId);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,18 +101,20 @@ export default function PostForm({
     queryKey: ["categories"],
     queryFn: fetchCategories,
   });
-  const trimmedTitle = title.trim();
-  const trimmedContent = content.trim();
+  const trimmedMenuName = menuName.trim();
   const isEditMode = mode === "edit";
   const isDirty =
-    title !== initialTitle || content !== initialContent || categoryId !== initialCategoryId;
-  const isTextValid =
-    trimmedTitle.length >= 2 &&
-    trimmedTitle.length <= TITLE_MAX_LENGTH &&
-    trimmedContent.length >= 10 &&
-    trimmedContent.length <= CONTENT_MAX_LENGTH;
+    menuName !== initialMenuValue ||
+    categoryId !== initialCategoryId ||
+    !hasSameItems(goodPoints, initialGoodPointValues) ||
+    !hasSameItems(badPoints, initialBadPointValues);
+  const isMenuNameValid = trimmedMenuName.length >= 2 && trimmedMenuName.length <= MENU_NAME_MAX_LENGTH;
+  const areGoodPointsValid =
+    goodPoints.length >= REVIEW_OPTION_LIMITS.min && goodPoints.length <= REVIEW_OPTION_LIMITS.max;
+  const areBadPointsValid =
+    badPoints.length >= REVIEW_OPTION_LIMITS.min && badPoints.length <= REVIEW_OPTION_LIMITS.max;
   const isCategoryValid = Boolean(categoryId) && !categoryQuery.isLoading && !categoryQuery.isError;
-  const isValid = isTextValid && isCategoryValid;
+  const isValid = isMenuNameValid && areGoodPointsValid && areBadPointsValid && isCategoryValid;
   const isButtonDisabled = !isValid || isSubmitting;
   const headerTitle = isEditMode ? "게시글 수정" : "글쓰기";
   const submitText = isEditMode ? "수정 완료" : "작성 완료";
@@ -119,6 +147,27 @@ export default function PostForm({
     router.back();
   }
 
+  function toggleReviewPoint({
+    key,
+    values,
+    setValues,
+  }: {
+    key: string;
+    values: string[];
+    setValues: (value: string[]) => void;
+  }) {
+    if (values.includes(key)) {
+      setValues(values.filter((value) => value !== key));
+      return;
+    }
+
+    if (values.length >= REVIEW_OPTION_LIMITS.max) {
+      return;
+    }
+
+    setValues([...values, key]);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -141,8 +190,9 @@ export default function PostForm({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          title: trimmedTitle,
-          content: trimmedContent,
+          menuName: trimmedMenuName,
+          goodPoints,
+          badPoints,
           categoryId,
         }),
       });
@@ -161,8 +211,54 @@ export default function PostForm({
     }
   }
 
+  function renderReviewOptions({
+    label,
+    options,
+    values,
+    setValues,
+  }: {
+    label: string;
+    options: readonly ReviewOption[];
+    values: string[];
+    setValues: (value: string[]) => void;
+  }) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-bold text-neutral-950">{label}</p>
+          <p className="text-xs font-semibold text-neutral-400">
+            {values.length} / {REVIEW_OPTION_LIMITS.max}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
+          {options.map((option) => {
+            const isSelected = values.includes(option.key);
+            const isDisabled = !isSelected && values.length >= REVIEW_OPTION_LIMITS.max;
+
+            return (
+              <button
+                aria-pressed={isSelected}
+                className={`min-h-10 rounded-full border px-4 py-2 text-sm font-semibold ${
+                  isSelected
+                    ? "border-neutral-950 bg-neutral-950 text-white"
+                    : "border-neutral-200 bg-neutral-50 text-neutral-700 active:bg-neutral-100"
+                } ${isDisabled ? "opacity-40" : ""}`}
+                disabled={isDisabled}
+                key={option.key}
+                onClick={() => toggleReviewPoint({ key: option.key, values, setValues })}
+                type="button"
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <form className="space-y-5" onSubmit={handleSubmit}>
+    <form className="space-y-7 pb-20" onSubmit={handleSubmit}>
       <PageBackHeader onBack={handleBack} title={headerTitle} />
 
       <div className="space-y-2">
@@ -196,10 +292,10 @@ export default function PostForm({
               return (
                 <button
                   aria-pressed={isSelected}
-                  className={`h-10 rounded-full border px-4 text-sm font-semibold ${
+                  className={`h-10 rounded-full px-4 text-sm font-semibold ${
                     isSelected
-                      ? "border-neutral-950 bg-neutral-950 text-white"
-                      : "border-neutral-300 bg-white text-neutral-700 active:bg-neutral-100"
+                      ? "bg-neutral-950 text-white"
+                      : "bg-neutral-100 text-neutral-700 active:bg-neutral-200"
                   }`}
                   key={category.id}
                   onClick={() => setCategoryId(category.id)}
@@ -214,32 +310,32 @@ export default function PostForm({
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-bold text-neutral-950">음식 이름</p>
+        <p className="text-sm font-bold text-neutral-950">메뉴 이름</p>
         <input
-          className="h-12 w-full rounded-lg border border-neutral-200 bg-white px-4 text-base text-neutral-950 outline-none placeholder:text-neutral-400 focus:border-neutral-950"
-          maxLength={TITLE_MAX_LENGTH}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="예: 음식 이름을 작성해 주세요. (예: 교촌치킨 허니콤보)"
-          value={title}
+          className="h-12 w-full rounded-none border border-neutral-300 bg-white px-4 text-base text-neutral-950 outline-none placeholder:text-neutral-400 focus:border-neutral-950"
+          maxLength={MENU_NAME_MAX_LENGTH}
+          onChange={(event) => setMenuName(event.target.value)}
+          placeholder="예시) 제육볶음, 김치찌개 ... 등"
+          value={menuName}
         />
         <p className="text-right text-xs font-medium text-neutral-400">
-          {title.length} / {TITLE_MAX_LENGTH}
+          {menuName.length} / {MENU_NAME_MAX_LENGTH}
         </p>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-sm font-bold text-neutral-950">경험 요약</p>
-        <textarea
-          className="min-h-72 w-full resize-none rounded-lg border border-neutral-200 bg-white px-4 py-3 text-base leading-7 text-neutral-950 outline-none placeholder:text-neutral-400 focus:border-neutral-950"
-          maxLength={CONTENT_MAX_LENGTH}
-          onChange={(event) => setContent(event.target.value)}
-          placeholder="음식 리뷰를 작성해 주세요. (예: 양은 괜찮고 소스가 달았어요. 100자 제한)"
-          value={content}
-        />
-        <p className="text-right text-xs font-medium text-neutral-400">
-          {content.length} / {CONTENT_MAX_LENGTH}
-        </p>
-      </div>
+      {renderReviewOptions({
+        label: "좋았던 점",
+        options: GOOD_REVIEW_OPTIONS,
+        values: goodPoints,
+        setValues: setGoodPoints,
+      })}
+
+      {renderReviewOptions({
+        label: "아쉬웠던 점",
+        options: BAD_REVIEW_OPTIONS,
+        values: badPoints,
+        setValues: setBadPoints,
+      })}
 
       {errorMessage ? (
         <p className="rounded-lg bg-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-950">

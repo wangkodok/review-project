@@ -9,6 +9,11 @@ type MyPost = {
   id: string;
   title: string;
   content: string;
+  menuName: string;
+  goodPoints: string[];
+  badPoints: string[];
+  goodPointLabels: string[];
+  badPointLabels: string[];
   view_count: number;
   like_count: number;
   created_at: string;
@@ -103,33 +108,39 @@ export default function MyPostList() {
 
       {!query.isLoading && !query.isError ? (
         <div className="space-y-3">
-          {posts.map((post) => (
-            <Link
-              className="block rounded-lg border border-neutral-200 bg-white p-5 active:bg-neutral-50"
-              href={`/community/${post.id}`}
-              key={post.id}
-            >
-              <h2 className="line-clamp-2 break-all text-lg font-bold leading-7 text-neutral-950">
-                {post.title}
-              </h2>
-              <p className="mt-2 line-clamp-2 break-all text-sm leading-6 text-neutral-600">
-                {post.content}
-              </p>
-              <div className="mt-4 flex items-center justify-between gap-4 text-sm font-medium text-neutral-500">
-                <div className="flex items-center gap-4">
-                  <span className="inline-flex items-center gap-1">
-                    <Heart aria-hidden="true" size={16} />
-                    {post.like_count}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Eye aria-hidden="true" size={16} />
-                    {post.view_count}
-                  </span>
+          {posts.map((post) => {
+            const previewText = post.goodPointLabels.length
+              ? post.goodPointLabels.join(", ")
+              : post.content;
+
+            return (
+              <Link
+                className="block rounded-lg border border-neutral-200 bg-white p-5 active:bg-neutral-50"
+                href={`/community/${post.id}`}
+                key={post.id}
+              >
+                <h2 className="line-clamp-2 break-all text-lg font-bold leading-7 text-neutral-950">
+                  {post.menuName}
+                </h2>
+                <p className="mt-2 line-clamp-2 break-all text-sm leading-6 text-neutral-600">
+                  {previewText}
+                </p>
+                <div className="mt-4 flex items-center justify-between gap-4 text-sm font-medium text-neutral-500">
+                  <div className="flex items-center gap-4">
+                    <span className="inline-flex items-center gap-1">
+                      <Heart aria-hidden="true" size={16} />
+                      {post.like_count}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Eye aria-hidden="true" size={16} />
+                      {post.view_count}
+                    </span>
+                  </div>
+                  <time dateTime={post.created_at}>{formatDate(post.created_at)}</time>
                 </div>
-                <time dateTime={post.created_at}>{formatDate(post.created_at)}</time>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       ) : null}
 

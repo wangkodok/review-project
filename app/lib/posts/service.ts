@@ -1,6 +1,8 @@
+import { BAD_REVIEW_OPTIONS, GOOD_REVIEW_OPTIONS } from "@/app/constants/reviewOptions";
 import { createSupabaseServerClient } from "../supabase/server";
 import { getCategoryForWrite } from "../categories/service";
 import { getPostLikedByUser } from "./likes";
+import { getReviewOptionKeysByLabelSearch } from "./structuredReview";
 import { increaseViewCountIfNeeded } from "./views";
 
 type SortValue = "latest" | "likes" | "views";
@@ -25,6 +27,9 @@ type CreatePostParams = {
   title: string;
   content: string;
   categoryId: string;
+  menuName?: string;
+  goodPoints?: string[];
+  badPoints?: string[];
 };
 
 type UpdatePostParams = {
@@ -33,6 +38,9 @@ type UpdatePostParams = {
   title: string;
   content: string;
   categoryId?: string;
+  menuName?: string;
+  goodPoints?: string[];
+  badPoints?: string[];
 };
 
 type DeletePostParams = {
@@ -46,6 +54,9 @@ type PostRow = {
   category_id: string | null;
   title: string;
   content: string;
+  menu_name: string | null;
+  good_points: string[] | null;
+  bad_points: string[] | null;
   view_count: number;
   like_count: number;
   created_at: string;
@@ -71,7 +82,17 @@ type PostWithRelationsRow = PostRow & {
   category: RelatedRow<CategoryRow>;
 };
 
-type PostForEditRow = Pick<PostRow, "id" | "user_id" | "category_id" | "title" | "content"> & {
+type PostForEditRow = Pick<
+  PostRow,
+  | "id"
+  | "user_id"
+  | "category_id"
+  | "title"
+  | "content"
+  | "menu_name"
+  | "good_points"
+  | "bad_points"
+> & {
   category: RelatedRow<CategoryRow>;
 };
 
@@ -107,12 +128,65 @@ function requiresCategorySelection(category: RelatedRow<CategoryRow>) {
   return !getSingleRelatedRow(category)?.is_active;
 }
 
+const goodReviewOptionLabelMap = new Map(
+  GOOD_REVIEW_OPTIONS.map((option) => [option.key, option.label]),
+);
+const badReviewOptionLabelMap = new Map(
+  BAD_REVIEW_OPTIONS.map((option) => [option.key, option.label]),
+);
+
+function normalizeReviewOptionKeys(
+  value: string[] | null,
+  labelMap: Map<string, string>,
+) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((key) => labelMap.has(key));
+}
+
+function toReviewOptionLabels(keys: string[], labelMap: Map<string, string>) {
+  return keys.map((key) => labelMap.get(key)).filter((label): label is string => Boolean(label));
+}
+
+function toStructuredReviewFields(
+  post: Pick<PostRow, "title" | "menu_name" | "good_points" | "bad_points">,
+) {
+  const goodPoints = normalizeReviewOptionKeys(post.good_points, goodReviewOptionLabelMap);
+  const badPoints = normalizeReviewOptionKeys(post.bad_points, badReviewOptionLabelMap);
+
+  return {
+    menuName: post.menu_name?.trim() || post.title,
+    goodPoints,
+    badPoints,
+    goodPointLabels: toReviewOptionLabels(goodPoints, goodReviewOptionLabelMap),
+    badPointLabels: toReviewOptionLabels(badPoints, badReviewOptionLabelMap),
+  };
+}
+
 function sanitizeSearch(value: string) {
   return value
     .trim()
     .replace(/\\/g, "\\\\")
     .replace(/[%_]/g, "\\$&")
     .replace(/[,()]/g, "\\$&");
+}
+
+function buildPostSearchFilter(search: string) {
+  const pattern = `%${sanitizeSearch(search)}%`;
+  const { goodPointKeys, badPointKeys } = getReviewOptionKeysByLabelSearch(search);
+  const reviewPointFilters = [
+    ...goodPointKeys.map((key) => `good_points.cs.{${key}}`),
+    ...badPointKeys.map((key) => `bad_points.cs.{${key}}`),
+  ];
+
+  return [
+    `menu_name.ilike.${pattern}`,
+    `title.ilike.${pattern}`,
+    `content.ilike.${pattern}`,
+    ...reviewPointFilters,
+  ].join(",");
 }
 
 export async function getPosts({
@@ -126,20 +200,19 @@ export async function getPosts({
   const supabase = createSupabaseServerClient();
   const from = (page - 1) * limit;
   const to = from + limit - 1;
-  const normalizedSearch = sanitizeSearch(search);
+  const normalizedSearch = search.trim();
 
   let query = supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,title,content,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active)",
       {
       count: "exact",
       },
     );
 
   if (normalizedSearch) {
-    const pattern = `%${normalizedSearch}%`;
-    query = query.or(`title.ilike.${pattern},content.ilike.${pattern}`);
+    query = query.or(buildPostSearchFilter(normalizedSearch));
   }
 
   if (categoryId) {
@@ -167,20 +240,25 @@ export async function getPosts({
   const totalCount = count ?? 0;
 
   return {
-    posts: ((data ?? []) as PostWithRelationsRow[]).map((post) => ({
-      id: post.id,
-      title: post.title,
-      content: post.content,
-      likeCount: post.like_count,
-      viewCount: post.view_count,
-      createdAt: post.created_at,
-      category: toPublicCategory(post.category),
-      author: {
-        anonymousId: getSingleRelatedRow(post.author)?.anonymous_id ?? "",
-      },
-      isOwner: currentUserId === post.user_id,
-      requiresCategorySelection: requiresCategorySelection(post.category),
-    })),
+    posts: ((data ?? []) as PostWithRelationsRow[]).map((post) => {
+      const structuredReview = toStructuredReviewFields(post);
+
+      return {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        ...structuredReview,
+        likeCount: post.like_count,
+        viewCount: post.view_count,
+        createdAt: post.created_at,
+        category: toPublicCategory(post.category),
+        author: {
+          anonymousId: getSingleRelatedRow(post.author)?.anonymous_id ?? "",
+        },
+        isOwner: currentUserId === post.user_id,
+        requiresCategorySelection: requiresCategorySelection(post.category),
+      };
+    }),
     page,
     limit,
     totalCount,
@@ -195,7 +273,7 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
 
   const { data, error, count } = await supabase
     .from("posts")
-    .select("id,title,content,view_count,like_count,created_at,updated_at", {
+    .select("id,title,content,menu_name,good_points,bad_points,view_count,like_count,created_at,updated_at", {
       count: "exact",
     })
     .eq("user_id", userId)
@@ -209,7 +287,22 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
   const totalCount = count ?? 0;
 
   return {
-    posts: data ?? [],
+    posts: ((data ?? []) as Pick<
+      PostRow,
+      | "id"
+      | "title"
+      | "content"
+      | "menu_name"
+      | "good_points"
+      | "bad_points"
+      | "view_count"
+      | "like_count"
+      | "created_at"
+      | "updated_at"
+    >[]).map((post) => ({
+      ...post,
+      ...toStructuredReviewFields(post),
+    })),
     page,
     limit,
     totalCount,
@@ -217,7 +310,15 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
   };
 }
 
-export async function createPost({ userId, title, content, categoryId }: CreatePostParams) {
+export async function createPost({
+  userId,
+  title,
+  content,
+  categoryId,
+  menuName,
+  goodPoints,
+  badPoints,
+}: CreatePostParams) {
   const category = await getCategoryForWrite(categoryId);
 
   if (!category) {
@@ -232,6 +333,9 @@ export async function createPost({ userId, title, content, categoryId }: CreateP
       category_id: category.id,
       title,
       content,
+      menu_name: menuName ?? null,
+      good_points: goodPoints ?? null,
+      bad_points: badPoints ?? null,
     })
     .select("id")
     .single<{ id: string }>();
@@ -248,7 +352,7 @@ export async function getPostForEdit(postId: string) {
   const { data, error } = await supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,title,content,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
     )
     .eq("id", postId)
     .maybeSingle<PostForEditRow>();
@@ -267,7 +371,16 @@ export async function getPostForEdit(postId: string) {
   };
 }
 
-export async function updatePost({ postId, userId, title, content, categoryId }: UpdatePostParams) {
+export async function updatePost({
+  postId,
+  userId,
+  title,
+  content,
+  categoryId,
+  menuName,
+  goodPoints,
+  badPoints,
+}: UpdatePostParams) {
   const supabase = createSupabaseServerClient();
   const existingPost = await getPostForEdit(postId);
 
@@ -299,6 +412,9 @@ export async function updatePost({ postId, userId, title, content, categoryId }:
       category_id: nextCategoryId,
       title,
       content,
+      menu_name: menuName ?? existingPost.menu_name,
+      good_points: goodPoints ?? existingPost.good_points,
+      bad_points: badPoints ?? existingPost.bad_points,
       updated_at: new Date().toISOString(),
     })
     .eq("id", postId)
@@ -344,7 +460,7 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
   const { data: post, error: postError } = await supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,title,content,view_count,like_count,created_at,updated_at,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,view_count,like_count,created_at,updated_at,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
     )
     .eq("id", postId)
     .maybeSingle<PostRow & { category: RelatedRow<CategoryRow> }>();
@@ -380,6 +496,7 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
     id: post.id,
     title: post.title,
     content: post.content,
+    ...toStructuredReviewFields(post),
     viewCount,
     likeCount: post.like_count,
     createdAt: post.created_at,
