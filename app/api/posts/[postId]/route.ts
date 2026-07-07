@@ -7,6 +7,7 @@ import {
   buildStructuredReviewContent,
   MENU_NAME_MAX_LENGTH,
   MENU_NAME_MIN_LENGTH,
+  normalizeOverallReview,
   parseReviewPointKeys,
 } from "@/app/lib/posts/structuredReview";
 
@@ -81,6 +82,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       menuName?: unknown;
       goodPoints?: unknown;
       badPoints?: unknown;
+      overallReview?: unknown;
     };
     const categoryId =
       body.categoryId === undefined
@@ -91,17 +93,20 @@ export async function PATCH(request: Request, context: RouteContext) {
     const isStructuredReviewRequest =
       body.menuName !== undefined ||
       body.goodPoints !== undefined ||
-      body.badPoints !== undefined;
+      body.badPoints !== undefined ||
+      body.overallReview !== undefined;
     let title = typeof body.title === "string" ? body.title.trim() : "";
     let content = typeof body.content === "string" ? body.content.trim() : "";
     let menuName: string | undefined;
     let goodPoints: string[] | undefined;
     let badPoints: string[] | undefined;
+    let overallReview: string | null | undefined;
 
     if (isStructuredReviewRequest) {
       menuName = typeof body.menuName === "string" ? body.menuName.trim() : "";
       goodPoints = parseReviewPointKeys(body.goodPoints, GOOD_REVIEW_OPTIONS) ?? undefined;
       badPoints = parseReviewPointKeys(body.badPoints, BAD_REVIEW_OPTIONS) ?? undefined;
+      const normalizedOverallReview = normalizeOverallReview(body.overallReview);
 
       if (menuName.length < MENU_NAME_MIN_LENGTH || menuName.length > MENU_NAME_MAX_LENGTH) {
         return NextResponse.json(
@@ -138,6 +143,21 @@ export async function PATCH(request: Request, context: RouteContext) {
           { status: 400 },
         );
       }
+
+      if (normalizedOverallReview === false) {
+        return NextResponse.json(
+          {
+            success: false,
+            data: null,
+            message: "남기고 싶은 한마디는 300자 이하여야 합니다.",
+            code: "INVALID_OVERALL_REVIEW",
+          },
+          { status: 400 },
+        );
+      }
+
+      overallReview =
+        normalizedOverallReview === undefined ? undefined : normalizedOverallReview;
 
       title = menuName;
       content = buildStructuredReviewContent({ goodPoints, badPoints });
@@ -176,6 +196,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       menuName,
       goodPoints,
       badPoints,
+      overallReview,
     });
 
     if (result.status === "not_found") {

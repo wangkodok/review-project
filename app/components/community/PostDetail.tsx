@@ -17,6 +17,7 @@ type PostDetailData = {
   badPoints: string[];
   goodPointLabels: string[];
   badPointLabels: string[];
+  overallReview: string | null;
   viewCount: number;
   likeCount: number;
   createdAt: string;
@@ -191,6 +192,14 @@ export default function PostDetail({
               {query.data.content}
             </p>
           )}
+          {query.data.overallReview ? (
+            <section className="space-y-3">
+              <h3 className="text-sm font-bold text-neutral-950">남기고 싶은 한마디</h3>
+              <p className="whitespace-pre-wrap break-all text-base leading-8 text-neutral-800">
+                {query.data.overallReview}
+              </p>
+            </section>
+          ) : null}
           <PostActionSummary
             isLiked={query.data.isLiked}
             likeCount={query.data.likeCount}

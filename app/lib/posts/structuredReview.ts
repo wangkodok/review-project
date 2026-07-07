@@ -7,6 +7,7 @@ type ReviewOption = {
 
 export const MENU_NAME_MIN_LENGTH = 2;
 export const MENU_NAME_MAX_LENGTH = 50;
+export const OVERALL_REVIEW_MAX_LENGTH = 300;
 export const REVIEW_POINT_MIN_COUNT = 1;
 export const REVIEW_POINT_MAX_COUNT = 3;
 
@@ -36,6 +37,32 @@ export function parseReviewPointKeys(value: unknown, allowedOptions: readonly Re
   }
 
   return keys;
+}
+
+export function normalizeOverallReview(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  if (trimmedValue.length > OVERALL_REVIEW_MAX_LENGTH) {
+    return false;
+  }
+
+  return trimmedValue;
 }
 
 export function toReviewPointLabels(keys: string[], optionMap: Map<string, string>) {

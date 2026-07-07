@@ -13,6 +13,7 @@ export type CommunityPost = {
   badPoints: string[];
   goodPointLabels: string[];
   badPointLabels: string[];
+  overallReview: string | null;
   likeCount: number;
   viewCount: number;
   createdAt: string;

@@ -78,6 +78,7 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
       initialBadPoints={post.bad_points ?? []}
       initialGoodPoints={post.good_points ?? []}
       initialMenuName={post.menu_name ?? post.title}
+      initialOverallReview={post.overall_review}
       initialTitle={post.title}
       mode="edit"
       postId={post.id}

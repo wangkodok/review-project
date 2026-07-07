@@ -14,6 +14,7 @@ type MyPost = {
   badPoints: string[];
   goodPointLabels: string[];
   badPointLabels: string[];
+  overallReview: string | null;
   view_count: number;
   like_count: number;
   created_at: string;
@@ -125,6 +126,11 @@ export default function MyPostList() {
                 <p className="mt-2 line-clamp-2 break-all text-sm leading-6 text-neutral-600">
                   {previewText}
                 </p>
+                {post.overallReview ? (
+                  <p className="mt-2 line-clamp-2 break-all text-sm leading-6 text-neutral-800">
+                    {post.overallReview}
+                  </p>
+                ) : null}
                 <div className="mt-4 flex items-center justify-between gap-4 text-sm font-medium text-neutral-500">
                   <div className="flex items-center gap-4">
                     <span className="inline-flex items-center gap-1">

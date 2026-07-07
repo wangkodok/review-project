@@ -8,6 +8,7 @@ import {
   GOOD_REVIEW_OPTIONS,
   REVIEW_OPTION_LIMITS,
 } from "@/app/constants/reviewOptions";
+import { OVERALL_REVIEW_MAX_LENGTH } from "@/app/lib/posts/structuredReview";
 import PageBackHeader from "../common/PageBackHeader";
 import CategoryReselectionDialog from "./CategoryReselectionDialog";
 
@@ -30,6 +31,7 @@ type PostFormProps = {
   initialMenuName?: string;
   initialGoodPoints?: string[];
   initialBadPoints?: string[];
+  initialOverallReview?: string | null;
   initialCategoryId?: string;
   requiresCategorySelection?: boolean;
 };
@@ -81,6 +83,7 @@ export default function PostForm({
   initialMenuName,
   initialGoodPoints,
   initialBadPoints,
+  initialOverallReview,
   initialCategoryId = "",
   requiresCategorySelection = false,
 }: PostFormProps) {
@@ -88,9 +91,11 @@ export default function PostForm({
   const initialMenuValue = initialMenuName?.trim() || initialTitle;
   const initialGoodPointValues = getInitialReviewPoints(initialGoodPoints);
   const initialBadPointValues = getInitialReviewPoints(initialBadPoints);
+  const initialOverallReviewValue = initialOverallReview?.trim() ?? "";
   const [menuName, setMenuName] = useState(initialMenuValue);
   const [goodPoints, setGoodPoints] = useState<string[]>(initialGoodPointValues);
   const [badPoints, setBadPoints] = useState<string[]>(initialBadPointValues);
+  const [overallReview, setOverallReview] = useState(initialOverallReviewValue);
   const [categoryId, setCategoryId] = useState(initialCategoryId);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,19 +107,27 @@ export default function PostForm({
     queryFn: fetchCategories,
   });
   const trimmedMenuName = menuName.trim();
+  const trimmedOverallReview = overallReview.trim();
   const isEditMode = mode === "edit";
   const isDirty =
     menuName !== initialMenuValue ||
+    overallReview !== initialOverallReviewValue ||
     categoryId !== initialCategoryId ||
     !hasSameItems(goodPoints, initialGoodPointValues) ||
     !hasSameItems(badPoints, initialBadPointValues);
   const isMenuNameValid = trimmedMenuName.length >= 2 && trimmedMenuName.length <= MENU_NAME_MAX_LENGTH;
+  const isOverallReviewValid = trimmedOverallReview.length <= OVERALL_REVIEW_MAX_LENGTH;
   const areGoodPointsValid =
     goodPoints.length >= REVIEW_OPTION_LIMITS.min && goodPoints.length <= REVIEW_OPTION_LIMITS.max;
   const areBadPointsValid =
     badPoints.length >= REVIEW_OPTION_LIMITS.min && badPoints.length <= REVIEW_OPTION_LIMITS.max;
   const isCategoryValid = Boolean(categoryId) && !categoryQuery.isLoading && !categoryQuery.isError;
-  const isValid = isMenuNameValid && areGoodPointsValid && areBadPointsValid && isCategoryValid;
+  const isValid =
+    isMenuNameValid &&
+    isOverallReviewValid &&
+    areGoodPointsValid &&
+    areBadPointsValid &&
+    isCategoryValid;
   const isButtonDisabled = !isValid || isSubmitting;
   const headerTitle = isEditMode ? "게시글 수정" : "글쓰기";
   const submitText = isEditMode ? "수정 완료" : "작성 완료";
@@ -193,6 +206,7 @@ export default function PostForm({
           menuName: trimmedMenuName,
           goodPoints,
           badPoints,
+          overallReview: trimmedOverallReview || null,
           categoryId,
         }),
       });
@@ -336,6 +350,29 @@ export default function PostForm({
         values: badPoints,
         setValues: setBadPoints,
       })}
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-bold text-neutral-950">남기고 싶은 한마디</p>
+          <p
+            className={`text-xs font-semibold ${
+              isOverallReviewValid ? "text-neutral-400" : "text-neutral-950"
+            }`}
+          >
+            {overallReview.length} / {OVERALL_REVIEW_MAX_LENGTH}
+          </p>
+        </div>
+        <textarea
+          className="min-h-28 w-full resize-none rounded-none border border-neutral-300 bg-white px-4 py-3 text-base leading-7 text-neutral-950 outline-none placeholder:text-neutral-400 focus:border-neutral-950"
+          maxLength={OVERALL_REVIEW_MAX_LENGTH + 1}
+          onChange={(event) => setOverallReview(event.target.value)}
+          placeholder="직접 경험한 내용을 짧게 남겨주세요."
+          value={overallReview}
+        />
+        <p className="text-xs leading-5 text-neutral-400">
+          특정인 비방이나 확인되지 않은 내용은 피해주세요.
+        </p>
+      </div>
 
       {errorMessage ? (
         <p className="rounded-lg bg-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-950">

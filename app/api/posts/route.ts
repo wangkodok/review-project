@@ -8,6 +8,7 @@ import {
   buildStructuredReviewContent,
   MENU_NAME_MAX_LENGTH,
   MENU_NAME_MIN_LENGTH,
+  normalizeOverallReview,
   parseReviewPointKeys,
 } from "@/app/lib/posts/structuredReview";
 
@@ -112,22 +113,26 @@ export async function POST(request: Request) {
       menuName?: unknown;
       goodPoints?: unknown;
       badPoints?: unknown;
+      overallReview?: unknown;
     };
     const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : "";
     const isStructuredReviewRequest =
       body.menuName !== undefined ||
       body.goodPoints !== undefined ||
-      body.badPoints !== undefined;
+      body.badPoints !== undefined ||
+      body.overallReview !== undefined;
     let title = typeof body.title === "string" ? body.title.trim() : "";
     let content = typeof body.content === "string" ? body.content.trim() : "";
     let menuName: string | undefined;
     let goodPoints: string[] | undefined;
     let badPoints: string[] | undefined;
+    let overallReview: string | null | undefined;
 
     if (isStructuredReviewRequest) {
       menuName = typeof body.menuName === "string" ? body.menuName.trim() : "";
       goodPoints = parseReviewPointKeys(body.goodPoints, GOOD_REVIEW_OPTIONS) ?? undefined;
       badPoints = parseReviewPointKeys(body.badPoints, BAD_REVIEW_OPTIONS) ?? undefined;
+      const normalizedOverallReview = normalizeOverallReview(body.overallReview);
 
       if (menuName.length < MENU_NAME_MIN_LENGTH || menuName.length > MENU_NAME_MAX_LENGTH) {
         return NextResponse.json(
@@ -165,6 +170,20 @@ export async function POST(request: Request) {
         );
       }
 
+      if (normalizedOverallReview === false) {
+        return NextResponse.json(
+          {
+            success: false,
+            data: null,
+            message: "남기고 싶은 한마디는 300자 이하여야 합니다.",
+            code: "INVALID_OVERALL_REVIEW",
+          },
+          { status: 400 },
+        );
+      }
+
+      overallReview = normalizedOverallReview ?? null;
+
       title = menuName;
       content = buildStructuredReviewContent({ goodPoints, badPoints });
     }
@@ -201,6 +220,7 @@ export async function POST(request: Request) {
       menuName,
       goodPoints,
       badPoints,
+      overallReview,
     });
 
     if (post.status === "invalid_category") {

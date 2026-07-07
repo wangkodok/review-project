@@ -52,6 +52,11 @@ export default function PostRows({
               <p className="mt-2 line-clamp-2 break-all text-sm leading-6 text-neutral-600">
                 {previewText}
               </p>
+              {post.overallReview ? (
+                <p className="mt-2 line-clamp-2 break-all text-sm leading-6 text-neutral-800">
+                  {post.overallReview}
+                </p>
+              ) : null}
               <div className="mt-3 flex items-center gap-4 text-sm font-medium text-neutral-500">
                 <span className="inline-flex items-center gap-1">
                   <ThumbsUp aria-hidden="true" size={16} />

@@ -30,6 +30,7 @@ type CreatePostParams = {
   menuName?: string;
   goodPoints?: string[];
   badPoints?: string[];
+  overallReview?: string | null;
 };
 
 type UpdatePostParams = {
@@ -41,6 +42,7 @@ type UpdatePostParams = {
   menuName?: string;
   goodPoints?: string[];
   badPoints?: string[];
+  overallReview?: string | null;
 };
 
 type DeletePostParams = {
@@ -57,6 +59,7 @@ type PostRow = {
   menu_name: string | null;
   good_points: string[] | null;
   bad_points: string[] | null;
+  overall_review: string | null;
   view_count: number;
   like_count: number;
   created_at: string;
@@ -92,6 +95,7 @@ type PostForEditRow = Pick<
   | "menu_name"
   | "good_points"
   | "bad_points"
+  | "overall_review"
 > & {
   category: RelatedRow<CategoryRow>;
 };
@@ -151,7 +155,10 @@ function toReviewOptionLabels(keys: string[], labelMap: Map<string, string>) {
 }
 
 function toStructuredReviewFields(
-  post: Pick<PostRow, "title" | "menu_name" | "good_points" | "bad_points">,
+  post: Pick<
+    PostRow,
+    "title" | "menu_name" | "good_points" | "bad_points" | "overall_review"
+  >,
 ) {
   const goodPoints = normalizeReviewOptionKeys(post.good_points, goodReviewOptionLabelMap);
   const badPoints = normalizeReviewOptionKeys(post.bad_points, badReviewOptionLabelMap);
@@ -162,6 +169,7 @@ function toStructuredReviewFields(
     badPoints,
     goodPointLabels: toReviewOptionLabels(goodPoints, goodReviewOptionLabelMap),
     badPointLabels: toReviewOptionLabels(badPoints, badReviewOptionLabelMap),
+    overallReview: post.overall_review?.trim() || null,
   };
 }
 
@@ -183,6 +191,7 @@ function buildPostSearchFilter(search: string) {
 
   return [
     `menu_name.ilike.${pattern}`,
+    `overall_review.ilike.${pattern}`,
     `title.ilike.${pattern}`,
     `content.ilike.${pattern}`,
     ...reviewPointFilters,
@@ -205,7 +214,7 @@ export async function getPosts({
   let query = supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active)",
       {
       count: "exact",
       },
@@ -273,7 +282,7 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
 
   const { data, error, count } = await supabase
     .from("posts")
-    .select("id,title,content,menu_name,good_points,bad_points,view_count,like_count,created_at,updated_at", {
+    .select("id,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at", {
       count: "exact",
     })
     .eq("user_id", userId)
@@ -295,6 +304,7 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
       | "menu_name"
       | "good_points"
       | "bad_points"
+      | "overall_review"
       | "view_count"
       | "like_count"
       | "created_at"
@@ -318,6 +328,7 @@ export async function createPost({
   menuName,
   goodPoints,
   badPoints,
+  overallReview,
 }: CreatePostParams) {
   const category = await getCategoryForWrite(categoryId);
 
@@ -336,6 +347,7 @@ export async function createPost({
       menu_name: menuName ?? null,
       good_points: goodPoints ?? null,
       bad_points: badPoints ?? null,
+      overall_review: overallReview ?? null,
     })
     .select("id")
     .single<{ id: string }>();
@@ -352,7 +364,7 @@ export async function getPostForEdit(postId: string) {
   const { data, error } = await supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,overall_review,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
     )
     .eq("id", postId)
     .maybeSingle<PostForEditRow>();
@@ -380,6 +392,7 @@ export async function updatePost({
   menuName,
   goodPoints,
   badPoints,
+  overallReview,
 }: UpdatePostParams) {
   const supabase = createSupabaseServerClient();
   const existingPost = await getPostForEdit(postId);
@@ -415,6 +428,7 @@ export async function updatePost({
       menu_name: menuName ?? existingPost.menu_name,
       good_points: goodPoints ?? existingPost.good_points,
       bad_points: badPoints ?? existingPost.bad_points,
+      overall_review: overallReview === undefined ? existingPost.overall_review : overallReview,
       updated_at: new Date().toISOString(),
     })
     .eq("id", postId)
@@ -460,7 +474,7 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
   const { data: post, error: postError } = await supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,view_count,like_count,created_at,updated_at,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
     )
     .eq("id", postId)
     .maybeSingle<PostRow & { category: RelatedRow<CategoryRow> }>();
