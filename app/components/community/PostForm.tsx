@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import {
@@ -9,7 +10,6 @@ import {
   REVIEW_OPTION_LIMITS,
 } from "@/app/constants/reviewOptions";
 import { OVERALL_REVIEW_MAX_LENGTH } from "@/app/lib/posts/structuredReview";
-import PageBackHeader from "../common/PageBackHeader";
 import CategoryReselectionDialog from "./CategoryReselectionDialog";
 
 type PostFormResponse = {
@@ -129,7 +129,6 @@ export default function PostForm({
     areBadPointsValid &&
     isCategoryValid;
   const isButtonDisabled = !isValid || isSubmitting;
-  const headerTitle = isEditMode ? "게시글 수정" : "글쓰기";
   const submitText = isEditMode ? "수정 완료" : "작성 완료";
   const leaveMessage = isEditMode
     ? "수정 중인 내용이 사라질 수 있습니다."
@@ -237,14 +236,14 @@ export default function PostForm({
     setValues: (value: string[]) => void;
   }) {
     return (
-      <div className="space-y-2">
+      <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-bold text-neutral-950">{label}</p>
-          <p className="text-xs font-semibold text-neutral-400">
-            {values.length} / {REVIEW_OPTION_LIMITS.max}
+          <p className="text-base font-extrabold leading-5 text-neutral-950">{label}</p>
+          <p className="text-xs font-semibold text-neutral-300">
+            {values.length}/{REVIEW_OPTION_LIMITS.max}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
+        <div className="flex flex-wrap gap-x-2 gap-y-2.5" role="group" aria-label={label}>
           {options.map((option) => {
             const isSelected = values.includes(option.key);
             const isDisabled = !isSelected && values.length >= REVIEW_OPTION_LIMITS.max;
@@ -252,10 +251,10 @@ export default function PostForm({
             return (
               <button
                 aria-pressed={isSelected}
-                className={`min-h-10 rounded-full border px-4 py-2 text-sm font-semibold ${
+                className={`min-h-[30px] rounded-full border-0 px-3.5 py-1.5 text-sm font-extrabold leading-5 ${
                   isSelected
-                    ? "border-neutral-950 bg-neutral-950 text-white"
-                    : "border-neutral-200 bg-neutral-50 text-neutral-700 active:bg-neutral-100"
+                    ? "bg-neutral-950 text-white"
+                    : "bg-neutral-100 text-neutral-950 active:bg-neutral-200"
                 } ${isDisabled ? "opacity-40" : ""}`}
                 disabled={isDisabled}
                 key={option.key}
@@ -267,21 +266,30 @@ export default function PostForm({
             );
           })}
         </div>
-      </div>
+      </section>
     );
   }
 
   return (
-    <form className="space-y-7 pb-20" onSubmit={handleSubmit}>
-      <PageBackHeader onBack={handleBack} title={headerTitle} />
+    <form className="space-y-9 pb-24" onSubmit={handleSubmit}>
+      <button
+        aria-label="뒤로가기"
+        className="-ml-1 flex h-9 w-9 items-center justify-start text-neutral-950 active:text-neutral-500"
+        onClick={handleBack}
+        type="button"
+      >
+        <ArrowLeft aria-hidden="true" size={22} strokeWidth={1.8} />
+      </button>
 
-      <div className="space-y-2">
-        <p className="text-sm font-bold text-neutral-950">카테고리 선택</p>
+      <section className="space-y-3">
+        <p className="text-base font-extrabold leading-5 text-neutral-950">
+          카테고리 선택(필수)
+        </p>
         {categoryQuery.isLoading ? (
           <div className="flex gap-2">
-            <div className="h-10 w-16 rounded-full bg-neutral-100" />
-            <div className="h-10 w-16 rounded-full bg-neutral-100" />
-            <div className="h-10 w-16 rounded-full bg-neutral-100" />
+            <div className="h-[30px] w-16 rounded-full bg-neutral-100" />
+            <div className="h-[30px] w-16 rounded-full bg-neutral-100" />
+            <div className="h-[30px] w-16 rounded-full bg-neutral-100" />
           </div>
         ) : null}
         {categoryQuery.isError ? (
@@ -306,10 +314,10 @@ export default function PostForm({
               return (
                 <button
                   aria-pressed={isSelected}
-                  className={`h-10 rounded-full px-4 text-sm font-semibold ${
+                  className={`min-h-[30px] rounded-full px-3.5 py-1.5 text-sm font-extrabold leading-5 ${
                     isSelected
                       ? "bg-neutral-950 text-white"
-                      : "bg-neutral-100 text-neutral-700 active:bg-neutral-200"
+                      : "bg-neutral-100 text-neutral-950 active:bg-neutral-200"
                   }`}
                   key={category.id}
                   onClick={() => setCategoryId(category.id)}
@@ -321,58 +329,66 @@ export default function PostForm({
             })}
           </div>
         ) : null}
-      </div>
+      </section>
 
-      <div className="space-y-2">
-        <p className="text-sm font-bold text-neutral-950">메뉴 이름</p>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-base font-extrabold leading-5 text-neutral-950">
+            메뉴 이름(필수)
+          </p>
+          <p className="text-xs font-semibold text-neutral-300">
+            {menuName.length}/{MENU_NAME_MAX_LENGTH}
+          </p>
+        </div>
         <input
-          className="h-12 w-full rounded-none border border-neutral-300 bg-white px-4 text-base text-neutral-950 outline-none placeholder:text-neutral-400 focus:border-neutral-950"
+          className="h-11 w-full rounded-none border border-neutral-300 bg-white px-4 text-base text-neutral-950 outline-none placeholder:text-neutral-300 focus:border-neutral-950"
           maxLength={MENU_NAME_MAX_LENGTH}
           onChange={(event) => setMenuName(event.target.value)}
           placeholder="예시) 제육볶음, 김치찌개 ... 등"
           value={menuName}
         />
-        <p className="text-right text-xs font-medium text-neutral-400">
-          {menuName.length} / {MENU_NAME_MAX_LENGTH}
-        </p>
-      </div>
+      </section>
 
       {renderReviewOptions({
-        label: "좋았던 점",
+        label: "좋았던 점(필수)",
         options: GOOD_REVIEW_OPTIONS,
         values: goodPoints,
         setValues: setGoodPoints,
       })}
 
       {renderReviewOptions({
-        label: "아쉬웠던 점",
+        label: "아쉬웠던 점(필수)",
         options: BAD_REVIEW_OPTIONS,
         values: badPoints,
         setValues: setBadPoints,
       })}
 
-      <div className="space-y-2">
+      <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-bold text-neutral-950">남기고 싶은 한마디</p>
+          <div>
+            <p className="text-base font-extrabold leading-5 text-neutral-950">
+              남기고 싶은 나의 한마디(선택)
+            </p>
+            <p className="mt-2 text-xs font-medium leading-5 text-neutral-500">
+              예쁜 말 한마디가 건강한 리뷰를 만들어요.
+            </p>
+          </div>
           <p
-            className={`text-xs font-semibold ${
-              isOverallReviewValid ? "text-neutral-400" : "text-neutral-950"
+            className={`self-end text-xs font-semibold ${
+              isOverallReviewValid ? "text-neutral-300" : "text-neutral-950"
             }`}
           >
-            {overallReview.length} / {OVERALL_REVIEW_MAX_LENGTH}
+            {overallReview.length}/{OVERALL_REVIEW_MAX_LENGTH}
           </p>
         </div>
         <textarea
-          className="min-h-28 w-full resize-none rounded-none border border-neutral-300 bg-white px-4 py-3 text-base leading-7 text-neutral-950 outline-none placeholder:text-neutral-400 focus:border-neutral-950"
+          className="min-h-[120px] w-full resize-none rounded-none border border-neutral-300 bg-white px-4 py-3 text-base leading-7 text-neutral-950 outline-none placeholder:text-neutral-300 focus:border-neutral-950"
           maxLength={OVERALL_REVIEW_MAX_LENGTH + 1}
           onChange={(event) => setOverallReview(event.target.value)}
-          placeholder="직접 경험한 내용을 짧게 남겨주세요."
+          placeholder="예시) 맛있게 먹었는데 아쉽게도 가격에 비해 양이 조금 적은 편이에요."
           value={overallReview}
         />
-        <p className="text-xs leading-5 text-neutral-400">
-          특정인 비방이나 확인되지 않은 내용은 피해주세요.
-        </p>
-      </div>
+      </section>
 
       {errorMessage ? (
         <p className="rounded-lg bg-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-950">

@@ -1,4 +1,7 @@
-import { BAD_REVIEW_OPTIONS, GOOD_REVIEW_OPTIONS } from "@/app/constants/reviewOptions";
+import {
+  BAD_REVIEW_OPTION_LABEL_MAP,
+  GOOD_REVIEW_OPTION_LABEL_MAP,
+} from "@/app/constants/reviewOptions";
 import { createSupabaseServerClient } from "../supabase/server";
 import { getCategoryForWrite } from "../categories/service";
 import { getPostLikedByUser } from "./likes";
@@ -132,12 +135,8 @@ function requiresCategorySelection(category: RelatedRow<CategoryRow>) {
   return !getSingleRelatedRow(category)?.is_active;
 }
 
-const goodReviewOptionLabelMap = new Map(
-  GOOD_REVIEW_OPTIONS.map((option) => [option.key, option.label]),
-);
-const badReviewOptionLabelMap = new Map(
-  BAD_REVIEW_OPTIONS.map((option) => [option.key, option.label]),
-);
+const goodReviewOptionLabelMap = GOOD_REVIEW_OPTION_LABEL_MAP;
+const badReviewOptionLabelMap = BAD_REVIEW_OPTION_LABEL_MAP;
 
 function normalizeReviewOptionKeys(
   value: string[] | null,

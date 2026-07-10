@@ -4,26 +4,28 @@ export const REVIEW_OPTION_LIMITS = {
 } as const;
 
 export const GOOD_REVIEW_OPTIONS = [
-  { key: "tasty", label: "맛있어요" },
-  { key: "reasonable_price", label: "가격이 합리적이에요" },
-  { key: "large_portion", label: "양이 넉넉해요" },
-  { key: "kind_service", label: "친절해요" },
-  { key: "good_atmosphere", label: "분위기가 좋아요" },
-  { key: "fast_serving", label: "음식이 빨리 나와요" },
-  { key: "want_revisit", label: "재방문하고 싶어요" },
-  { key: "good_alone", label: "혼밥하기 좋아요" },
-  { key: "varied_menu", label: "메뉴가 다양해요" },
+  { key: "tasty", label: "맛있게 먹었어요" },
+  { key: "generous_portion", label: "양이 많아요" },
+  { key: "affordable_price", label: "저렴해요" },
+  { key: "very_delicious", label: "꿀맛인정" },
+  { key: "good_for_solo", label: "혼밥맛집" },
+  { key: "clean_store", label: "깨끗한 매장이에요" },
+  { key: "great_value", label: "가성비왕" },
+  { key: "great_pairing", label: "환상조합" },
+  { key: "impressive_taste", label: "감동의맛" },
+  { key: "must_visit", label: "맛집" },
 ] as const;
 
 export const BAD_REVIEW_OPTIONS = [
-  { key: "expensive", label: "가격이 비싸게 느껴졌어요" },
-  { key: "small_portion", label: "양이 적게 느껴졌어요" },
-  { key: "slow_serving", label: "음식이 늦게 나왔어요" },
-  { key: "long_wait", label: "대기 시간이 길었어요" },
-  { key: "not_my_taste", label: "제 입맛에는 맞지 않았어요" },
-  { key: "parking_uncomfortable", label: "주차가 불편했어요" },
-  { key: "crowded", label: "매장이 조금 붐볐어요" },
-  { key: "hard_to_choose", label: "메뉴 선택이 조금 어려웠어요" },
+  { key: "crowded_store", label: "사람이 많아요" },
+  { key: "small_portion_feeling", label: "양이 적게 느껴졌어요" },
+  { key: "long_wait_time", label: "대기 시간" },
+  { key: "ordinary_taste", label: "평범한맛" },
+  { key: "no_parking", label: "주차불가" },
+  { key: "mixed_preference", label: "호불호" },
+  { key: "restroom_issue", label: "화장실" },
+  { key: "narrow_seat", label: "좌석협소" },
+  { key: "slow_cooking_time", label: "조리시간" },
 ] as const;
 
 export type GoodReviewOptionKey = (typeof GOOD_REVIEW_OPTIONS)[number]["key"];
@@ -33,3 +35,31 @@ export type ReviewOption = {
   key: GoodReviewOptionKey | BadReviewOptionKey;
   label: string;
 };
+
+export const GOOD_REVIEW_OPTION_LABEL_MAP = new Map<string, string>(
+  GOOD_REVIEW_OPTIONS.map((option) => [option.key, option.label]),
+);
+
+export const BAD_REVIEW_OPTION_LABEL_MAP = new Map<string, string>(
+  BAD_REVIEW_OPTIONS.map((option) => [option.key, option.label]),
+);
+
+export function getGoodPointLabel(key: string) {
+  return GOOD_REVIEW_OPTION_LABEL_MAP.get(key) ?? null;
+}
+
+export function getBadPointLabel(key: string) {
+  return BAD_REVIEW_OPTION_LABEL_MAP.get(key) ?? null;
+}
+
+export function getReviewPointLabel(key: string) {
+  return getGoodPointLabel(key) ?? getBadPointLabel(key);
+}
+
+export function isValidGoodPointKey(key: string) {
+  return GOOD_REVIEW_OPTION_LABEL_MAP.has(key);
+}
+
+export function isValidBadPointKey(key: string) {
+  return BAD_REVIEW_OPTION_LABEL_MAP.has(key);
+}

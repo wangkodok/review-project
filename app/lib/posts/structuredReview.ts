@@ -1,4 +1,9 @@
-import { BAD_REVIEW_OPTIONS, GOOD_REVIEW_OPTIONS } from "@/app/constants/reviewOptions";
+import {
+  BAD_REVIEW_OPTIONS,
+  BAD_REVIEW_OPTION_LABEL_MAP,
+  GOOD_REVIEW_OPTIONS,
+  GOOD_REVIEW_OPTION_LABEL_MAP,
+} from "@/app/constants/reviewOptions";
 
 type ReviewOption = {
   key: string;
@@ -11,12 +16,8 @@ export const OVERALL_REVIEW_MAX_LENGTH = 300;
 export const REVIEW_POINT_MIN_COUNT = 1;
 export const REVIEW_POINT_MAX_COUNT = 3;
 
-export const goodReviewOptionMap = new Map<string, string>(
-  GOOD_REVIEW_OPTIONS.map((option) => [option.key, option.label]),
-);
-export const badReviewOptionMap = new Map<string, string>(
-  BAD_REVIEW_OPTIONS.map((option) => [option.key, option.label]),
-);
+export const goodReviewOptionMap = GOOD_REVIEW_OPTION_LABEL_MAP;
+export const badReviewOptionMap = BAD_REVIEW_OPTION_LABEL_MAP;
 
 export function parseReviewPointKeys(value: unknown, allowedOptions: readonly ReviewOption[]) {
   if (!Array.isArray(value)) {
