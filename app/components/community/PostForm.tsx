@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import {
@@ -10,6 +9,7 @@ import {
   REVIEW_OPTION_LIMITS,
 } from "@/app/constants/reviewOptions";
 import { OVERALL_REVIEW_MAX_LENGTH } from "@/app/lib/posts/structuredReview";
+import PageBackHeader from "../common/PageBackHeader";
 import CategoryReselectionDialog from "./CategoryReselectionDialog";
 
 type PostFormResponse = {
@@ -129,6 +129,7 @@ export default function PostForm({
     areBadPointsValid &&
     isCategoryValid;
   const isButtonDisabled = !isValid || isSubmitting;
+  const headerTitle = isEditMode ? "게시글 수정" : "글쓰기";
   const submitText = isEditMode ? "수정 완료" : "작성 완료";
   const leaveMessage = isEditMode
     ? "수정 중인 내용이 사라질 수 있습니다."
@@ -272,14 +273,7 @@ export default function PostForm({
 
   return (
     <form className="space-y-9 pb-24" onSubmit={handleSubmit}>
-      <button
-        aria-label="뒤로가기"
-        className="-ml-1 flex h-9 w-9 items-center justify-start text-neutral-950 active:text-neutral-500"
-        onClick={handleBack}
-        type="button"
-      >
-        <ArrowLeft aria-hidden="true" size={22} strokeWidth={1.8} />
-      </button>
+      <PageBackHeader onBack={handleBack} title={headerTitle} />
 
       <section className="space-y-3">
         <p className="text-base font-extrabold leading-5 text-neutral-950">
