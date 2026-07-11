@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import PostMoreMenu from "./PostMoreMenu";
 import PostActionSummary from "./PostActionSummary";
-import PostMeta from "./PostMeta";
 
 type PostDetailData = {
   id: string;
@@ -58,18 +57,32 @@ async function fetchPostDetail(postId: string) {
   return result.data.post;
 }
 
+function formatDetailDate(value: string) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}.${month}.${day}`;
+}
+
 function PostDetailSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="h-6 w-32 rounded bg-neutral-100" />
-      <div className="space-y-3">
-        <div className="h-8 w-5/6 rounded bg-neutral-100" />
-        <div className="h-4 w-40 rounded bg-neutral-100" />
-      </div>
+    <div className="space-y-7">
       <div className="space-y-2">
-        <div className="h-4 w-full rounded bg-neutral-100" />
-        <div className="h-4 w-full rounded bg-neutral-100" />
-        <div className="h-4 w-2/3 rounded bg-neutral-100" />
+        <div className="h-5 w-24 rounded bg-neutral-100" />
+        <div className="h-4 w-20 rounded bg-neutral-100" />
+      </div>
+      <div className="border-t border-neutral-200 pt-5">
+        <div className="h-8 w-14 rounded-full bg-neutral-100" />
+        <div className="mt-4 h-6 w-4/5 rounded bg-neutral-100" />
+      </div>
+      <div className="space-y-3">
+        <div className="h-4 w-20 rounded bg-neutral-100" />
+        <div className="flex gap-2">
+          <div className="h-9 w-24 rounded-full bg-neutral-100" />
+          <div className="h-9 w-20 rounded-full bg-neutral-100" />
+        </div>
       </div>
     </div>
   );
@@ -103,7 +116,7 @@ export default function PostDetail({
         >
           <ArrowLeft aria-hidden="true" size={22} />
         </button>
-        <h1 className="text-base font-bold text-neutral-950">게시글</h1>
+        <h1 className="text-base font-bold text-neutral-950">글 내용</h1>
         {query.data ? (
           <PostMoreMenu
             isAuthenticated={isAuthenticated}
@@ -143,29 +156,34 @@ export default function PostDetail({
       ) : null}
 
       {query.data ? (
-        <article className="space-y-6">
-          <div className="space-y-3">
-            <PostMeta
-              anonymousId={query.data.author.anonymousId}
-              createdAt={query.data.createdAt}
-            />
+        <article className="space-y-7">
+          <div className="space-y-1">
+            <p className="break-all text-base font-bold text-neutral-950">
+              {query.data.author.anonymousId}
+            </p>
+            <time className="block text-xs font-medium text-neutral-500" dateTime={query.data.createdAt}>
+              {formatDetailDate(query.data.createdAt)}
+            </time>
+          </div>
+
+          <div className="space-y-4 border-t border-neutral-300 pt-5">
             {query.data.category ? (
-              <span className="inline-flex h-7 items-center rounded-full bg-neutral-950 px-3 text-xs font-semibold text-white">
+              <span className="inline-flex h-8 items-center rounded-full bg-neutral-100 px-3 text-sm font-semibold text-neutral-950">
                 {query.data.category.name}
               </span>
             ) : null}
-            <h2 className="break-all text-2xl font-bold leading-9 text-neutral-950">
+            <h2 className="break-all text-xl font-bold leading-8 text-neutral-950">
               {query.data.menuName}
             </h2>
           </div>
           {goodPointLabels.length || badPointLabels.length ? (
-            <div className="space-y-5">
-              <section className="space-y-3">
+            <div className="space-y-8">
+              <section className="space-y-4">
                 <h3 className="text-sm font-bold text-neutral-950">좋았던 점</h3>
                 <div className="flex flex-wrap gap-2">
                   {goodPointLabels.map((label) => (
                     <span
-                      className="inline-flex min-h-9 items-center rounded-full bg-neutral-950 px-3 py-1 text-sm font-semibold text-white"
+                      className="inline-flex min-h-9 items-center rounded-full bg-neutral-950 px-3 py-1 text-sm font-bold text-white"
                       key={label}
                     >
                       {label}
@@ -173,12 +191,12 @@ export default function PostDetail({
                   ))}
                 </div>
               </section>
-              <section className="space-y-3">
+              <section className="space-y-4">
                 <h3 className="text-sm font-bold text-neutral-950">아쉬웠던 점</h3>
                 <div className="flex flex-wrap gap-2">
                   {badPointLabels.map((label) => (
                     <span
-                      className="inline-flex min-h-9 items-center rounded-full bg-neutral-100 px-3 py-1 text-sm font-semibold text-neutral-700"
+                      className="inline-flex min-h-9 items-center rounded-full bg-neutral-100 px-3 py-1 text-sm font-bold text-neutral-950"
                       key={label}
                     >
                       {label}
@@ -194,18 +212,20 @@ export default function PostDetail({
           )}
           {query.data.overallReview ? (
             <section className="space-y-3">
-              <h3 className="text-sm font-bold text-neutral-950">남기고 싶은 한마디</h3>
+              <h3 className="text-sm font-bold text-neutral-950">남기고 싶은 나의 한마디</h3>
               <p className="whitespace-pre-wrap break-all text-base leading-8 text-neutral-800">
                 {query.data.overallReview}
               </p>
             </section>
           ) : null}
-          <PostActionSummary
-            isLiked={query.data.isLiked}
-            likeCount={query.data.likeCount}
-            postId={query.data.id}
-            viewCount={query.data.viewCount}
-          />
+          <div className="border-t border-neutral-300 pt-4">
+            <PostActionSummary
+              isLiked={query.data.isLiked}
+              likeCount={query.data.likeCount}
+              postId={query.data.id}
+              viewCount={query.data.viewCount}
+            />
+          </div>
         </article>
       ) : null}
 

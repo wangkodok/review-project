@@ -59,10 +59,8 @@ export default function LikeButton({
     <div className="space-y-2">
       <button
         aria-pressed={isLiked}
-        className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-semibold disabled:opacity-60 ${
-          isLiked
-            ? "border-neutral-950 bg-neutral-950 text-white"
-            : "border-neutral-200 bg-white text-neutral-950"
+        className={`inline-flex items-center gap-1 text-sm font-semibold disabled:opacity-60 ${
+          isLiked ? "text-neutral-950" : "text-neutral-500"
         }`}
         disabled={isPending}
         onClick={handleClick}
