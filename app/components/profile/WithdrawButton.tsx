@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronRight, UserX } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useState } from "react";
 
@@ -50,19 +51,23 @@ export default function WithdrawButton() {
   }
 
   return (
-    <div className="space-y-3">
+    <div>
       {errorMessage ? (
-        <p className="rounded-lg bg-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-950">
+        <p className="mx-5 my-3 rounded-lg bg-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-950">
           {errorMessage}
         </p>
       ) : null}
       <button
-        className="h-12 w-full rounded-lg border border-neutral-200 bg-white px-4 text-base font-semibold text-neutral-950 active:bg-neutral-100 disabled:text-neutral-400"
+        className="flex h-14 w-full items-center justify-between border-t border-neutral-200 px-5 text-neutral-950 active:bg-neutral-50 disabled:text-neutral-400"
         disabled={isSubmitting}
         onClick={handleWithdraw}
         type="button"
       >
-        회원 탈퇴
+        <span className="flex items-center gap-3 text-base font-semibold">
+          <UserX aria-hidden="true" size={22} strokeWidth={1.7} />
+          회원 탈퇴
+        </span>
+        <ChevronRight aria-hidden="true" size={21} strokeWidth={1.7} />
       </button>
     </div>
   );

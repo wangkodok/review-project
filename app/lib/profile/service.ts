@@ -9,6 +9,11 @@ type UserRow = {
   nickname_change_count: number;
 };
 
+type PostActivityRow = {
+  like_count: number | null;
+  view_count: number | null;
+};
+
 type UpdateNicknameParams = {
   userId: string;
   nickname: string;
@@ -42,8 +47,28 @@ function getNicknameStatus(user: UserRow) {
   };
 }
 
-function toProfileUser(user: UserRow) {
+async function getActivitySummary(userId: string) {
+  const supabase = createSupabaseServerClient();
+  const { data, error, count } = await supabase
+    .from("posts")
+    .select("like_count,view_count", { count: "exact" })
+    .eq("user_id", userId)
+    .returns<PostActivityRow[]>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    totalLikes: data.reduce((sum, post) => sum + (post.like_count ?? 0), 0),
+    totalViews: data.reduce((sum, post) => sum + (post.view_count ?? 0), 0),
+    postCount: count ?? data.length,
+  };
+}
+
+async function toProfileUser(user: UserRow) {
   const nicknameStatus = getNicknameStatus(user);
+  const activitySummary = await getActivitySummary(user.id);
 
   return {
     id: user.id,
@@ -54,6 +79,7 @@ function toProfileUser(user: UserRow) {
     nicknameChangeCount: user.nickname_change_count,
     canChangeNickname: nicknameStatus.canChangeNickname,
     nextNicknameChangeAt: nicknameStatus.nextNicknameChangeAt,
+    activitySummary,
   };
 }
 
@@ -88,7 +114,7 @@ export async function updateNickname({ userId, nickname }: UpdateNicknameParams)
 
   const supabase = createSupabaseServerClient();
   const now = new Date().toISOString();
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("users")
     .update({
       nickname,
@@ -96,9 +122,7 @@ export async function updateNickname({ userId, nickname }: UpdateNicknameParams)
       nickname_change_count: currentProfile.nicknameChangeCount + 1,
       updated_at: now,
     })
-    .eq("id", userId)
-    .select("id,email,nickname,anonymous_id,nickname_updated_at,nickname_change_count")
-    .single<UserRow>();
+    .eq("id", userId);
 
   if (error) {
     throw new Error(error.message);
@@ -106,7 +130,7 @@ export async function updateNickname({ userId, nickname }: UpdateNicknameParams)
 
   return {
     status: "ok" as const,
-    user: toProfileUser(data),
+    user: await getProfile(userId),
   };
 }
 
