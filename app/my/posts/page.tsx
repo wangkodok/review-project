@@ -10,7 +10,7 @@ export default async function MyPostsPage() {
   if (!session?.user) {
     return (
       <section className="space-y-5">
-        <PageBackHeader title="내가 작성한 게시글" />
+        <PageBackHeader title="작성한 게시 글" />
         <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
           <p className="text-sm font-semibold text-neutral-950">로그인이 필요합니다.</p>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
@@ -24,7 +24,7 @@ export default async function MyPostsPage() {
 
   return (
     <section className="space-y-5">
-      <PageBackHeader title="내가 작성한 게시글" />
+      <PageBackHeader title="작성한 게시 글" />
       <MyPostList />
     </section>
   );

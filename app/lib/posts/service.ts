@@ -281,9 +281,12 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
 
   const { data, error, count } = await supabase
     .from("posts")
-    .select("id,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at", {
-      count: "exact",
-    })
+    .select(
+      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      {
+        count: "exact",
+      },
+    )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .range(from, to);
@@ -295,23 +298,30 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
   const totalCount = count ?? 0;
 
   return {
-    posts: ((data ?? []) as Pick<
-      PostRow,
-      | "id"
-      | "title"
-      | "content"
-      | "menu_name"
-      | "good_points"
-      | "bad_points"
-      | "overall_review"
-      | "view_count"
-      | "like_count"
-      | "created_at"
-      | "updated_at"
-    >[]).map((post) => ({
-      ...post,
-      ...toStructuredReviewFields(post),
-    })),
+    posts: ((data ?? []) as PostWithRelationsRow[]).map((post) => {
+      const structuredReviewFields = toStructuredReviewFields(post);
+
+      return {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        menuName: structuredReviewFields.menuName,
+        goodPoints: structuredReviewFields.goodPoints,
+        badPoints: structuredReviewFields.badPoints,
+        goodPointLabels: structuredReviewFields.goodPointLabels,
+        badPointLabels: structuredReviewFields.badPointLabels,
+        overallReview: post.overall_review,
+        likeCount: post.like_count,
+        viewCount: post.view_count,
+        createdAt: post.created_at,
+        category: toPublicCategory(post.category),
+        author: {
+          anonymousId: getSingleRelatedRow(post.author)?.anonymous_id ?? "",
+        },
+        isOwner: true,
+        requiresCategorySelection: requiresCategorySelection(post.category),
+      };
+    }),
     page,
     limit,
     totalCount,
