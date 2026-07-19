@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/app/lib/auth/options";
 import { normalizeSearchKeyword, searchPosts } from "@/app/lib/search/service";
+import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -19,6 +20,15 @@ function parsePositiveNumber(value: string | null, fallback: number) {
 
 export async function GET(request: Request) {
   try {
+    const rateLimitResponse = await enforceRateLimit({
+      identifier: getRequestIp(request),
+      policy: "search",
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { searchParams } = new URL(request.url);
     const keyword = normalizeSearchKeyword(searchParams.get("q"));
 

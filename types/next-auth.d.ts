@@ -15,5 +15,6 @@ declare module "next-auth/jwt" {
     userId?: string;
     nickname?: string;
     anonymousId?: string;
+    authenticatedAt?: number;
   }
 }

@@ -12,7 +12,7 @@ function requireEnv(name: string) {
   return value;
 }
 
-const authSecret = requireEnv("AUTH_SECRET");
+export const authSecret = requireEnv("AUTH_SECRET");
 const authUrl = requireEnv("AUTH_URL");
 
 process.env.NEXTAUTH_SECRET ??= authSecret;
@@ -40,6 +40,7 @@ export const authOptions: NextAuthOptions = {
         token.userId = appUser.id;
         token.nickname = appUser.nickname;
         token.anonymousId = appUser.anonymousId;
+        token.authenticatedAt = Date.now();
       }
 
       return token;

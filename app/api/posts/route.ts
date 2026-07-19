@@ -4,6 +4,7 @@ import { BAD_REVIEW_OPTIONS, GOOD_REVIEW_OPTIONS } from "@/app/constants/reviewO
 import { authOptions } from "@/app/lib/auth/options";
 import { getActiveCategoryBySlug } from "@/app/lib/categories/service";
 import { createPost, getPosts } from "@/app/lib/posts/service";
+import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
 import {
   buildStructuredReviewContent,
   MENU_NAME_MAX_LENGTH,
@@ -14,6 +15,7 @@ import {
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 100;
 const TITLE_MIN_LENGTH = 2;
 const TITLE_MAX_LENGTH = 50;
 const CONTENT_MIN_LENGTH = 10;
@@ -22,11 +24,15 @@ const SORT_VALUES = ["latest", "likes", "views"] as const;
 
 type SortValue = (typeof SORT_VALUES)[number];
 
-function parsePositiveNumber(value: string | null, fallback: number) {
+function parsePositiveNumber(value: string | null, fallback: number, maximum?: number) {
+  if (value === null) {
+    return fallback;
+  }
+
   const parsed = Number(value);
 
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return fallback;
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || (maximum && parsed > maximum)) {
+    return null;
   }
 
   return parsed;
@@ -42,9 +48,30 @@ function parseSort(value: string | null): SortValue {
 
 export async function GET(request: Request) {
   try {
+    const rateLimitResponse = await enforceRateLimit({
+      identifier: getRequestIp(request),
+      policy: "posts",
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { searchParams } = new URL(request.url);
     const page = parsePositiveNumber(searchParams.get("page"), DEFAULT_PAGE);
-    const limit = parsePositiveNumber(searchParams.get("limit"), DEFAULT_LIMIT);
+    const limit = parsePositiveNumber(searchParams.get("limit"), DEFAULT_LIMIT, MAX_LIMIT);
+
+    if (page === null || limit === null) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: `page는 1 이상의 정수, limit은 1~${MAX_LIMIT} 사이의 정수여야 합니다.`,
+          code: "INVALID_PAGINATION",
+        },
+        { status: 400 },
+      );
+    }
     const search = searchParams.get("search")?.trim() ?? "";
     const sort = parseSort(searchParams.get("sort"));
     const categorySlug = searchParams.get("category")?.trim() || undefined;

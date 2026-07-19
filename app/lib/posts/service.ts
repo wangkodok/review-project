@@ -510,7 +510,6 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
     ? await increaseViewCountIfNeeded({
         postId: post.id,
         userId: currentUserId,
-        currentViewCount: post.view_count,
       })
     : post.view_count;
   const isLiked = await getPostLikedByUser(post.id, currentUserId);

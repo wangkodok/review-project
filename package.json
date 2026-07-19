@@ -6,11 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "security:test-concurrency": "node scripts/security/group1-concurrency-check.mjs",
+    "security:test-data-api-access": "node scripts/security/group3-data-api-access-check.mjs",
+    "security:test-secret-exposure": "node scripts/security/group3-secret-exposure-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
     "@tanstack/react-query": "^5.101.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "lucide-react": "^1.17.0",
     "next": "16.2.9",
     "next-auth": "^4.24.14",

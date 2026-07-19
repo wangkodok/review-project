@@ -103,29 +103,25 @@ export async function getProfile(userId: string) {
 }
 
 export async function updateNickname({ userId, nickname }: UpdateNicknameParams) {
-  const currentProfile = await getProfile(userId);
-
-  if (!currentProfile.canChangeNickname) {
-    return {
-      status: "limited" as const,
-      user: currentProfile,
-    };
-  }
-
   const supabase = createSupabaseServerClient();
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("users")
-    .update({
-      nickname,
-      nickname_updated_at: now,
-      nickname_change_count: currentProfile.nicknameChangeCount + 1,
-      updated_at: now,
-    })
-    .eq("id", userId);
+  const { data: status, error } = await supabase.rpc("update_nickname_atomic", {
+    p_nickname: nickname,
+    p_user_id: userId,
+  });
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (status === "limited") {
+    return {
+      status: "limited" as const,
+      user: await getProfile(userId),
+    };
+  }
+
+  if (status !== "ok") {
+    throw new Error("User not found while updating nickname");
   }
 
   return {

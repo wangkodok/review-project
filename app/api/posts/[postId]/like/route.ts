@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/app/lib/auth/options";
 import { togglePostLike } from "@/app/lib/posts/likes";
+import { enforceRateLimit } from "@/app/lib/security/rateLimit";
 
 type RouteContext = {
   params: Promise<{
@@ -23,6 +24,15 @@ export async function POST(_request: Request, context: RouteContext) {
         },
         { status: 401 },
       );
+    }
+
+    const rateLimitResponse = await enforceRateLimit({
+      identifier: `user:${session.user.id}`,
+      policy: "like",
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
     }
 
     const { postId } = await context.params;

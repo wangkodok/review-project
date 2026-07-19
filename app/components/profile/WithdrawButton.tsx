@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight, UserX } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 import { useState } from "react";
 
 type WithdrawResponse = {
@@ -33,6 +33,16 @@ export default function WithdrawButton() {
         method: "DELETE",
       });
       const result = (await response.json()) as WithdrawResponse;
+
+      if (result.code === "REAUTHENTICATION_REQUIRED") {
+        setIsDialogOpen(false);
+        await signIn(
+          "google",
+          { callbackUrl: "/my" },
+          { prompt: "select_account" },
+        );
+        return;
+      }
 
       if (!response.ok || !result.success) {
         setErrorMessage(result.message || "회원 탈퇴에 실패했습니다.");
