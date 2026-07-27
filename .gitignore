@@ -54,3 +54,6 @@ next-env.d.ts
 /scripts/
 /supabase/
 TODO.md
+
+AGENTS.md
+SECURITY_STATUS.md
