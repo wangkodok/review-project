@@ -19,11 +19,11 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user.id) {
+    if (!session?.user?.id) {
       return unauthorizedResponse();
     }
 
-    const user = await getProfile(session.user.id);
+    const user = await getProfile(session.user.id, session.user.authProvider);
 
     return NextResponse.json({
       success: true,
@@ -49,7 +49,7 @@ export async function PATCH(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user.id) {
+    if (!session?.user?.id) {
       return unauthorizedResponse();
     }
 
@@ -73,6 +73,7 @@ export async function PATCH(request: Request) {
     const result = await updateNickname({
       userId: session.user.id,
       nickname,
+      authProvider: session.user.authProvider,
     });
 
     if (result.status === "limited") {

@@ -17,6 +17,7 @@ const hiddenBottomTabPatterns = [
   /^\/community\/[^/]+\/edit$/,
   /^\/my\/posts$/,
   /^\/my\/profile$/,
+  /^\/my\/withdraw$/,
 ];
 
 function shouldHideBottomTab(pathname: string) {

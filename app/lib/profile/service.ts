@@ -1,12 +1,21 @@
 import { createSupabaseServerClient } from "../supabase/server";
+import type { AuthProvider } from "../auth/externalIdentity";
 
 type UserRow = {
   id: string;
-  email: string;
+  email: string | null;
   nickname: string;
   anonymous_id: string;
   nickname_updated_at: string | null;
   nickname_change_count: number;
+};
+
+type AuthAccountRow = {
+  provider_email: string | null;
+};
+
+type DeletedUserRow = {
+  id: string;
 };
 
 type PostActivityRow = {
@@ -17,6 +26,7 @@ type PostActivityRow = {
 type UpdateNicknameParams = {
   userId: string;
   nickname: string;
+  authProvider?: AuthProvider;
 };
 
 const NICKNAME_CHANGE_INTERVAL_DAYS = 30;
@@ -66,13 +76,38 @@ async function getActivitySummary(userId: string) {
   };
 }
 
-async function toProfileUser(user: UserRow) {
+async function getProfileEmail(user: UserRow, authProvider?: AuthProvider) {
+  if (!authProvider) {
+    return user.email;
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("auth_accounts")
+    .select("provider_email")
+    .eq("user_id", user.id)
+    .eq("provider", authProvider)
+    .maybeSingle<AuthAccountRow>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    throw new Error("External auth account not found for profile");
+  }
+
+  return data.provider_email;
+}
+
+async function toProfileUser(user: UserRow, authProvider?: AuthProvider) {
   const nicknameStatus = getNicknameStatus(user);
+  const email = await getProfileEmail(user, authProvider);
   const activitySummary = await getActivitySummary(user.id);
 
   return {
     id: user.id,
-    email: user.email,
+    email,
     anonymousId: user.anonymous_id,
     nickname: user.nickname,
     nicknameUpdatedAt: user.nickname_updated_at,
@@ -87,7 +122,7 @@ export function isValidNickname(nickname: string) {
   return /^[A-Za-z\uAC00-\uD7A3]{2,6}$/.test(nickname);
 }
 
-export async function getProfile(userId: string) {
+export async function getProfile(userId: string, authProvider?: AuthProvider) {
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
     .from("users")
@@ -99,10 +134,14 @@ export async function getProfile(userId: string) {
     throw new Error(error.message);
   }
 
-  return toProfileUser(data);
+  return toProfileUser(data, authProvider);
 }
 
-export async function updateNickname({ userId, nickname }: UpdateNicknameParams) {
+export async function updateNickname({
+  userId,
+  nickname,
+  authProvider,
+}: UpdateNicknameParams) {
   const supabase = createSupabaseServerClient();
   const { data: status, error } = await supabase.rpc("update_nickname_atomic", {
     p_nickname: nickname,
@@ -116,7 +155,7 @@ export async function updateNickname({ userId, nickname }: UpdateNicknameParams)
   if (status === "limited") {
     return {
       status: "limited" as const,
-      user: await getProfile(userId),
+      user: await getProfile(userId, authProvider),
     };
   }
 
@@ -126,15 +165,24 @@ export async function updateNickname({ userId, nickname }: UpdateNicknameParams)
 
   return {
     status: "ok" as const,
-    user: await getProfile(userId),
+    user: await getProfile(userId, authProvider),
   };
 }
 
 export async function withdrawUser(userId: string) {
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("users").delete().eq("id", userId);
+  const { data, error } = await supabase
+    .from("users")
+    .delete()
+    .eq("id", userId)
+    .select("id")
+    .maybeSingle<DeletedUserRow>();
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (!data) {
+    throw new Error("User not found while withdrawing");
   }
 }

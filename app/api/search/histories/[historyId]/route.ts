@@ -25,7 +25,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user.id) {
+    if (!session?.user?.id) {
       return unauthorizedResponse();
     }
 

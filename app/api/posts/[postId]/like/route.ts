@@ -14,7 +14,7 @@ export async function POST(_request: Request, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user.id) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         {
           success: false,

@@ -16,7 +16,7 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
   const { postId } = await params;
   const session = await getServerSession(authOptions);
 
-  if (!session?.user.id) {
+  if (!session?.user?.id) {
     return (
       <section className="space-y-5">
         <PageBackHeader title="게시글 수정" />

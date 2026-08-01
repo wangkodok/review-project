@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user.id) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         {
           success: false,

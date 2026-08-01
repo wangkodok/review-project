@@ -1,13 +1,85 @@
 import NextAuth from "next-auth";
-import { NextRequest } from "next/server";
-import { authOptions } from "@/app/lib/auth/options";
+import { getToken } from "next-auth/jwt";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  authOptions,
+  authSecret,
+  createAuthOptions,
+} from "@/app/lib/auth/options";
+import {
+  expireWithdrawalReauthCookies,
+  getWithdrawalReauthFlowCookie,
+} from "@/app/lib/auth/withdrawalReauthCookies";
 import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
 
 const handler = NextAuth(authOptions);
 
-export { handler as GET };
+type AuthRouteContext = {
+  params: Promise<{
+    nextauth: string[];
+  }>;
+};
 
-export async function POST(request: NextRequest, context: unknown) {
+function isGoogleCallback(request: NextRequest) {
+  return request.nextUrl.pathname.endsWith("/api/auth/callback/google");
+}
+
+async function handleAuthRequest(
+  request: NextRequest,
+  context: AuthRouteContext,
+) {
+  if (!isGoogleCallback(request)) {
+    return handler(request, context);
+  }
+
+  const flowId = getWithdrawalReauthFlowCookie(request);
+
+  if (!flowId) {
+    return handler(request, context);
+  }
+
+  const originalToken = await getToken({
+    req: request,
+    secret: authSecret,
+  });
+
+  if (
+    !originalToken?.userId ||
+    originalToken.authProvider !== "google" ||
+    originalToken.authValidationUnavailable ||
+    originalToken.authSessionInvalidated
+  ) {
+    const response = await handler(request, context);
+    const cookieResponse = new NextResponse(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+    expireWithdrawalReauthCookies(cookieResponse);
+    return cookieResponse;
+  }
+
+  const requestAuthOptions = createAuthOptions({
+    withdrawalReauth: {
+      flowId,
+      originalToken,
+    },
+  });
+
+  return NextAuth(request, context, requestAuthOptions);
+}
+
+export async function GET(
+  request: NextRequest,
+  context: AuthRouteContext,
+) {
+  return handleAuthRequest(request, context);
+}
+
+export async function POST(
+  request: NextRequest,
+  context: AuthRouteContext,
+) {
   if (request.nextUrl.pathname.includes("/api/auth/signin")) {
     const rateLimitResponse = await enforceRateLimit({
       identifier: getRequestIp(request),
@@ -19,5 +91,5 @@ export async function POST(request: NextRequest, context: unknown) {
     }
   }
 
-  return handler(request, context);
+  return handleAuthRequest(request, context);
 }

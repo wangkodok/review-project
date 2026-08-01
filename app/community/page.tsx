@@ -5,5 +5,5 @@ import { authOptions } from "../lib/auth/options";
 export default async function CommunityPage() {
   const session = await getServerSession(authOptions);
 
-  return <CommunityList isAuthenticated={Boolean(session?.user.id)} />;
+  return <CommunityList isAuthenticated={Boolean(session?.user?.id)} />;
 }

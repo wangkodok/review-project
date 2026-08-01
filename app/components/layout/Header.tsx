@@ -17,6 +17,7 @@ const hiddenHeaderPatterns = [
   /^\/community\/[^/]+\/edit$/,
   /^\/my\/posts$/,
   /^\/my\/profile$/,
+  /^\/my\/withdraw$/,
 ];
 
 function getTitle(pathname: string) {

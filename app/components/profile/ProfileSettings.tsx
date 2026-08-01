@@ -132,7 +132,7 @@ function ProfileSettingsForm({ user }: { user: ProfileUser }) {
         <div>
           <p className="text-sm font-semibold text-neutral-400">이메일</p>
           <p className="mt-2 break-all text-base font-bold text-neutral-950">
-            {user.email}
+            {user.email ?? "연동된 이메일 정보가 없습니다."}
           </p>
         </div>
 

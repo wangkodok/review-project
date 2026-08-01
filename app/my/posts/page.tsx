@@ -7,7 +7,7 @@ import { authOptions } from "@/app/lib/auth/options";
 export default async function MyPostsPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return (
       <section className="space-y-5">
         <PageBackHeader title="작성한 게시 글" />

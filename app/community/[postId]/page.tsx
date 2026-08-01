@@ -10,5 +10,5 @@ export default async function PostDetailPage({
   const { postId } = await params;
   const session = await getServerSession(authOptions);
 
-  return <PostDetail isAuthenticated={Boolean(session?.user.id)} postId={postId} />;
+  return <PostDetail isAuthenticated={Boolean(session?.user?.id)} postId={postId} />;
 }

@@ -4,7 +4,12 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
 
-export type RateLimitPolicy = "auth" | "like" | "posts" | "search";
+export type RateLimitPolicy =
+  | "auth"
+  | "like"
+  | "posts"
+  | "search"
+  | "withdrawal";
 
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -38,6 +43,7 @@ const limiters: Record<RateLimitPolicy, Ratelimit | null> = {
   like: createLimiter("like", 20, "1 m"),
   posts: createLimiter("posts", 60, "1 m"),
   search: createLimiter("search", 30, "1 m"),
+  withdrawal: createLimiter("withdrawal", 20, "10 m"),
 };
 
 function firstForwardedAddress(value: string | null) {

@@ -95,7 +95,7 @@ export async function GET(request: Request) {
       limit,
       search,
       sort,
-      currentUserId: session?.user.id,
+      currentUserId: session?.user?.id,
       categoryId: category?.id,
     });
 
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user.id) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         {
           success: false,

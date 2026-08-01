@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       keyword,
       page,
       limit,
-      currentUserId: session?.user.id,
+      currentUserId: session?.user?.id,
     });
 
     return NextResponse.json({

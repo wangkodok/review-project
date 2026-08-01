@@ -26,7 +26,7 @@ export async function GET(_request: Request, context: RouteContext) {
   try {
     const { postId } = await context.params;
     const session = await getServerSession(authOptions);
-    const post = await getPostDetail(postId, session?.user.id);
+    const post = await getPostDetail(postId, session?.user?.id);
 
     if (!post) {
       return NextResponse.json(
@@ -62,7 +62,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user.id) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         {
           success: false,
@@ -261,7 +261,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user.id) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         {
           success: false,

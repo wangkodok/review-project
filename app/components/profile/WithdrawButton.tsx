@@ -1,71 +1,30 @@
 "use client";
 
 import { ChevronRight, UserX } from "lucide-react";
-import { signIn, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-
-type WithdrawResponse = {
-  success: boolean;
-  data: null;
-  message: string;
-  code?: string;
-};
 
 const WITHDRAW_DIALOG_TITLE = "회원 탈퇴";
 const WITHDRAW_DIALOG_DESCRIPTION =
   "회원 탈퇴 시 사용자의 모든 개인정보 및 이용 기록이 삭제되며 복구할 수 없습니다. 정말로 회원 탈퇴하시겠습니까?";
 
 export default function WithdrawButton() {
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
-  async function handleWithdraw() {
+  function continueToWithdrawal() {
     if (isSubmitting) {
       return;
     }
 
     setIsSubmitting(true);
-    setErrorMessage("");
-
-    try {
-      const response = await fetch("/api/withdraw", {
-        method: "DELETE",
-      });
-      const result = (await response.json()) as WithdrawResponse;
-
-      if (result.code === "REAUTHENTICATION_REQUIRED") {
-        setIsDialogOpen(false);
-        await signIn(
-          "google",
-          { callbackUrl: "/my" },
-          { prompt: "select_account" },
-        );
-        return;
-      }
-
-      if (!response.ok || !result.success) {
-        setErrorMessage(result.message || "회원 탈퇴에 실패했습니다.");
-        setIsDialogOpen(false);
-        return;
-      }
-
-      await signOut({ callbackUrl: "/community" });
-    } catch {
-      setErrorMessage("회원 탈퇴에 실패했습니다.");
-      setIsDialogOpen(false);
-    } finally {
-      setIsSubmitting(false);
-    }
+    setIsDialogOpen(false);
+    router.push("/my/withdraw");
   }
 
   return (
     <div>
-      {errorMessage ? (
-        <p className="mx-5 my-3 rounded-lg bg-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-950">
-          {errorMessage}
-        </p>
-      ) : null}
       <button
         className="flex h-14 w-full items-center justify-between border-t border-neutral-200 px-5 text-neutral-950 active:bg-neutral-50 disabled:text-neutral-400"
         disabled={isSubmitting}
@@ -110,7 +69,7 @@ export default function WithdrawButton() {
               <button
                 className="h-14 bg-red-500 text-base font-semibold text-white active:bg-red-600 disabled:bg-red-50 disabled:text-red-300"
                 disabled={isSubmitting}
-                onClick={handleWithdraw}
+                onClick={continueToWithdrawal}
                 type="button"
               >
                 확인

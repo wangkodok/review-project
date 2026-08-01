@@ -6,7 +6,7 @@ export type ActivitySummary = {
 
 export type ProfileUser = {
   id: string;
-  email: string;
+  email: string | null;
   anonymousId: string;
   nickname: string;
   nicknameUpdatedAt: string | null;

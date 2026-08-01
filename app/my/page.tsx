@@ -6,7 +6,7 @@ import { authOptions } from "../lib/auth/options";
 export default async function MyPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return (
       <section className="space-y-5">
         <div className="rounded-lg border border-neutral-200 bg-white p-5">
