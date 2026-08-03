@@ -110,7 +110,10 @@ async function getWithdrawalAccount(request: NextRequest) {
     };
   }
 
-  if (token.authProvider !== "google") {
+  if (
+    token.authProvider !== "google" &&
+    token.authProvider !== "kakao"
+  ) {
     return {
       response: invalidSessionResponse(request),
       account: null,

@@ -12,6 +12,16 @@ import {
 } from "./profileClient";
 
 const NICKNAME_MAX_LENGTH = 6;
+const AUTH_PROVIDER_LABELS = {
+  google: "Google",
+  kakao: "Kakao",
+} satisfies Record<Exclude<ProfileUser["authProvider"], null>, string>;
+
+function getAuthProviderLabel(authProvider: ProfileUser["authProvider"]) {
+  return authProvider
+    ? AUTH_PROVIDER_LABELS[authProvider]
+    : "로그인 계정 정보를 확인할 수 없습니다.";
+}
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("ko-KR", {
@@ -29,6 +39,10 @@ function ProfileSettingsSkeleton() {
         <div>
           <div className="h-4 w-10 rounded bg-neutral-100" />
           <div className="mt-3 h-5 w-44 rounded bg-neutral-100" />
+        </div>
+        <div>
+          <div className="h-4 w-16 rounded bg-neutral-100" />
+          <div className="mt-3 h-5 w-20 rounded bg-neutral-100" />
         </div>
         <div>
           <div className="h-4 w-14 rounded bg-neutral-100" />
@@ -133,6 +147,13 @@ function ProfileSettingsForm({ user }: { user: ProfileUser }) {
           <p className="text-sm font-semibold text-neutral-400">이메일</p>
           <p className="mt-2 break-all text-base font-bold text-neutral-950">
             {user.email ?? "연동된 이메일 정보가 없습니다."}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold text-neutral-400">로그인 계정</p>
+          <p className="mt-2 text-base font-bold text-neutral-950">
+            {getAuthProviderLabel(user.authProvider)}
           </p>
         </div>
 

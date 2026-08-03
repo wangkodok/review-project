@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import GoogleProvider, { type GoogleProfile } from "next-auth/providers/google";
+import KakaoProvider, { type KakaoProfile } from "next-auth/providers/kakao";
 import { resolveOrCreateUserByExternalIdentity } from "./externalIdentity";
 import {
   hasActiveExternalAuthAccount,
@@ -37,8 +38,23 @@ function requireEnv(name: string) {
   return value;
 }
 
+function isFeatureEnabled(name: string) {
+  const value = process.env[name];
+
+  if (!value || value === "false") {
+    return false;
+  }
+
+  if (value === "true") {
+    return true;
+  }
+
+  throw new Error(`${name} must be true or false`);
+}
+
 export const authSecret = requireEnv("AUTH_SECRET");
 const authUrl = requireEnv("AUTH_URL");
+const isKakaoAuthEnabled = isFeatureEnabled("AUTH_KAKAO_ENABLED");
 
 process.env.NEXTAUTH_SECRET ??= authSecret;
 process.env.NEXTAUTH_URL ??= authUrl;
@@ -132,18 +148,28 @@ export function createAuthOptions(
   requestContext: AuthRequestContext = {},
 ): NextAuthOptions {
   let withdrawalVerifiedAt: number | null = null;
+  const providers: NextAuthOptions["providers"] = [
+    GoogleProvider({
+      clientId: requireEnv("AUTH_GOOGLE_ID"),
+      clientSecret: requireEnv("AUTH_GOOGLE_SECRET"),
+    }),
+  ];
+
+  if (isKakaoAuthEnabled) {
+    providers.push(
+      KakaoProvider({
+        clientId: requireEnv("AUTH_KAKAO_ID"),
+        clientSecret: requireEnv("AUTH_KAKAO_SECRET"),
+      }),
+    );
+  }
 
   return {
     secret: authSecret,
     session: {
       strategy: "jwt",
     },
-    providers: [
-      GoogleProvider({
-        clientId: requireEnv("AUTH_GOOGLE_ID"),
-        clientSecret: requireEnv("AUTH_GOOGLE_SECRET"),
-      }),
-    ],
+    providers,
     callbacks: {
       async signIn({ account }) {
         const withdrawalReauth = requestContext.withdrawalReauth;
@@ -156,14 +182,15 @@ export function createAuthOptions(
 
         if (
           !originalToken?.userId ||
-          originalToken.authProvider !== "google" ||
+          (originalToken.authProvider !== "google" &&
+            originalToken.authProvider !== "kakao") ||
           originalToken.authValidationUnavailable
         ) {
           return withdrawalErrorUrl("session_invalid");
         }
 
         if (
-          account?.provider !== "google" ||
+          account?.provider !== originalToken.authProvider ||
           !account.providerAccountId
         ) {
           return withdrawalErrorUrl("provider_invalid");
@@ -175,7 +202,7 @@ export function createAuthOptions(
           const verification = await verifyWithdrawalReauthTarget({
             flowId: withdrawalReauth.flowId,
             userId: originalToken.userId,
-            provider: "google",
+            provider: originalToken.authProvider,
             providerAccountId: account.providerAccountId,
             verifiedAt,
           });
@@ -209,7 +236,10 @@ export function createAuthOptions(
           if (
             withdrawalVerifiedAt === null ||
             !withdrawalReauth.originalToken?.userId ||
-            account?.provider !== "google" ||
+            (withdrawalReauth.originalToken.authProvider !== "google" &&
+              withdrawalReauth.originalToken.authProvider !== "kakao") ||
+            account?.provider !==
+              withdrawalReauth.originalToken.authProvider ||
             !account.providerAccountId
           ) {
             invalidateAuthToken(token);
@@ -235,18 +265,39 @@ export function createAuthOptions(
           clearStaleWithdrawalAuthToken(token);
         }
 
-        if (account?.provider === "google" && account.providerAccountId) {
-          const googleProfile = profile as Partial<GoogleProfile> | undefined;
-          const providerEmail =
-            typeof googleProfile?.email === "string"
-              ? googleProfile.email
-              : (user.email ?? null);
-          const emailVerified =
-            typeof googleProfile?.email_verified === "boolean"
-              ? googleProfile.email_verified
-              : null;
+        if (
+          account?.providerAccountId &&
+          (account.provider === "google" || account.provider === "kakao")
+        ) {
+          let providerEmail: string | null = null;
+          let emailVerified: boolean | null = null;
+
+          if (account.provider === "google") {
+            const googleProfile = profile as Partial<GoogleProfile> | undefined;
+            providerEmail =
+              typeof googleProfile?.email === "string"
+                ? googleProfile.email
+                : (user.email ?? null);
+            emailVerified =
+              typeof googleProfile?.email_verified === "boolean"
+                ? googleProfile.email_verified
+                : null;
+          } else {
+            const kakaoProfile = profile as Partial<KakaoProfile> | undefined;
+            const kakaoAccount = kakaoProfile?.kakao_account;
+
+            providerEmail =
+              typeof kakaoAccount?.email === "string"
+                ? kakaoAccount.email
+                : null;
+            emailVerified =
+              typeof kakaoAccount?.is_email_verified === "boolean"
+                ? kakaoAccount.is_email_verified
+                : null;
+          }
+
           const appUser = await resolveOrCreateUserByExternalIdentity({
-            provider: "google",
+            provider: account.provider,
             providerAccountId: account.providerAccountId,
             email: providerEmail,
             emailVerified,

@@ -106,8 +106,8 @@ async function toProfileUser(user: UserRow, authProvider?: AuthProvider) {
   const activitySummary = await getActivitySummary(user.id);
 
   return {
-    id: user.id,
     email,
+    authProvider: authProvider ?? null,
     anonymousId: user.anonymous_id,
     nickname: user.nickname,
     nicknameUpdatedAt: user.nickname_updated_at,

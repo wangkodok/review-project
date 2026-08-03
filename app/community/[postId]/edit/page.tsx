@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import Link from "next/link";
-import LoginButton from "@/app/components/auth/LoginButton";
+import LoginOptions from "@/app/components/auth/LoginOptions";
 import PageBackHeader from "@/app/components/common/PageBackHeader";
 import PostForm from "@/app/components/community/PostForm";
 import { authOptions } from "@/app/lib/auth/options";
@@ -23,10 +23,10 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
         <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
           <p className="text-sm font-semibold text-neutral-950">로그인이 필요합니다.</p>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
-            Google 로그인 후 게시글을 수정할 수 있습니다.
+            로그인 후 게시글을 수정할 수 있습니다.
           </p>
         </div>
-        <LoginButton />
+        <LoginOptions />
       </section>
     );
   }

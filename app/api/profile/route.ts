@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { authOptions } from "@/app/lib/auth/options";
 import { getProfile, isValidNickname, updateNickname } from "@/app/lib/profile/service";
 
+const PRIVATE_NO_STORE_HEADERS = {
+  "Cache-Control": "private, no-store",
+};
+
 function unauthorizedResponse() {
   return NextResponse.json(
     {
@@ -11,7 +15,7 @@ function unauthorizedResponse() {
       message: "로그인이 필요합니다.",
       code: "UNAUTHORIZED",
     },
-    { status: 401 },
+    { headers: PRIVATE_NO_STORE_HEADERS, status: 401 },
   );
 }
 
@@ -25,13 +29,16 @@ export async function GET() {
 
     const user = await getProfile(session.user.id, session.user.authProvider);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        user,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          user,
+        },
+        message: "내 정보를 조회했습니다.",
       },
-      message: "내 정보를 조회했습니다.",
-    });
+      { headers: PRIVATE_NO_STORE_HEADERS },
+    );
   } catch {
     return NextResponse.json(
       {
@@ -40,7 +47,7 @@ export async function GET() {
         message: "내 정보 처리에 실패했습니다.",
         code: "INTERNAL_SERVER_ERROR",
       },
-      { status: 500 },
+      { headers: PRIVATE_NO_STORE_HEADERS, status: 500 },
     );
   }
 }
@@ -66,7 +73,7 @@ export async function PATCH(request: Request) {
           message: "닉네임은 한글 또는 영문 2~6자여야 합니다.",
           code: "INVALID_NICKNAME",
         },
-        { status: 400 },
+        { headers: PRIVATE_NO_STORE_HEADERS, status: 400 },
       );
     }
 
@@ -84,17 +91,20 @@ export async function PATCH(request: Request) {
           message: "닉네임은 30일마다 변경할 수 있습니다.",
           code: "NICKNAME_CHANGE_LIMIT",
         },
-        { status: 429 },
+        { headers: PRIVATE_NO_STORE_HEADERS, status: 429 },
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        user: result.user,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          user: result.user,
+        },
+        message: "닉네임이 변경되었습니다.",
       },
-      message: "닉네임이 변경되었습니다.",
-    });
+      { headers: PRIVATE_NO_STORE_HEADERS },
+    );
   } catch {
     return NextResponse.json(
       {
@@ -103,7 +113,7 @@ export async function PATCH(request: Request) {
         message: "내 정보 처리에 실패했습니다.",
         code: "INTERNAL_SERVER_ERROR",
       },
-      { status: 500 },
+      { headers: PRIVATE_NO_STORE_HEADERS, status: 500 },
     );
   }
 }

@@ -6,6 +6,7 @@ import {
   authSecret,
   createAuthOptions,
 } from "@/app/lib/auth/options";
+import type { AuthProvider } from "@/app/lib/auth/externalIdentity";
 import {
   expireWithdrawalReauthCookies,
   getWithdrawalReauthFlowCookie,
@@ -20,15 +21,25 @@ type AuthRouteContext = {
   }>;
 };
 
-function isGoogleCallback(request: NextRequest) {
-  return request.nextUrl.pathname.endsWith("/api/auth/callback/google");
+function getAuthCallbackProvider(request: NextRequest): AuthProvider | null {
+  if (request.nextUrl.pathname.endsWith("/api/auth/callback/google")) {
+    return "google";
+  }
+
+  if (request.nextUrl.pathname.endsWith("/api/auth/callback/kakao")) {
+    return "kakao";
+  }
+
+  return null;
 }
 
 async function handleAuthRequest(
   request: NextRequest,
   context: AuthRouteContext,
 ) {
-  if (!isGoogleCallback(request)) {
+  const callbackProvider = getAuthCallbackProvider(request);
+
+  if (!callbackProvider) {
     return handler(request, context);
   }
 
@@ -45,7 +56,8 @@ async function handleAuthRequest(
 
   if (
     !originalToken?.userId ||
-    originalToken.authProvider !== "google" ||
+    (originalToken.authProvider !== "google" &&
+      originalToken.authProvider !== "kakao") ||
     originalToken.authValidationUnavailable ||
     originalToken.authSessionInvalidated
   ) {

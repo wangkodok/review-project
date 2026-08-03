@@ -1,7 +1,7 @@
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
-import { revokeGoogleOAuthGrant } from "@/app/lib/auth/googleOAuth";
 import { authSecret } from "@/app/lib/auth/options";
+import { unlinkExternalProviderAccount } from "@/app/lib/auth/providerOAuth";
 import {
   expireCurrentAuthSessionCookies,
   getActiveExternalAuthAccount,
@@ -155,6 +155,10 @@ function storeUnavailableResponse() {
   );
 }
 
+function getProviderName(provider: "google" | "kakao") {
+  return provider === "google" ? "Google" : "Kakao";
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const token = await getToken({ req: request, secret: authSecret });
@@ -163,7 +167,10 @@ export async function DELETE(request: NextRequest) {
       return unauthorizedResponse(request);
     }
 
-    if (token.authProvider !== "google") {
+    if (
+      token.authProvider !== "google" &&
+      token.authProvider !== "kakao"
+    ) {
       return invalidSessionResponse(request);
     }
 
@@ -204,6 +211,7 @@ export async function DELETE(request: NextRequest) {
     const flowId = getWithdrawalReauthFlowCookie(request);
     const csrfNonce = getWithdrawalReauthCsrfCookie(request);
     const withdrawalVerifiedAt = token.withdrawalReauthenticatedAt;
+    const providerName = getProviderName(account.provider);
     if (
       typeof flowId !== "string" ||
       flowId.length === 0 ||
@@ -214,7 +222,7 @@ export async function DELETE(request: NextRequest) {
       !Number.isFinite(withdrawalVerifiedAt)
     ) {
       return withdrawalFlowErrorResponse({
-        message: "Google 계정으로 본인 확인을 다시 진행해 주세요.",
+        message: `${providerName} 계정으로 본인 확인을 다시 진행해 주세요.`,
         code: "WITHDRAWAL_REAUTH_REQUIRED",
         status: 403,
         expireCookies: true,
@@ -299,16 +307,19 @@ export async function DELETE(request: NextRequest) {
         }
 
         return withdrawalFlowErrorResponse({
-          message: "Google 계정으로 본인 확인을 다시 진행해 주세요.",
+          message: `${providerName} 계정으로 본인 확인을 다시 진행해 주세요.`,
           code: "WITHDRAWAL_REAUTH_REQUIRED",
           status: 403,
         });
       }
 
-      const isGoogleGrantRevoked =
-        await revokeGoogleOAuthGrant(providerAccessToken);
+      const unlinkResult = await unlinkExternalProviderAccount({
+        provider: account.provider,
+        accessToken: providerAccessToken,
+        providerAccountId: account.providerAccountId,
+      });
 
-      if (!isGoogleGrantRevoked) {
+      if (unlinkResult !== "unlinked") {
         const releaseResult = await releaseWithdrawalFinalization({
           flowId,
           userId: account.userId,
@@ -324,9 +335,12 @@ export async function DELETE(request: NextRequest) {
           return storeUnavailableResponse();
         }
 
+        if (unlinkResult === "account_mismatch") {
+          console.error("withdrawal_provider_unlink_account_mismatch");
+        }
+
         return withdrawalFlowErrorResponse({
-          message:
-            "Google 계정 연결을 해제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+          message: `${providerName} 계정 연결을 해제하지 못했습니다. 잠시 후 다시 시도해 주세요.`,
           code: "PROVIDER_UNLINK_FAILED",
           status: 502,
         });

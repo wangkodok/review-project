@@ -20,34 +20,53 @@ type WithdrawalResponse = {
   code?: string;
 };
 
-const ERROR_MESSAGES: Record<string, string> = {
-  account_mismatch:
-    "처음 탈퇴를 요청한 Google 계정과 같은 계정으로 본인 확인해 주세요.",
-  flow_expired: "본인 확인 요청이 만료되었습니다. 다시 시작해 주세요.",
-  flow_invalid: "유효하지 않은 본인 확인 요청입니다. 다시 시작해 주세요.",
-  provider_invalid: "Google 계정으로 본인 확인해 주세요.",
-  session_invalid: "로그인 세션이 만료되었습니다. 다시 로그인해 주세요.",
-  state_unavailable:
-    "본인 확인 요청을 일시적으로 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.",
-  verification_failed: "본인 확인에 실패했습니다. 다시 시도해 주세요.",
-};
+type WithdrawalAuthProvider = "google" | "kakao";
 
-function getInitialErrorMessage(errorCode?: string) {
+function getProviderName(authProvider: WithdrawalAuthProvider) {
+  return authProvider === "google" ? "Google" : "Kakao";
+}
+
+function getProviderAuthorizationParams(
+  authProvider: WithdrawalAuthProvider,
+) {
+  return authProvider === "google"
+    ? { prompt: "select_account" }
+    : { prompt: "login" };
+}
+
+function getInitialErrorMessage(
+  authProvider: WithdrawalAuthProvider,
+  errorCode?: string,
+) {
   if (!errorCode) {
     return "";
   }
 
-  return (
-    ERROR_MESSAGES[errorCode] ??
-    "본인 확인을 완료하지 못했습니다. 다시 시도해 주세요."
-  );
+  const providerName = getProviderName(authProvider);
+  const errorMessages: Record<string, string> = {
+    account_mismatch:
+      `처음 탈퇴를 요청한 ${providerName} 계정과 같은 계정으로 본인 확인해 주세요.`,
+    flow_expired: "본인 확인 요청이 만료되었습니다. 다시 시작해 주세요.",
+    flow_invalid: "유효하지 않은 본인 확인 요청입니다. 다시 시작해 주세요.",
+    provider_invalid: `${providerName} 계정으로 본인 확인해 주세요.`,
+    session_invalid: "로그인 세션이 만료되었습니다. 다시 로그인해 주세요.",
+    state_unavailable:
+      "본인 확인 요청을 일시적으로 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    verification_failed: "본인 확인에 실패했습니다. 다시 시도해 주세요.",
+  };
+
+  return errorMessages[errorCode] ??
+    "본인 확인을 완료하지 못했습니다. 다시 시도해 주세요.";
 }
 
 export default function WithdrawalReauthButton({
+  authProvider,
   initialErrorCode,
 }: {
+  authProvider: WithdrawalAuthProvider;
   initialErrorCode?: string;
 }) {
+  const providerName = getProviderName(authProvider);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -55,7 +74,7 @@ export default function WithdrawalReauthButton({
   const [hasFinalConsent, setHasFinalConsent] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState(() =>
-    getInitialErrorMessage(initialErrorCode),
+    getInitialErrorMessage(authProvider, initialErrorCode),
   );
 
   useEffect(() => {
@@ -75,7 +94,7 @@ export default function WithdrawalReauthButton({
         if (result.data.status === "verified") {
           setIsProcessing(false);
           setIsVerified(true);
-          setStatusMessage("Google 계정 본인 확인이 완료되었습니다.");
+          setStatusMessage(`${providerName} 계정 본인 확인이 완료되었습니다.`);
           setErrorMessage("");
         } else if (result.data.status === "processing") {
           setIsProcessing(true);
@@ -85,7 +104,7 @@ export default function WithdrawalReauthButton({
           result.data.status === "pending" &&
           !initialErrorCode
         ) {
-          setStatusMessage("Google 계정 본인 확인이 진행 중입니다.");
+          setStatusMessage(`${providerName} 계정 본인 확인이 진행 중입니다.`);
         }
       } catch {
         // The user can retry from the button when status lookup is unavailable.
@@ -97,7 +116,7 @@ export default function WithdrawalReauthButton({
     return () => {
       cancelled = true;
     };
-  }, [initialErrorCode]);
+  }, [initialErrorCode, providerName]);
 
   async function startReauthentication() {
     if (isSubmitting || isProcessing) {
@@ -123,9 +142,9 @@ export default function WithdrawalReauthButton({
       }
 
       await signIn(
-        "google",
+        authProvider,
         { callbackUrl: "/my/withdraw" },
-        { prompt: "select_account" },
+        getProviderAuthorizationParams(authProvider),
       );
     } catch {
       setErrorMessage("본인 확인 요청을 시작하지 못했습니다.");
@@ -205,7 +224,7 @@ export default function WithdrawalReauthButton({
             ? "처리 중..."
           : isSubmitting
             ? "이동 중..."
-            : "Google 계정으로 본인 확인"}
+            : `${providerName} 계정으로 본인 확인`}
       </button>
       {isVerified ? (
         <div className="space-y-3 pt-3">

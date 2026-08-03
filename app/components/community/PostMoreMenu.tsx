@@ -1,9 +1,9 @@
 "use client";
 
 import { MoreHorizontal } from "lucide-react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import LoginOptions from "@/app/components/auth/LoginOptions";
 import CategoryReselectionDialog from "./CategoryReselectionDialog";
 
 type DeletePostResponse = {
@@ -180,20 +180,14 @@ export default function PostMoreMenu({
                 <p className="mt-3 text-sm leading-6 text-neutral-600">
                   게시글을 수정하거나 삭제하려면 로그인해주세요.
                 </p>
-                <div className="mt-6 grid grid-cols-2 gap-2">
+                <div className="mt-6">
+                  <LoginOptions callbackUrl={window.location.pathname} />
                   <button
-                    className="h-11 rounded-lg border border-neutral-200 text-sm font-semibold text-neutral-950 active:bg-neutral-100"
+                    className="mt-2 h-11 w-full rounded-lg border border-neutral-200 text-sm font-semibold text-neutral-950 active:bg-neutral-100"
                     onClick={() => setDialogState(null)}
                     type="button"
                   >
                     취소
-                  </button>
-                  <button
-                    className="h-11 rounded-lg bg-neutral-950 text-sm font-semibold text-white active:bg-neutral-800"
-                    onClick={() => signIn("google", { callbackUrl: window.location.pathname })}
-                    type="button"
-                  >
-                    로그인
                   </button>
                 </div>
               </>

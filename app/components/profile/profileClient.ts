@@ -5,8 +5,8 @@ export type ActivitySummary = {
 };
 
 export type ProfileUser = {
-  id: string;
   email: string | null;
+  authProvider: "google" | "kakao" | null;
   anonymousId: string;
   nickname: string;
   nicknameUpdatedAt: string | null;
