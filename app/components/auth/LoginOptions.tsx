@@ -144,18 +144,18 @@ export default function LoginOptions({
           {availableProviders.includes("kakao") ? (
             <button
               aria-label="카카오 로그인"
-              className="aspect-[20/3] w-full overflow-hidden rounded-xl active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+              className="relative aspect-[20/3] w-full overflow-hidden rounded-xl active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={activeProvider !== null}
               onClick={() => void handleSignIn("kakao")}
               type="button"
             >
               <Image
                 alt=""
-                className="h-full w-full"
-                height={90}
+                className="object-cover"
+                fill
                 priority
+                sizes="(max-width: 430px) calc(100vw - 40px), 335px"
                 src="/auth/kakao-login-large-wide.png"
-                width={600}
               />
               <span className="sr-only">
                 {activeProvider === "kakao" ? "로그인 중" : "카카오 로그인"}
