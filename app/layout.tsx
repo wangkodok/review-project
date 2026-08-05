@@ -5,8 +5,31 @@ import BottomTab from "./components/layout/BottomTab";
 import QueryProvider from "./components/providers/QueryProvider";
 
 export const metadata: Metadata = {
-  title: "익명 음식 리뷰",
-  description: "익명 음식 리뷰 플랫폼 MVP",
+  metadataBase: new URL("https://review-project-henna.vercel.app"),
+  title: "리뷰쓸래",
+  description: "익명 음식 리뷰 플랫폼",
+  openGraph: {
+    title: "리뷰쓸래",
+    description: "익명 음식 리뷰 플랫폼",
+    url: "/",
+    siteName: "리뷰쓸래",
+    locale: "ko_KR",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "리뷰쓸래",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "리뷰쓸래",
+    description: "익명 음식 리뷰 플랫폼",
+    images: ["/og-image.jpg"],
+  },
 };
 
 export default function RootLayout({
