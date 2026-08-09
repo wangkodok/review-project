@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest",
+    "test:run": "vitest run",
     "security:test-concurrency": "node scripts/security/group1-concurrency-check.mjs",
     "security:test-data-api-access": "node scripts/security/group3-data-api-access-check.mjs",
     "security:test-secret-exposure": "node scripts/security/group3-secret-exposure-check.mjs"
@@ -30,6 +32,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }
