@@ -143,6 +143,14 @@ function mapJoseError(error: unknown): KakaoAccountEventSetError {
   return new KakaoAccountEventSetError("temporarily_unavailable");
 }
 
+function decodeKakaoProtectedHeader(token: string) {
+  try {
+    return decodeProtectedHeader(token);
+  } catch {
+    throw new KakaoAccountEventSetError("invalid_request");
+  }
+}
+
 export async function verifyKakaoAccountEventSet(
   rawSet: string,
   options: VerifyKakaoAccountEventSetOptions,
@@ -159,7 +167,7 @@ export async function verifyKakaoAccountEventSet(
       throw new KakaoAccountEventSetError("invalid_request");
     }
 
-    const unverifiedHeader = decodeProtectedHeader(token);
+    const unverifiedHeader = decodeKakaoProtectedHeader(token);
 
     if (
       unverifiedHeader.alg !== KAKAO_SET_ALGORITHM ||

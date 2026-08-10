@@ -206,4 +206,10 @@ describe("verifyKakaoAccountEventSet", () => {
       code: "invalid_request",
     });
   });
+
+  it("rejects a malformed compact token as an invalid request", async () => {
+    await expect(verify("not-a-valid-set")).rejects.toMatchObject({
+      code: "invalid_request",
+    });
+  });
 });
