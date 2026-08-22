@@ -1,13 +1,13 @@
-import type { DefaultSession } from "next-auth";
+export {};
 
 declare module "next-auth" {
   interface Session {
     user?: {
-      id?: string;
+      id: string;
       nickname?: string;
       anonymousId?: string;
-      authProvider?: "google" | "kakao";
-    } & NonNullable<DefaultSession["user"]>;
+      authProvider: "google" | "kakao";
+    };
   }
 }
 

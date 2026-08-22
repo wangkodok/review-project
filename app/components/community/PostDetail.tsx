@@ -22,7 +22,6 @@ type PostDetailData = {
   createdAt: string;
   updatedAt: string;
   author: {
-    id: string;
     anonymousId: string;
   };
   category: {

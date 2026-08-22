@@ -3,6 +3,10 @@ import "server-only";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
+import {
+  createRateLimitIdentifier,
+  isValidRateLimitIdentifierSecret,
+} from "./rateLimitIdentifier";
 
 export type RateLimitPolicy =
   | "auth"
@@ -13,7 +17,12 @@ export type RateLimitPolicy =
 
 const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-const isConfigured = Boolean(redisUrl && redisToken);
+const rateLimitIdentifierSecret = process.env.RATE_LIMIT_IDENTIFIER_SECRET;
+const isConfigured = Boolean(
+  redisUrl &&
+    redisToken &&
+    isValidRateLimitIdentifierSecret(rateLimitIdentifierSecret),
+);
 const environment = process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
 
 const redis = isConfigured
@@ -90,7 +99,11 @@ export async function enforceRateLimit({
   }
 
   try {
-    const result = await limiter.limit(identifier);
+    const opaqueIdentifier = createRateLimitIdentifier(
+      identifier,
+      rateLimitIdentifierSecret!,
+    );
+    const result = await limiter.limit(opaqueIdentifier);
 
     if (result.reason === "timeout") {
       return unavailableResponse();

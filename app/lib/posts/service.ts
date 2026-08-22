@@ -498,9 +498,9 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
 
   const { data: author, error: authorError } = await supabase
     .from("users")
-    .select("id,anonymous_id")
+    .select("anonymous_id")
     .eq("id", post.user_id)
-    .single<UserRow>();
+    .single<Pick<UserRow, "anonymous_id">>();
 
   if (authorError) {
     throw new Error(authorError.message);
@@ -525,7 +525,6 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
     updatedAt: post.updated_at,
     category: toPublicCategory(post.category),
     author: {
-      id: author.id,
       anonymousId: author.anonymous_id,
     },
     isOwner: currentUserId === post.user_id,

@@ -27,6 +27,7 @@ type WithdrawalSessionUpdate = {
 };
 
 const WITHDRAWAL_REAUTH_TTL_MS = WITHDRAWAL_REAUTH_TTL_SECONDS * 1_000;
+const AUTH_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 function requireEnv(name: string) {
   const value = process.env[name];
@@ -71,6 +72,12 @@ function clearWithdrawalAuthToken(token: JWT) {
   delete token.providerAccessTokenExpiresAt;
   delete token.withdrawalFlowId;
   delete token.withdrawalReauthenticatedAt;
+}
+
+function clearDefaultProfileClaims(token: JWT) {
+  delete token.name;
+  delete token.email;
+  delete token.picture;
 }
 
 function hasCurrentWithdrawalAuthToken(token: JWT) {
@@ -140,6 +147,7 @@ function preserveWithdrawalSessionToken({
 
   delete token.authValidationUnavailable;
   delete token.authSessionInvalidated;
+  clearDefaultProfileClaims(token);
 
   return token;
 }
@@ -168,6 +176,10 @@ export function createAuthOptions(
     secret: authSecret,
     session: {
       strategy: "jwt",
+      maxAge: AUTH_SESSION_MAX_AGE_SECONDS,
+    },
+    jwt: {
+      maxAge: AUTH_SESSION_MAX_AGE_SECONDS,
     },
     providers,
     callbacks: {
@@ -243,6 +255,7 @@ export function createAuthOptions(
             !account.providerAccountId
           ) {
             invalidateAuthToken(token);
+            clearDefaultProfileClaims(token);
             return token;
           }
 
@@ -331,6 +344,7 @@ export function createAuthOptions(
           invalidateAuthToken(token);
         }
 
+        clearDefaultProfileClaims(token);
         return token;
       },
       async session({ session, token }) {
@@ -338,13 +352,19 @@ export function createAuthOptions(
           throw new Error("AUTH_SESSION_INVALIDATED");
         }
 
-        if (!token.userId || token.authValidationUnavailable) {
+        if (
+          !token.userId ||
+          !token.authProvider ||
+          token.authValidationUnavailable
+        ) {
           delete session.user;
-        } else if (session.user) {
-          session.user.id = token.userId;
-          session.user.nickname = token.nickname;
-          session.user.anonymousId = token.anonymousId;
-          session.user.authProvider = token.authProvider;
+        } else {
+          session.user = {
+            id: token.userId,
+            nickname: token.nickname,
+            anonymousId: token.anonymousId,
+            authProvider: token.authProvider,
+          };
         }
 
         return session;
