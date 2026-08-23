@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { LoaderCircle, RotateCcw } from "lucide-react";
 import { getProviders, signIn } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
@@ -184,6 +185,17 @@ export default function LoginOptions({
           ) : null}
         </div>
       ) : null}
+
+      <p className="mt-4 text-center text-xs leading-5 text-neutral-500">
+        로그인 전에{" "}
+        <Link
+          className="font-semibold text-neutral-700 underline decoration-neutral-300 underline-offset-4 active:text-neutral-950"
+          href="/privacy"
+        >
+          개인정보처리방침
+        </Link>
+        을 확인해 주세요.
+      </p>
     </div>
   );
 }

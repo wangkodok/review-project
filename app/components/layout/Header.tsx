@@ -8,6 +8,7 @@ const titles = [
   { href: "/home", title: "홈" },
   { href: "/community", title: "커뮤니티" },
   { href: "/my", title: "내 정보" },
+  { href: "/privacy", title: "개인정보처리방침" },
 ];
 
 const hiddenHeaderPatterns = [
@@ -34,7 +35,9 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-neutral-100 bg-white/95 px-5 backdrop-blur">
-      <h1 className="text-xl font-bold tracking-normal text-neutral-950">{getTitle(pathname)}</h1>
+      <h1 className="text-xl font-bold tracking-normal text-neutral-950">
+        {getTitle(pathname)}
+      </h1>
       {pathname === "/community" ? (
         <Link
           aria-label="게시글 검색"
