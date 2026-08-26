@@ -165,7 +165,10 @@ describe("verifyKakaoAccountEventSet", () => {
   ])("rejects a %s protected header", async (_name, headerOptions) => {
     let signingKey = privateKey;
 
-    if (headerOptions.algorithm === "PS256") {
+    if (
+      "algorithm" in headerOptions &&
+      headerOptions.algorithm === "PS256"
+    ) {
       signingKey = (await generateKeyPair("PS256")).privateKey;
     }
 
@@ -187,7 +190,9 @@ describe("verifyKakaoAccountEventSet", () => {
       payload.events[KAKAO_USER_UNLINKED_EVENT_SCHEMA].reason = "UNKNOWN_REASON";
     }],
     ["more than one event", (payload: ReturnType<typeof createPayload>) => {
-      payload.events["https://example.com/another-event"] = {} as never;
+      (payload.events as Record<string, unknown>)[
+        "https://example.com/another-event"
+      ] = {};
     }],
     ["a future issue time", (payload: ReturnType<typeof createPayload>) => {
       payload.iat = CURRENT_TIME_SECONDS + 10 * 60;
