@@ -7,6 +7,7 @@ import {
   createRateLimitIdentifier,
   isValidRateLimitIdentifierSecret,
 } from "./rateLimitIdentifier";
+import { recordSecurityEvent } from "./securityEvent";
 
 export type RateLimitPolicy =
   | "auth"
@@ -68,7 +69,16 @@ export function getRequestIp(request: Request) {
   );
 }
 
-function unavailableResponse() {
+function unavailableResponse(
+  policy: RateLimitPolicy,
+  resultCode: "configuration_missing" | "timeout" | "request_failed",
+) {
+  recordSecurityEvent({
+    eventCode: "rate_limit_store_unavailable",
+    policy,
+    resultCode,
+  });
+
   return NextResponse.json(
     {
       success: false,
@@ -95,7 +105,9 @@ export async function enforceRateLimit({
   const limiter = limiters[policy];
 
   if (!limiter) {
-    return process.env.NODE_ENV === "production" ? unavailableResponse() : null;
+    return process.env.NODE_ENV === "production"
+      ? unavailableResponse(policy, "configuration_missing")
+      : null;
   }
 
   try {
@@ -106,7 +118,7 @@ export async function enforceRateLimit({
     const result = await limiter.limit(opaqueIdentifier);
 
     if (result.reason === "timeout") {
-      return unavailableResponse();
+      return unavailableResponse(policy, "timeout");
     }
 
     if (result.success) {
@@ -134,6 +146,8 @@ export async function enforceRateLimit({
       },
     );
   } catch {
-    return process.env.NODE_ENV === "production" ? unavailableResponse() : null;
+    return process.env.NODE_ENV === "production"
+      ? unavailableResponse(policy, "request_failed")
+      : null;
   }
 }

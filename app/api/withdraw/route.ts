@@ -23,6 +23,7 @@ import {
   enforceRateLimit,
   getRequestIp,
 } from "@/app/lib/security/rateLimit";
+import { recordSecurityEvent } from "@/app/lib/security/securityEvent";
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store",
@@ -302,7 +303,10 @@ export async function DELETE(request: NextRequest) {
           releaseResult !== "released" &&
           releaseResult !== "already_released"
         ) {
-          console.error("withdrawal_processing_release_failed");
+          recordSecurityEvent({
+            eventCode: "withdrawal_processing_release_failed",
+            provider: account.provider,
+          });
           return storeUnavailableResponse();
         }
 
@@ -331,12 +335,18 @@ export async function DELETE(request: NextRequest) {
           releaseResult !== "released" &&
           releaseResult !== "already_released"
         ) {
-          console.error("withdrawal_processing_release_failed");
+          recordSecurityEvent({
+            eventCode: "withdrawal_processing_release_failed",
+            provider: account.provider,
+          });
           return storeUnavailableResponse();
         }
 
         if (unlinkResult === "account_mismatch") {
-          console.error("withdrawal_provider_unlink_account_mismatch");
+          recordSecurityEvent({
+            eventCode: "withdrawal_provider_unlink_account_mismatch",
+            provider: account.provider,
+          });
         }
 
         return withdrawalFlowErrorResponse({
@@ -357,7 +367,10 @@ export async function DELETE(request: NextRequest) {
         providerRevoked !== "marked" &&
         providerRevoked !== "already_marked"
       ) {
-        console.error("withdrawal_provider_revoked_state_persist_failed");
+        recordSecurityEvent({
+          eventCode: "withdrawal_provider_revoked_state_persist_failed",
+          provider: account.provider,
+        });
 
         return storeUnavailableResponse();
       }
@@ -366,7 +379,10 @@ export async function DELETE(request: NextRequest) {
     try {
       await withdrawUser(account.userId);
     } catch {
-      console.error("withdrawal_database_delete_failed");
+      recordSecurityEvent({
+        eventCode: "withdrawal_database_delete_failed",
+        provider: account.provider,
+      });
 
       return withdrawalFlowErrorResponse({
         message:
@@ -379,7 +395,10 @@ export async function DELETE(request: NextRequest) {
     try {
       await deleteWithdrawalReauthState(flowId);
     } catch {
-      console.error("withdrawal_state_cleanup_failed");
+      recordSecurityEvent({
+        eventCode: "withdrawal_state_cleanup_failed",
+        provider: account.provider,
+      });
     }
 
     const response = jsonResponse({
@@ -393,8 +412,15 @@ export async function DELETE(request: NextRequest) {
     return response;
   } catch (error) {
     if (error instanceof WithdrawalReauthStoreUnavailableError) {
+      recordSecurityEvent({
+        eventCode: "withdrawal_state_store_unavailable",
+      });
       return storeUnavailableResponse();
     }
+
+    recordSecurityEvent({
+      eventCode: "withdrawal_unexpected_failure",
+    });
 
     return jsonResponse(
       {

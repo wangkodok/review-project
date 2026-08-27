@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => {
   return {
     verify: vi.fn(),
     record: vi.fn(),
+    recordSecurityEvent: vi.fn(),
     KakaoAccountEventSetError,
     ExternalAuthEventServiceError,
   };
@@ -29,6 +30,9 @@ vi.mock("@/app/lib/auth/kakaoAccountEventSet", () => ({
 vi.mock("@/app/lib/auth/externalAuthEvents", () => ({
   recordVerifiedExternalAuthEvent: mocks.record,
   ExternalAuthEventServiceError: mocks.ExternalAuthEventServiceError,
+}));
+vi.mock("@/app/lib/security/securityEvent", () => ({
+  recordSecurityEvent: mocks.recordSecurityEvent,
 }));
 
 import { POST } from "./route";
@@ -67,6 +71,7 @@ describe("POST /api/webhooks/kakao/account-events", () => {
     process.env.AUTH_KAKAO_ID = "test-kakao-rest-api-key";
     mocks.verify.mockReset();
     mocks.record.mockReset();
+    mocks.recordSecurityEvent.mockReset();
     mocks.verify.mockResolvedValue(verifiedEvent);
     mocks.record.mockResolvedValue({
       auditEventId: "audit-event-id",
@@ -151,6 +156,9 @@ describe("POST /api/webhooks/kakao/account-events", () => {
 
     expect(response.status).toBe(503);
     expect(await response.text()).toBe("");
+    expect(mocks.recordSecurityEvent).toHaveBeenCalledWith({
+      eventCode: "kakao_event_verification_unavailable",
+    });
   });
 
   it("maps an RPC validation rejection to invalid_request", async () => {
@@ -174,5 +182,39 @@ describe("POST /api/webhooks/kakao/account-events", () => {
     expect(response.status).toBe(503);
     expect(mocks.verify).not.toHaveBeenCalled();
     expect(mocks.record).not.toHaveBeenCalled();
+    expect(mocks.recordSecurityEvent).toHaveBeenCalledWith({
+      eventCode: "kakao_webhook_configuration_missing",
+    });
+  });
+
+  it.each([
+    ["EVENT_STORAGE_FAILED", "event_storage_failed"],
+    ["INTERNAL_SERVER_ERROR", "invalid_storage_result"],
+  ])(
+    "records a privacy-minimized event for %s",
+    async (code, resultCode) => {
+      mocks.record.mockRejectedValue(
+        new mocks.ExternalAuthEventServiceError(code),
+      );
+
+      const response = await POST(createRequest());
+
+      expect(response.status).toBe(503);
+      expect(mocks.recordSecurityEvent).toHaveBeenCalledWith({
+        eventCode: "kakao_event_storage_failed",
+        resultCode,
+      });
+    },
+  );
+
+  it("records an unexpected processing failure without exposing the error", async () => {
+    mocks.record.mockRejectedValue(new Error("private failure detail"));
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(503);
+    expect(mocks.recordSecurityEvent).toHaveBeenCalledWith({
+      eventCode: "kakao_webhook_processing_failed",
+    });
   });
 });

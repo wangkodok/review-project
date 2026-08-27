@@ -8,6 +8,7 @@ import {
   KakaoAccountEventSetError,
   type KakaoAccountEventSetErrorCode,
 } from "@/app/lib/auth/kakaoAccountEventSet";
+import { recordSecurityEvent } from "@/app/lib/security/securityEvent";
 
 export const runtime = "nodejs";
 
@@ -143,6 +144,9 @@ export async function POST(request: NextRequest) {
   const audience = process.env.AUTH_KAKAO_ID?.trim();
 
   if (!audience) {
+    recordSecurityEvent({
+      eventCode: "kakao_webhook_configuration_missing",
+    });
     return unavailableResponse();
   }
 
@@ -167,6 +171,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof KakaoAccountEventSetError) {
       if (error.code === "temporarily_unavailable") {
+        recordSecurityEvent({
+          eventCode: "kakao_event_verification_unavailable",
+        });
         return unavailableResponse();
       }
 
@@ -179,6 +186,21 @@ export async function POST(request: NextRequest) {
     ) {
       return invalidSetResponse("invalid_request");
     }
+
+    if (error instanceof ExternalAuthEventServiceError) {
+      recordSecurityEvent({
+        eventCode: "kakao_event_storage_failed",
+        resultCode:
+          error.code === "EVENT_STORAGE_FAILED"
+            ? "event_storage_failed"
+            : "invalid_storage_result",
+      });
+      return unavailableResponse();
+    }
+
+    recordSecurityEvent({
+      eventCode: "kakao_webhook_processing_failed",
+    });
 
     return unavailableResponse();
   }
