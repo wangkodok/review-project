@@ -6,14 +6,14 @@ import BottomTab from "./components/layout/BottomTab";
 import QueryProvider from "./components/providers/QueryProvider";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://review-project-henna.vercel.app"),
-  title: "리뷰쓸래",
-  description: "익명 음식 리뷰 플랫폼",
+  metadataBase: new URL("https://www.sseullae.com"),
+  title: "쓸래",
+  description: "광고가 아닌, 솔직한 익명 리뷰 커뮤니티 플랫폼",
   openGraph: {
-    title: "리뷰쓸래",
-    description: "익명 음식 리뷰 플랫폼",
+    title: "쓸래",
+    description: "광고가 아닌, 솔직한 익명 리뷰 커뮤니티 플랫폼",
     url: "/",
-    siteName: "리뷰쓸래",
+    siteName: "쓸래",
     locale: "ko_KR",
     type: "website",
     images: [
@@ -21,14 +21,14 @@ export const metadata: Metadata = {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "리뷰쓸래",
+        alt: "쓸래",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "리뷰쓸래",
-    description: "익명 음식 리뷰 플랫폼",
+    title: "쓸래",
+    description: "광고가 아닌, 솔직한 익명 리뷰 커뮤니티 플랫폼",
     images: ["/og-image.jpg"],
   },
 };
