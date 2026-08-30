@@ -45,6 +45,7 @@ export default function BottomTab() {
             href={tab.href}
             key={tab.href}
           >
+            {/* 객체에서 키를 받아와서 태그에 변수처럼 사용 */}
             <Icon
               aria-hidden="true"
               className={isActive ? "text-neutral-950" : "text-neutral-400"}

@@ -70,11 +70,13 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
     queryKey: ["categories"],
     queryFn: fetchCategories,
   });
+
+  // useInfiniteQuery로 "더보기" 페이지 데이터를 누적
   const postsQuery = useInfiniteQuery({
     queryKey: ["posts", "latest", categorySlug],
-    queryFn: ({ pageParam }) => fetchPosts({ pageParam, categorySlug }),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
+    queryFn: ({ pageParam }) => fetchPosts({ pageParam, categorySlug }), // 게시 글 요청
+    initialPageParam: 1, // 게시 글 1번째
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined), // 리뷰 게시 글 목록 데이터
   });
 
   const posts = useMemo(
@@ -86,6 +88,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
   return (
     <section className="relative">
       <div className="pb-4">
+        {/* 전체, 한식, 중식, 일식 로딩바 */}
         {categoriesQuery.isLoading ? (
           <div className="flex gap-2">
             <div className="h-9 w-14 rounded-full bg-neutral-100" />
@@ -144,6 +147,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
         ) : null}
       </div>
 
+      {/* 리뷰 게시 글 목록 로딩바 */}
       {postsQuery.isLoading ? (
         <div>
           <PostSkeleton />

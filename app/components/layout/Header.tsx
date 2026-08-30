@@ -29,6 +29,7 @@ function getTitle(pathname: string) {
 export default function Header() {
   const pathname = usePathname();
 
+  // 검색 페이지에서 기존 헤더 변경
   if (hiddenHeaderPatterns.some((pattern) => pattern.test(pathname))) {
     return null;
   }
