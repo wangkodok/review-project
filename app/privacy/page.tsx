@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "개인정보처리방침 | 리뷰쓸래",
-  description: "리뷰쓸래 개인정보처리방침",
+  title: "개인정보처리방침 | 쓸래",
+  description: "쓸래 개인정보처리방침",
 };
 
 const handledInformation = [
