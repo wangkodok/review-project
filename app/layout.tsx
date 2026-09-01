@@ -42,7 +42,7 @@ export default function RootLayout({
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full">
         <QueryProvider>
-          <div className="mx-auto flex min-h-dvh w-full max-w-[375px] flex-col bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
+          <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
             <Header />
             <main className="flex flex-1 flex-col px-5 pb-24 pt-5">
               <div className="flex-1">{children}</div>
