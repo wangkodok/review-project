@@ -25,17 +25,25 @@ export async function searchPosts({
   page,
   limit,
   currentUserId,
+  sort,
+  categoryId,
+  regionId,
 }: {
   keyword: string;
   page: number;
   limit: number;
   currentUserId?: string;
+  sort: "latest" | "likes" | "views";
+  categoryId?: string;
+  regionId?: string;
 }) {
   return getPosts({
     page,
     limit,
     search: keyword,
-    sort: "latest",
+    sort,
     currentUserId,
+    categoryId,
+    regionId,
   });
 }

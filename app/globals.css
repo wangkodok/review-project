@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  --app-frame-max-width: 480px;
   --background: #ffffff;
   --foreground: #111111;
   --muted: #f5f5f5;
@@ -10,7 +11,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: Arial, Helvetica, sans-serif;
+  --font-sans:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo",
+    "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", sans-serif;
   --font-mono: "Courier New", monospace;
 }
 
@@ -28,7 +33,11 @@ body {
   margin: 0;
   background: #f4f4f5;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo",
+    "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", sans-serif;
 }
 
 a {
@@ -41,4 +50,43 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+@keyframes review-list-skeleton-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.review-list-skeleton {
+  position: relative;
+  overflow: hidden;
+}
+
+.review-list-skeleton::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(255 255 255 / 15%) 34%,
+    rgb(255 255 255 / 95%) 50%,
+    rgb(255 255 255 / 15%) 66%,
+    transparent 100%
+  );
+  content: "";
+  pointer-events: none;
+  transform: translateX(-100%);
+  animation: review-list-skeleton-shimmer 1.25s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-list-skeleton::after {
+    display: none;
+    animation: none;
+  }
 }

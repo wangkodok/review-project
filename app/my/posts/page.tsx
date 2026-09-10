@@ -10,11 +10,16 @@ export default async function MyPostsPage() {
   if (!session?.user?.id) {
     return (
       <section className="space-y-5">
-        <PageBackHeader title="작성한 게시 글" />
+        <PageBackHeader
+          backIconStrokeWidth={1.25}
+          fullHeightActions
+          title="내가 작성한 리뷰"
+          titleClassName="text-[18px] font-bold leading-6 text-[#121212]"
+        />
         <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
           <p className="text-sm font-semibold text-neutral-950">로그인이 필요합니다.</p>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
-            로그인 후 내가 작성한 게시글을 확인할 수 있습니다.
+            로그인 후 내가 작성한 리뷰를 확인할 수 있습니다.
           </p>
         </div>
         <LoginOptions />
@@ -22,10 +27,5 @@ export default async function MyPostsPage() {
     );
   }
 
-  return (
-    <section className="space-y-5">
-      <PageBackHeader title="작성한 게시 글" />
-      <MyPostList />
-    </section>
-  );
+  return <MyPostList />;
 }

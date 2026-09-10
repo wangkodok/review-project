@@ -1,7 +1,15 @@
 import "server-only";
 
 type AuthProvider = "google" | "kakao";
-type RateLimitPolicy = "auth" | "like" | "posts" | "search" | "withdrawal";
+type RateLimitPolicy =
+  | "auth"
+  | "like"
+  | "posts"
+  | "report"
+  | "reviewCreate"
+  | "reviewManage"
+  | "search"
+  | "withdrawal";
 
 type WithdrawalEventCode =
   | "withdrawal_processing_release_failed"

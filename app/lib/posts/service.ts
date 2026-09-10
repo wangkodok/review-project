@@ -2,10 +2,10 @@ import {
   BAD_REVIEW_OPTION_LABEL_MAP,
   GOOD_REVIEW_OPTION_LABEL_MAP,
 } from "@/app/constants/reviewOptions";
+import { getRegionForWrite } from "@/app/lib/regions/service";
 import { createSupabaseServerClient } from "../supabase/server";
 import { getCategoryForWrite } from "../categories/service";
 import { getPostLikedByUser } from "./likes";
-import { getReviewOptionKeysByLabelSearch } from "./structuredReview";
 import { increaseViewCountIfNeeded } from "./views";
 
 type SortValue = "latest" | "likes" | "views";
@@ -17,6 +17,7 @@ type GetPostsParams = {
   sort: SortValue;
   currentUserId?: string;
   categoryId?: string;
+  regionId?: string;
 };
 
 type GetMyPostsParams = {
@@ -27,25 +28,30 @@ type GetMyPostsParams = {
 
 type CreatePostParams = {
   userId: string;
+  storeName: string;
+  regionId: string;
   title: string;
   content: string;
   categoryId: string;
-  menuName?: string;
-  goodPoints?: string[];
-  badPoints?: string[];
-  overallReview?: string | null;
+  menuName: string;
+  goodPoints: string[];
+  badPoints: string[];
+  overallReview: string | null;
 };
 
 type UpdatePostParams = {
   postId: string;
   userId: string;
+  storeName: string;
+  regionId: string;
   title: string;
   content: string;
-  categoryId?: string;
-  menuName?: string;
-  goodPoints?: string[];
-  badPoints?: string[];
-  overallReview?: string | null;
+  categoryId: string;
+  menuName: string;
+  goodPoints: string[];
+  badPoints: string[];
+  overallReview: string | null;
+  expectedUpdatedAt: string;
 };
 
 type DeletePostParams = {
@@ -57,6 +63,8 @@ type PostRow = {
   id: string;
   user_id: string;
   category_id: string | null;
+  region_id: string | null;
+  store_name: string | null;
   title: string;
   content: string;
   menu_name: string | null;
@@ -81,11 +89,19 @@ type CategoryRow = {
   is_active: boolean;
 };
 
+type RegionRow = {
+  id: string;
+  name: string;
+  slug: string;
+  is_active: boolean;
+};
+
 type RelatedRow<T> = T | T[] | null;
 
 type PostWithRelationsRow = PostRow & {
   author: RelatedRow<Pick<UserRow, "anonymous_id">>;
   category: RelatedRow<CategoryRow>;
+  region: RelatedRow<RegionRow>;
 };
 
 type PostForEditRow = Pick<
@@ -93,17 +109,27 @@ type PostForEditRow = Pick<
   | "id"
   | "user_id"
   | "category_id"
+  | "region_id"
+  | "store_name"
   | "title"
   | "content"
   | "menu_name"
   | "good_points"
   | "bad_points"
   | "overall_review"
+  | "updated_at"
 > & {
   category: RelatedRow<CategoryRow>;
+  region: RelatedRow<RegionRow>;
 };
 
 type PublicCategory = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+type PublicRegion = {
   id: string;
   name: string;
   slug: string;
@@ -131,8 +157,26 @@ function toPublicCategory(category: RelatedRow<CategoryRow>): PublicCategory | n
   };
 }
 
+function toPublicRegion(region: RelatedRow<RegionRow>): PublicRegion | null {
+  const relatedRegion = getSingleRelatedRow(region);
+
+  if (!relatedRegion) {
+    return null;
+  }
+
+  return {
+    id: relatedRegion.id,
+    name: relatedRegion.name,
+    slug: relatedRegion.slug,
+  };
+}
+
 function requiresCategorySelection(category: RelatedRow<CategoryRow>) {
   return !getSingleRelatedRow(category)?.is_active;
+}
+
+function requiresRegionSelection(region: RelatedRow<RegionRow>) {
+  return !getSingleRelatedRow(region)?.is_active;
 }
 
 const goodReviewOptionLabelMap = GOOD_REVIEW_OPTION_LABEL_MAP;
@@ -182,18 +226,11 @@ function sanitizeSearch(value: string) {
 
 function buildPostSearchFilter(search: string) {
   const pattern = `%${sanitizeSearch(search)}%`;
-  const { goodPointKeys, badPointKeys } = getReviewOptionKeysByLabelSearch(search);
-  const reviewPointFilters = [
-    ...goodPointKeys.map((key) => `good_points.cs.{${key}}`),
-    ...badPointKeys.map((key) => `bad_points.cs.{${key}}`),
-  ];
 
   return [
+    `store_name.ilike.${pattern}`,
     `menu_name.ilike.${pattern}`,
     `overall_review.ilike.${pattern}`,
-    `title.ilike.${pattern}`,
-    `content.ilike.${pattern}`,
-    ...reviewPointFilters,
   ].join(",");
 }
 
@@ -204,6 +241,7 @@ export async function getPosts({
   sort,
   currentUserId,
   categoryId,
+  regionId,
 }: GetPostsParams) {
   const supabase = createSupabaseServerClient();
   const from = (page - 1) * limit;
@@ -213,7 +251,7 @@ export async function getPosts({
   let query = supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active)",
       {
       count: "exact",
       },
@@ -227,16 +265,22 @@ export async function getPosts({
     query = query.eq("category_id", categoryId);
   }
 
+  if (regionId) {
+    query = query.eq("region_id", regionId);
+  }
+
   if (sort === "likes") {
     query = query.order("like_count", { ascending: false }).order("created_at", {
       ascending: false,
-    });
+    }).order("id", { ascending: false });
   } else if (sort === "views") {
     query = query.order("view_count", { ascending: false }).order("created_at", {
       ascending: false,
-    });
+    }).order("id", { ascending: false });
   } else {
-    query = query.order("created_at", { ascending: false });
+    query = query
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false });
   }
 
   const { data, error, count } = await query.range(from, to);
@@ -255,16 +299,23 @@ export async function getPosts({
         id: post.id,
         title: post.title,
         content: post.content,
+        storeName: post.store_name?.trim() || null,
         ...structuredReview,
         likeCount: post.like_count,
         viewCount: post.view_count,
         createdAt: post.created_at,
         category: toPublicCategory(post.category),
+        region: toPublicRegion(post.region),
         author: {
           anonymousId: getSingleRelatedRow(post.author)?.anonymous_id ?? "",
         },
         isOwner: currentUserId === post.user_id,
         requiresCategorySelection: requiresCategorySelection(post.category),
+        requiresRegionSelection: requiresRegionSelection(post.region),
+        requiresReviewCompletion:
+          !post.store_name?.trim() ||
+          requiresCategorySelection(post.category) ||
+          requiresRegionSelection(post.region),
       };
     }),
     page,
@@ -282,13 +333,14 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
   const { data, error, count } = await supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active)",
       {
         count: "exact",
       },
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .range(from, to);
 
   if (error) {
@@ -305,21 +357,28 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
         id: post.id,
         title: post.title,
         content: post.content,
+        storeName: post.store_name?.trim() || null,
         menuName: structuredReviewFields.menuName,
         goodPoints: structuredReviewFields.goodPoints,
         badPoints: structuredReviewFields.badPoints,
         goodPointLabels: structuredReviewFields.goodPointLabels,
         badPointLabels: structuredReviewFields.badPointLabels,
-        overallReview: post.overall_review,
+        overallReview: structuredReviewFields.overallReview,
         likeCount: post.like_count,
         viewCount: post.view_count,
         createdAt: post.created_at,
         category: toPublicCategory(post.category),
+        region: toPublicRegion(post.region),
         author: {
           anonymousId: getSingleRelatedRow(post.author)?.anonymous_id ?? "",
         },
         isOwner: true,
         requiresCategorySelection: requiresCategorySelection(post.category),
+        requiresRegionSelection: requiresRegionSelection(post.region),
+        requiresReviewCompletion:
+          !post.store_name?.trim() ||
+          requiresCategorySelection(post.category) ||
+          requiresRegionSelection(post.region),
       };
     }),
     page,
@@ -331,6 +390,8 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
 
 export async function createPost({
   userId,
+  storeName,
+  regionId,
   title,
   content,
   categoryId,
@@ -339,10 +400,17 @@ export async function createPost({
   badPoints,
   overallReview,
 }: CreatePostParams) {
-  const category = await getCategoryForWrite(categoryId);
+  const [category, region] = await Promise.all([
+    getCategoryForWrite(categoryId),
+    getRegionForWrite(regionId),
+  ]);
 
   if (!category) {
     return { status: "invalid_category" as const };
+  }
+
+  if (!region) {
+    return { status: "invalid_region" as const };
   }
 
   const supabase = createSupabaseServerClient();
@@ -351,12 +419,14 @@ export async function createPost({
     .insert({
       user_id: userId,
       category_id: category.id,
+      region_id: region.id,
+      store_name: storeName,
       title,
       content,
-      menu_name: menuName ?? null,
-      good_points: goodPoints ?? null,
-      bad_points: badPoints ?? null,
-      overall_review: overallReview ?? null,
+      menu_name: menuName,
+      good_points: goodPoints,
+      bad_points: badPoints,
+      overall_review: overallReview,
     })
     .select("id")
     .single<{ id: string }>();
@@ -373,7 +443,7 @@ export async function getPostForEdit(postId: string) {
   const { data, error } = await supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,overall_review,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,updated_at,category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active)",
     )
     .eq("id", postId)
     .maybeSingle<PostForEditRow>();
@@ -389,12 +459,15 @@ export async function getPostForEdit(postId: string) {
   return {
     ...data,
     requiresCategorySelection: requiresCategorySelection(data.category),
+    requiresRegionSelection: requiresRegionSelection(data.region),
   };
 }
 
 export async function updatePost({
   postId,
   userId,
+  storeName,
+  regionId,
   title,
   content,
   categoryId,
@@ -402,6 +475,7 @@ export async function updatePost({
   goodPoints,
   badPoints,
   overallReview,
+  expectedUpdatedAt,
 }: UpdatePostParams) {
   const supabase = createSupabaseServerClient();
   const existingPost = await getPostForEdit(postId);
@@ -414,42 +488,51 @@ export async function updatePost({
     return { status: "forbidden" as const };
   }
 
-  let nextCategoryId = existingPost.category_id;
+  const [category, region] = await Promise.all([
+    getCategoryForWrite(categoryId),
+    getRegionForWrite(regionId),
+  ]);
 
-  if (categoryId !== undefined) {
-    const category = await getCategoryForWrite(categoryId);
-
-    if (!category) {
-      return { status: "invalid_category" as const };
-    }
-
-    nextCategoryId = category.id;
-  } else if (requiresCategorySelection(existingPost.category)) {
+  if (!category) {
     return { status: "invalid_category" as const };
+  }
+
+  if (!region) {
+    return { status: "invalid_region" as const };
   }
 
   const { data, error } = await supabase
     .from("posts")
     .update({
-      category_id: nextCategoryId,
+      category_id: category.id,
+      region_id: region.id,
+      store_name: storeName,
       title,
       content,
-      menu_name: menuName ?? existingPost.menu_name,
-      good_points: goodPoints ?? existingPost.good_points,
-      bad_points: badPoints ?? existingPost.bad_points,
-      overall_review: overallReview === undefined ? existingPost.overall_review : overallReview,
+      menu_name: menuName,
+      good_points: goodPoints,
+      bad_points: badPoints,
+      overall_review: overallReview,
       updated_at: new Date().toISOString(),
     })
     .eq("id", postId)
     .eq("user_id", userId)
-    .select("id")
-    .single<{ id: string }>();
+    .eq("updated_at", expectedUpdatedAt)
+    .select("id,updated_at")
+    .maybeSingle<{ id: string; updated_at: string }>();
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return { status: "ok" as const, post: data };
+  if (!data) {
+    return { status: "conflict" as const };
+  }
+
+  return {
+    status: "ok" as const,
+    post: { id: data.id, updatedAt: data.updated_at },
+  };
 }
 
 export async function deletePost({ postId, userId }: DeletePostParams) {
@@ -483,10 +566,10 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
   const { data: post, error: postError } = await supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,category:categories!posts_category_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active)",
     )
     .eq("id", postId)
-    .maybeSingle<PostRow & { category: RelatedRow<CategoryRow> }>();
+    .maybeSingle<PostWithRelationsRow>();
 
   if (postError) {
     throw new Error(postError.message);
@@ -494,16 +577,6 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
 
   if (!post) {
     return null;
-  }
-
-  const { data: author, error: authorError } = await supabase
-    .from("users")
-    .select("anonymous_id")
-    .eq("id", post.user_id)
-    .single<Pick<UserRow, "anonymous_id">>();
-
-  if (authorError) {
-    throw new Error(authorError.message);
   }
 
   const viewCount = currentUserId
@@ -518,17 +591,24 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
     id: post.id,
     title: post.title,
     content: post.content,
+    storeName: post.store_name?.trim() || null,
     ...toStructuredReviewFields(post),
     viewCount,
     likeCount: post.like_count,
     createdAt: post.created_at,
     updatedAt: post.updated_at,
     category: toPublicCategory(post.category),
+    region: toPublicRegion(post.region),
     author: {
-      anonymousId: author.anonymous_id,
+      anonymousId: getSingleRelatedRow(post.author)?.anonymous_id ?? "",
     },
     isOwner: currentUserId === post.user_id,
     isLiked,
     requiresCategorySelection: requiresCategorySelection(post.category),
+    requiresRegionSelection: requiresRegionSelection(post.region),
+    requiresReviewCompletion:
+      !post.store_name?.trim() ||
+      requiresCategorySelection(post.category) ||
+      requiresRegionSelection(post.region),
   };
 }

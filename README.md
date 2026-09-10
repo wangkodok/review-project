@@ -2,7 +2,7 @@
 
 Next.js App Router 기반의 익명 리뷰 커뮤니티 서비스입니다. 현재는 음식점 리뷰만 있습니다.
 
-게시 글은 누구나 읽을 수 있고, Google 또는 Kakao로 로그인하면 게시 글 작성·수정·삭제, 좋아요, 검색 기록, 프로필 관리와 회원 탈퇴 기능을 사용할 수 있습니다. 공식 서비스 주소는 `https://www.sseullae.com`입니다.
+게시 글은 누구나 읽을 수 있고, Google 또는 Kakao로 로그인하면 게시 글 작성·수정·삭제, 좋아요, 검색 기록, 다른 사용자의 리뷰 신고, 프로필 관리와 회원 탈퇴 기능을 사용할 수 있습니다. 공식 서비스 주소는 `https://www.sseullae.com`입니다.
 
 ## 주요 기능
 
@@ -10,11 +10,12 @@ Next.js App Router 기반의 익명 리뷰 커뮤니티 서비스입니다. 현�
 - 외부 로그인 계정과 내부 사용자 계정의 안전한 연결
 - 가입 시 익명 ID와 기본 닉네임 생성
 - 닉네임 조회 및 변경
-- 커뮤니티 게시 글 목록, 카테고리 필터와 `더보기`
-- 구조화된 음식 리뷰 작성, 상세 조회, 수정과 삭제
+- 리뷰 목록, 지역·카테고리 필터, 정렬과 `더보기`
+- 매장명·메뉴·지역·카테고리·장단점·한마디로 구성된 음식 리뷰 작성, 상세 조회, 수정과 삭제
 - 게시 글 좋아요 토글과 사용자별 조회수 중복 방지
 - 게시 글 검색과 로그인 사용자의 최근 검색어 저장·삭제
 - 내가 작성한 게시 글과 활동 통계 조회
+- 로그인한 비소유자의 리뷰 신고 접수
 - 최근 로그인 재인증과 외부 Provider 연결 해제를 포함한 회원 탈퇴
 - 개인정보처리방침 공개
 
@@ -55,20 +56,24 @@ Client
 - `users`
 - `auth_accounts`
 - `categories`
+- `regions`
 - `posts`
 - `likes`
 - `post_views`
 - `search_histories`
 - `external_auth_events`
+- `review_reports`
 
 게시 글 삭제와 회원 탈퇴는 Hard Delete 정책을 따릅니다. 사용자 또는 게시 글에 종속된 데이터는 외래키와 서버 로직을 기준으로 함께 정리합니다. Kakao 계정 상태 웹훅은 현재 감사 기록만 저장하는 `observe-only` 방식이며 자동 계정 삭제는 활성화하지 않았습니다.
 
 ## API 개요
 
 - `GET /api/categories`
+- `GET /api/regions`
 - `GET|POST /api/posts`
 - `GET|PATCH|DELETE /api/posts/:postId`
 - `POST /api/posts/:postId/like`
+- `POST /api/posts/:postId/reports`
 - `GET /api/search/posts`
 - `GET|POST|DELETE /api/search/histories`
 - `DELETE /api/search/histories/:historyId`
@@ -143,12 +148,12 @@ npm run build
 - 브라우저 Sources, Network 응답과 Storage에 서버 비밀값이 노출되지 않는지 확인
 - 비로그인 및 리소스 비소유자의 변경 API 접근이 차단되는지 확인
 - Vercel 환경변수와 OAuth Redirect URI가 배포 환경별로 올바른지 확인
-- 배포된 공식 도메인에서 로그인, 게시 글, 프로필과 탈퇴 핵심 흐름 확인
+- 배포된 공식 도메인에서 로그인, 리뷰 목록·검색·작성·상세·수정·삭제·신고, 내 리뷰, 프로필과 탈퇴 핵심 흐름 확인
 
 ## 현재 MVP 제외 범위
 
 - 댓글
-- 신고와 관리자 페이지
+- 신고 관리자 화면, 신고 처리·알림과 자동 제재
 - 이미지 업로드와 프로필 이미지
 - 알림, 팔로우와 북마크
 - Supabase Auth와 브라우저 직접 DB 접근

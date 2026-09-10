@@ -6,19 +6,22 @@ import { usePathname } from "next/navigation";
 
 const titles = [
   { href: "/home", title: "홈" },
-  { href: "/community", title: "커뮤니티" },
+  { href: "/community", title: "리뷰" },
   { href: "/my", title: "내 정보" },
   { href: "/privacy", title: "개인정보처리방침" },
 ];
 
 const hiddenHeaderPatterns = [
+  /^\/community\/search$/,
   /^\/community\/write$/,
   /^\/community\/new$/,
   /^\/community\/[^/]+$/,
   /^\/community\/[^/]+\/edit$/,
+  /^\/community\/[^/]+\/report$/,
   /^\/my\/posts$/,
   /^\/my\/profile$/,
   /^\/my\/withdraw$/,
+  /^\/privacy$/,
 ];
 
 function getTitle(pathname: string) {
@@ -28,6 +31,7 @@ function getTitle(pathname: string) {
 
 export default function Header() {
   const pathname = usePathname();
+  const isMyPage = pathname === "/my";
 
   // 검색 페이지에서 기존 헤더 변경
   if (hiddenHeaderPatterns.some((pattern) => pattern.test(pathname))) {
@@ -35,14 +39,24 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-neutral-100 bg-white/95 px-5 backdrop-blur">
-      <h1 className="text-xl font-bold tracking-normal text-neutral-950">
+    <header
+      className={`sticky top-0 z-20 flex h-14 items-center justify-between bg-white ${
+        isMyPage
+          ? "px-4"
+          : "border-b border-neutral-100 bg-white/95 px-5 backdrop-blur"
+      }`}
+    >
+      <h1
+        className={`font-bold tracking-normal text-neutral-950 ${
+          isMyPage ? "text-2xl leading-8" : "text-xl"
+        }`}
+      >
         {getTitle(pathname)}
       </h1>
       {pathname === "/community" ? (
         <Link
           aria-label="게시글 검색"
-          className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-950 active:bg-neutral-100"
+          className="-mr-5 flex h-14 w-14 items-center justify-center text-neutral-950 active:bg-neutral-100"
           href="/community/search"
         >
           <Search aria-hidden="true" size={22} />

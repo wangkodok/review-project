@@ -1,11 +1,18 @@
 "use client";
 
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { ChevronDown, PenLine } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import type { PostCategory, PostsPage } from "@/app/types/post";
+import { useEffect, useMemo, useState } from "react";
+import type { PostCategory, PostRegion, PostsPage } from "@/app/types/post";
 import PostRows from "./PostRows";
+import ReviewListControls, {
+  ReviewListSkeleton,
+  type ReviewSortValue,
+} from "./ReviewListControls";
+import ReviewPickerDialog from "./ReviewPickerDialog";
+
+type PickerKind = "region" | "category" | null;
 
 type PostsResponse = {
   success: boolean;
@@ -15,9 +22,13 @@ type PostsResponse = {
 
 type CategoriesResponse = {
   success: boolean;
-  data: {
-    categories: PostCategory[];
-  } | null;
+  data: { categories: PostCategory[] } | null;
+  message: string;
+};
+
+type RegionsResponse = {
+  success: boolean;
+  data: { regions: PostRegion[] } | null;
   message: string;
 };
 
@@ -32,135 +43,176 @@ async function fetchCategories() {
   return result.data.categories;
 }
 
-async function fetchPosts({ pageParam, categorySlug }: { pageParam: number; categorySlug: string }) {
+async function fetchRegions() {
+  const response = await fetch("/api/regions");
+  const result = (await response.json()) as RegionsResponse;
+
+  if (!response.ok || !result.success || !result.data) {
+    throw new Error(result.message || "지역 목록을 불러오지 못했습니다.");
+  }
+
+  return result.data.regions;
+}
+
+async function fetchPosts({
+  pageParam,
+  sort,
+  categorySlug,
+  regionSlug,
+}: {
+  pageParam: number;
+  sort: ReviewSortValue;
+  categorySlug: string;
+  regionSlug: string;
+}) {
   const params = new URLSearchParams({
     page: String(pageParam),
     limit: "10",
-    sort: "latest",
+    sort,
   });
 
   if (categorySlug) {
     params.set("category", categorySlug);
   }
 
+  if (regionSlug) {
+    params.set("region", regionSlug);
+  }
+
   const response = await fetch(`/api/posts?${params.toString()}`);
   const result = (await response.json()) as PostsResponse;
 
   if (!response.ok || !result.success || !result.data) {
-    throw new Error(result.message || "게시글을 불러오지 못했습니다.");
+    throw new Error(result.message || "리뷰 목록을 불러오지 못했습니다.");
   }
 
   return result.data;
 }
 
-function PostSkeleton() {
-  return (
-    <div className="space-y-3 border-b border-neutral-200 py-5">
-      <div className="h-4 w-28 rounded bg-neutral-100" />
-      <div className="h-6 w-4/5 rounded bg-neutral-100" />
-      <div className="h-4 w-full rounded bg-neutral-100" />
-      <div className="h-4 w-24 rounded bg-neutral-100" />
-    </div>
-  );
-}
-
 export default function CommunityList({ isAuthenticated }: { isAuthenticated: boolean }) {
+  const [sort, setSort] = useState<ReviewSortValue>("latest");
   const [categorySlug, setCategorySlug] = useState("");
+  const [regionSlug, setRegionSlug] = useState("");
+  const [pickerKind, setPickerKind] = useState<PickerKind>(null);
+  const [deletedPostIds, setDeletedPostIds] = useState<Set<string>>(() => new Set());
+  const [successMessage, setSuccessMessage] = useState("");
   const categoriesQuery = useQuery({
     queryKey: ["categories"],
     queryFn: fetchCategories,
   });
-
-  // useInfiniteQuery로 "더보기" 페이지 데이터를 누적
-  const postsQuery = useInfiniteQuery({
-    queryKey: ["posts", "latest", categorySlug],
-    queryFn: ({ pageParam }) => fetchPosts({ pageParam, categorySlug }), // 게시 글 요청
-    initialPageParam: 1, // 게시 글 1번째
-    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined), // 리뷰 게시 글 목록 데이터
+  const regionsQuery = useQuery({
+    queryKey: ["regions"],
+    queryFn: fetchRegions,
   });
-
-  const posts = useMemo(
+  const postsQuery = useInfiniteQuery({
+    queryKey: ["posts", sort, regionSlug, categorySlug],
+    queryFn: ({ pageParam }) =>
+      fetchPosts({ pageParam, sort, categorySlug, regionSlug }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
+  });
+  const loadedPosts = useMemo(
     () => postsQuery.data?.pages.flatMap((page) => page.posts) ?? [],
     [postsQuery.data],
   );
-  const hasNoPosts = !postsQuery.isLoading && !postsQuery.isError && posts.length === 0;
+  const posts = useMemo(
+    () => loadedPosts.filter((post) => !deletedPostIds.has(post.id)),
+    [deletedPostIds, loadedPosts],
+  );
+  const deletedVisibleCount = loadedPosts.length - posts.length;
+  const totalCount = Math.max(
+    0,
+    (postsQuery.data?.pages[0]?.totalCount ?? 0) - deletedVisibleCount,
+  );
+  const selectedRegion = regionsQuery.data?.find((region) => region.slug === regionSlug);
+  const selectedCategory = categoriesQuery.data?.find(
+    (category) => category.slug === categorySlug,
+  );
+  const hasActiveFilters = Boolean(regionSlug || categorySlug);
+  const hasReferenceDataError = regionsQuery.isError || categoriesQuery.isError;
+
+  useEffect(() => {
+    if (!successMessage) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setSuccessMessage(""), 2400);
+    return () => window.clearTimeout(timer);
+  }, [successMessage]);
+
+  function handleDeleteSuccess(postId: string) {
+    setDeletedPostIds((current) => {
+      const next = new Set(current);
+      next.add(postId);
+      return next;
+    });
+    setSuccessMessage("리뷰가 삭제되었습니다.");
+  }
+
+  function clearFilters() {
+    setRegionSlug("");
+    setCategorySlug("");
+  }
+
+  const pickerOptions = (
+    pickerKind === "region" ? regionsQuery.data ?? [] : categoriesQuery.data ?? []
+  ).map((option) => ({
+    id: option.slug,
+    name: option.name,
+  }));
+  const pickerValue = pickerKind === "region" ? regionSlug : categorySlug;
+  const pickerTitle = pickerKind === "region" ? "지역 선택" : "카테고리 선택";
 
   return (
-    <section className="relative">
-      <div className="pb-4">
-        {/* 전체, 한식, 중식, 일식 로딩바 */}
-        {categoriesQuery.isLoading ? (
-          <div className="flex gap-2">
-            <div className="h-9 w-14 rounded-full bg-neutral-100" />
-            <div className="h-9 w-14 rounded-full bg-neutral-100" />
-            <div className="h-9 w-14 rounded-full bg-neutral-100" />
-          </div>
-        ) : null}
+    <section className="-mx-5 -mt-5">
+      <div className="sticky top-14 z-10 border-b border-[#dbdbdb] bg-white">
+        <ReviewListControls
+          categoryActive={Boolean(categorySlug)}
+          categoryDisabled={!categoriesQuery.data}
+          categoryLabel={selectedCategory?.name ?? "카테고리"}
+          count={totalCount}
+          filtersActive={hasActiveFilters}
+          onCategoryClick={() => setPickerKind("category")}
+          onClearFilters={clearFilters}
+          onRegionClick={() => setPickerKind("region")}
+          onSortChange={setSort}
+          regionActive={Boolean(regionSlug)}
+          regionDisabled={!regionsQuery.data}
+          regionLabel={selectedRegion?.name ?? "지역"}
+          sort={sort}
+        />
 
-        {categoriesQuery.isError ? (
-          <div className="flex items-center justify-between gap-3 rounded-lg bg-neutral-100 px-4 py-3">
-            <p className="text-sm font-semibold text-neutral-950">카테고리 목록을 불러오지 못했습니다.</p>
+        {hasReferenceDataError ? (
+          <div className="flex min-h-12 items-center justify-between gap-3 border-t border-neutral-100 px-4 py-2">
+            <p className="text-sm text-neutral-600">필터 목록을 불러오지 못했습니다.</p>
             <button
-              className="shrink-0 text-sm font-bold text-neutral-950 underline"
-              onClick={() => categoriesQuery.refetch()}
+              className="h-9 shrink-0 px-2 text-sm font-bold text-[#121212]"
+              onClick={() => {
+                void Promise.all([regionsQuery.refetch(), categoriesQuery.refetch()]);
+              }}
               type="button"
             >
               다시 시도
             </button>
           </div>
         ) : null}
-
-        {categoriesQuery.data ? (
-          <div className="flex flex-wrap gap-2" role="group" aria-label="게시글 카테고리 필터">
-            <button
-              aria-pressed={!categorySlug}
-              className={`h-9 rounded-full border px-4 text-sm font-semibold ${
-                !categorySlug
-                  ? "border-neutral-950 bg-neutral-950 text-white"
-                  : "border-neutral-300 bg-white text-neutral-700 active:bg-neutral-100"
-              }`}
-              onClick={() => setCategorySlug("")}
-              type="button"
-            >
-              전체
-            </button>
-            {categoriesQuery.data.map((category) => {
-              const isSelected = categorySlug === category.slug;
-
-              return (
-                <button
-                  aria-pressed={isSelected}
-                  className={`h-9 rounded-full border px-4 text-sm font-semibold ${
-                    isSelected
-                      ? "border-neutral-950 bg-neutral-950 text-white"
-                      : "border-neutral-300 bg-white text-neutral-700 active:bg-neutral-100"
-                  }`}
-                  key={category.id}
-                  onClick={() => setCategorySlug(category.slug)}
-                  type="button"
-                >
-                  {category.name}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
       </div>
 
-      {/* 리뷰 게시 글 목록 로딩바 */}
       {postsQuery.isLoading ? (
-        <div>
-          <PostSkeleton />
-          <PostSkeleton />
-          <PostSkeleton />
+        <div aria-label="리뷰 목록을 불러오는 중" role="status">
+          <ReviewListSkeleton />
+          <ReviewListSkeleton />
+          <ReviewListSkeleton />
         </div>
       ) : null}
 
       {postsQuery.isError ? (
-        <div className="py-10 text-center">
-          <p className="text-sm font-semibold text-neutral-950">게시글을 불러오지 못했습니다.</p>
+        <div className="px-4 py-14 text-center">
+          <p className="text-sm font-semibold text-[#121212]">
+            리뷰 목록을 불러오지 못했습니다.
+          </p>
           <button
-            className="mt-4 h-10 rounded-lg bg-neutral-950 px-4 text-sm font-semibold text-white"
+            className="mt-4 h-10 px-4 text-sm font-bold text-[#121212] underline underline-offset-4"
             onClick={() => postsQuery.refetch()}
             type="button"
           >
@@ -169,43 +221,83 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
         </div>
       ) : null}
 
-      {!postsQuery.isLoading && !postsQuery.isError ? (
+      {!postsQuery.isLoading && !postsQuery.isError && posts.length ? (
         <PostRows
           isAuthenticated={isAuthenticated}
-          onDeleteSuccess={() => postsQuery.refetch()}
+          onDeleteSuccess={handleDeleteSuccess}
           posts={posts}
+          reportSource="community"
         />
       ) : null}
 
-      {hasNoPosts ? (
-        <div className="py-12 text-center">
-          <p className="text-sm font-semibold text-neutral-500">
-            아직 등록된 음식 리뷰가 없습니다.
+      {!postsQuery.isLoading && !postsQuery.isError && !posts.length ? (
+        <div className="px-5 py-20 text-center">
+          <p className="text-[15px] leading-6 text-[#686868]">
+            {hasActiveFilters
+              ? "조건에 맞는 리뷰가 없습니다."
+              : "아직 등록된 리뷰가 없습니다."}
           </p>
         </div>
       ) : null}
 
-      {postsQuery.hasNextPage ? (
-        <button
-          className="mt-5 h-12 w-full rounded-lg border border-neutral-200 bg-white text-base font-semibold text-neutral-950 disabled:text-neutral-400"
-          disabled={postsQuery.isFetchingNextPage}
-          onClick={() => postsQuery.fetchNextPage()}
-          type="button"
-        >
-          {postsQuery.isFetchingNextPage ? "불러오는 중" : "더보기"}
-        </button>
+      {postsQuery.hasNextPage && !postsQuery.isError ? (
+        <div className="px-4 pb-6 pt-5">
+          <button
+            className="flex h-11 w-full items-center justify-center gap-2 rounded border border-[#dbdbdb] bg-white text-sm text-[#121212] disabled:text-[#686868]"
+            disabled={postsQuery.isFetchingNextPage}
+            onClick={() => postsQuery.fetchNextPage()}
+            type="button"
+          >
+            <span>{postsQuery.isFetchingNextPage ? "불러오는 중" : "더보기"}</span>
+            <ChevronDown aria-hidden="true" size={16} strokeWidth={1.3} />
+          </button>
+        </div>
       ) : null}
 
-      <div className="pointer-events-none fixed bottom-20 left-1/2 z-20 flex w-full max-w-[375px] -translate-x-1/2 justify-end px-5">
+      <div className="pointer-events-none fixed bottom-20 left-1/2 z-20 flex w-full max-w-[var(--app-frame-max-width)] -translate-x-1/2 justify-end px-4">
         <Link
-          aria-label="글쓰기"
-          className="pointer-events-auto inline-flex h-11 items-center gap-1 rounded-full bg-neutral-950 px-4 text-sm font-semibold text-white shadow-lg active:bg-neutral-800"
+          aria-label="리뷰쓰기"
+          className="pointer-events-auto inline-flex h-[34px] items-center justify-center gap-1 rounded-full bg-[#3399ff] px-[13px] text-sm leading-5 text-white shadow-sm active:bg-[#2186e8]"
           href="/community/write"
         >
-          <Plus aria-hidden="true" size={18} />
-          글쓰기
+          <PenLine aria-hidden="true" size={16} strokeWidth={1.3} />
+          리뷰쓰기
         </Link>
       </div>
+
+      {successMessage ? (
+        <div
+          className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-[7px] bg-neutral-950 px-4 py-3 text-sm font-semibold text-white shadow-lg"
+          role="status"
+        >
+          {successMessage}
+        </div>
+      ) : null}
+
+      <ReviewPickerDialog
+        clearLabel={pickerKind === "region" ? "지역 초기화" : "카테고리 초기화"}
+        isOpen={pickerKind !== null}
+        onClear={() => {
+          if (pickerKind === "region") {
+            setRegionSlug("");
+          } else {
+            setCategorySlug("");
+          }
+          setPickerKind(null);
+        }}
+        onClose={() => setPickerKind(null)}
+        onConfirm={(value) => {
+          if (pickerKind === "region") {
+            setRegionSlug(value);
+          } else {
+            setCategorySlug(value);
+          }
+          setPickerKind(null);
+        }}
+        options={pickerOptions}
+        title={pickerTitle}
+        value={pickerValue}
+      />
     </section>
   );
 }

@@ -4,28 +4,26 @@ export const REVIEW_OPTION_LIMITS = {
 } as const;
 
 export const GOOD_REVIEW_OPTIONS = [
-  { key: "tasty", label: "맛있게 먹었어요" },
+  { key: "tasty", label: "맛있어요" },
   { key: "generous_portion", label: "양이 많아요" },
   { key: "affordable_price", label: "저렴해요" },
-  { key: "very_delicious", label: "꿀맛인정" },
-  { key: "good_for_solo", label: "혼밥맛집" },
-  { key: "clean_store", label: "깨끗한 매장이에요" },
-  { key: "great_value", label: "가성비왕" },
-  { key: "great_pairing", label: "환상조합" },
-  { key: "impressive_taste", label: "감동의맛" },
-  { key: "must_visit", label: "맛집" },
+  { key: "very_delicious", label: "꿀맛 인정" },
+  { key: "good_for_solo", label: "혼밥 맛집" },
+  { key: "clean_store", label: "깔끔한 매장" },
+  { key: "great_value", label: "가성비 왕" },
+  { key: "great_pairing", label: "환상 조합" },
+  { key: "impressive_taste", label: "감동의 맛" },
 ] as const;
 
 export const BAD_REVIEW_OPTIONS = [
   { key: "crowded_store", label: "사람이 많아요" },
   { key: "small_portion_feeling", label: "양이 적게 느껴졌어요" },
   { key: "long_wait_time", label: "대기 시간" },
-  { key: "ordinary_taste", label: "평범한맛" },
-  { key: "no_parking", label: "주차불가" },
+  { key: "ordinary_taste", label: "평범한 맛" },
+  { key: "no_parking", label: "주차 불가" },
   { key: "mixed_preference", label: "호불호" },
   { key: "restroom_issue", label: "화장실" },
-  { key: "narrow_seat", label: "좌석협소" },
-  { key: "slow_cooking_time", label: "조리시간" },
+  { key: "narrow_seat", label: "좌석 협소" },
 ] as const;
 
 export type GoodReviewOptionKey = (typeof GOOD_REVIEW_OPTIONS)[number]["key"];

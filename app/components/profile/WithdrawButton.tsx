@@ -26,40 +26,40 @@ export default function WithdrawButton() {
   return (
     <div>
       <button
-        className="flex h-14 w-full items-center justify-between border-t border-neutral-200 px-5 text-neutral-950 active:bg-neutral-50 disabled:text-neutral-400"
+        className="flex h-14 w-full items-center justify-between border-b border-[#dbdbdb] px-4 text-[#121212] active:bg-[#f7f7f7] disabled:text-neutral-400"
         disabled={isSubmitting}
         onClick={() => setIsDialogOpen(true)}
         type="button"
       >
-        <span className="flex items-center gap-3 text-base font-semibold">
-          <UserX aria-hidden="true" size={22} strokeWidth={1.7} />
+        <span className="flex min-w-0 items-center gap-[11px] text-base font-medium leading-6">
+          <UserX aria-hidden="true" size={21} strokeWidth={1.7} />
           회원 탈퇴
         </span>
-        <ChevronRight aria-hidden="true" size={21} strokeWidth={1.7} />
+        <ChevronRight aria-hidden="true" size={19} strokeWidth={1.45} />
       </button>
 
       {isDialogOpen ? (
         <div
           aria-labelledby="withdraw-dialog-title"
           aria-modal="true"
-          className="fixed inset-y-0 left-1/2 z-50 flex w-full max-w-[375px] -translate-x-1/2 items-center justify-center bg-black/30 px-5"
+          className="fixed inset-y-0 left-1/2 z-50 flex w-full max-w-[var(--app-frame-max-width)] -translate-x-1/2 items-center justify-center bg-black/30 px-4"
           role="dialog"
         >
-          <div className="w-full max-w-[335px] overflow-hidden rounded-lg bg-white shadow-xl">
-            <div className="px-5 py-7 text-center">
+          <div className="w-full max-w-[343px] overflow-hidden rounded-lg bg-white shadow-xl">
+            <div className="px-5 pb-[22px] pt-[25px] text-center">
               <h2
-                className="text-lg font-bold text-neutral-950"
+                className="text-[19px] font-bold leading-[27px] text-[#121212]"
                 id="withdraw-dialog-title"
               >
                 {WITHDRAW_DIALOG_TITLE}
               </h2>
-              <p className="mt-3 whitespace-pre-line text-sm font-semibold leading-7 text-neutral-500">
+              <p className="mt-[9px] whitespace-pre-line text-sm font-normal leading-[22px] text-[#777777]">
                 {WITHDRAW_DIALOG_DESCRIPTION}
               </p>
             </div>
-            <div className="grid grid-cols-2">
+            <div className="grid grid-cols-2 gap-2 px-4 pb-4">
               <button
-                className="h-14 bg-neutral-100 text-base font-semibold text-neutral-950 active:bg-neutral-200 disabled:text-neutral-400"
+                className="h-12 rounded-lg bg-[#f0f0f0] text-base font-semibold text-[#121212] active:brightness-95 disabled:text-neutral-400"
                 disabled={isSubmitting}
                 onClick={() => setIsDialogOpen(false)}
                 type="button"
@@ -67,7 +67,7 @@ export default function WithdrawButton() {
                 취소
               </button>
               <button
-                className="h-14 bg-red-500 text-base font-semibold text-white active:bg-red-600 disabled:bg-red-50 disabled:text-red-300"
+                className="h-12 rounded-lg bg-[#f04452] text-base font-semibold text-white active:brightness-95 disabled:bg-red-50 disabled:text-red-300"
                 disabled={isSubmitting}
                 onClick={continueToWithdrawal}
                 type="button"

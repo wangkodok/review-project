@@ -73,12 +73,12 @@ describe("review option labels", () => {
         ["generous_portion", "unknown", "tasty"],
         new Map(GOOD_REVIEW_OPTIONS.map((option) => [option.key, option.label])),
       ),
-    ).toEqual(["양이 많아요", "맛있게 먹었어요"]);
+    ).toEqual(["양이 많아요", "맛있어요"]);
   });
 
   it("looks up labels and validates keys by review group", () => {
-    expect(getGoodPointLabel("tasty")).toBe("맛있게 먹었어요");
-    expect(getBadPointLabel("no_parking")).toBe("주차불가");
+    expect(getGoodPointLabel("tasty")).toBe("맛있어요");
+    expect(getBadPointLabel("no_parking")).toBe("주차 불가");
     expect(getReviewPointLabel("mixed_preference")).toBe("호불호");
     expect(getReviewPointLabel("unknown")).toBeNull();
     expect(isValidGoodPointKey("tasty")).toBe(true);
@@ -97,7 +97,7 @@ describe("getReviewOptionKeysByLabelSearch", () => {
   });
 
   it("finds matching good and bad review labels", () => {
-    expect(getReviewOptionKeysByLabelSearch("맛있게")).toEqual({
+    expect(getReviewOptionKeysByLabelSearch("맛있")).toEqual({
       goodPointKeys: ["tasty"],
       badPointKeys: [],
     });
@@ -116,7 +116,7 @@ describe("buildStructuredReviewContent", () => {
         badPoints: ["no_parking"],
       }),
     ).toBe(
-      "좋았던 점: 맛있게 먹었어요, 가성비왕\n아쉬웠던 점: 주차불가",
+      "좋았던 점: 맛있어요, 가성비 왕\n아쉬웠던 점: 주차 불가",
     );
   });
 });
@@ -128,5 +128,14 @@ describe("review option fixtures", () => {
     );
 
     expect(new Set(allKeys).size).toBe(allKeys.length);
+  });
+
+  it("does not expose deprecated options", () => {
+    expect(GOOD_REVIEW_OPTIONS.map((option) => option.key as string)).not.toContain(
+      "must_visit",
+    );
+    expect(BAD_REVIEW_OPTIONS.map((option) => option.key as string)).not.toContain(
+      "slow_cooking_time",
+    );
   });
 });

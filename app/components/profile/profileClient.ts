@@ -26,6 +26,22 @@ export type ProfileResponse = {
 };
 
 export const PROFILE_QUERY_KEY = ["profile"] as const;
+const activityCountFormatter = new Intl.NumberFormat("en-US");
+
+export function formatActivityCount(value: number) {
+  const normalizedValue = Math.max(0, Math.trunc(value));
+
+  if (normalizedValue < 10_000) {
+    return activityCountFormatter.format(normalizedValue);
+  }
+
+  const thousands = normalizedValue / 1_000;
+  const compactValue = Number.isInteger(thousands)
+    ? String(thousands)
+    : thousands.toFixed(1).replace(/\.0$/, "");
+
+  return `${compactValue}k`;
+}
 
 export async function fetchProfile() {
   const response = await fetch("/api/profile");

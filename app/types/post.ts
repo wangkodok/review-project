@@ -4,10 +4,17 @@ export type PostCategory = {
   slug: string;
 };
 
+export type PostRegion = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 export type CommunityPost = {
   id: string;
   title: string;
   content: string;
+  storeName: string | null;
   menuName: string;
   goodPoints: string[];
   badPoints: string[];
@@ -21,8 +28,11 @@ export type CommunityPost = {
     anonymousId: string;
   };
   category: PostCategory | null;
+  region: PostRegion | null;
   isOwner: boolean;
   requiresCategorySelection: boolean;
+  requiresRegionSelection: boolean;
+  requiresReviewCompletion: boolean;
 };
 
 export type PostsPage = {

@@ -1,21 +1,39 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/app/lib/auth/options";
+import { getActiveCategoryBySlug } from "@/app/lib/categories/service";
+import { getActiveRegionBySlug } from "@/app/lib/regions/service";
 import { normalizeSearchKeyword, searchPosts } from "@/app/lib/search/service";
 import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
+const MAX_PAGE = 10_000;
 const MAX_LIMIT = 20;
+const SORT_VALUES = ["latest", "likes", "views"] as const;
 
-function parsePositiveNumber(value: string | null, fallback: number) {
-  const parsed = Number(value);
+type SortValue = (typeof SORT_VALUES)[number];
 
-  if (!Number.isInteger(parsed) || parsed < 1) {
+function parsePositiveNumber(value: string | null, fallback: number, maximum: number) {
+  if (value === null) {
     return fallback;
   }
 
+  const parsed = Number(value);
+
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > maximum) {
+    return null;
+  }
+
   return parsed;
+}
+
+function parseSort(value: string | null): SortValue | null {
+  if (value === null) {
+    return "latest";
+  }
+
+  return SORT_VALUES.includes(value as SortValue) ? (value as SortValue) : null;
 }
 
 export async function GET(request: Request) {
@@ -44,15 +62,74 @@ export async function GET(request: Request) {
       );
     }
 
-    const page = parsePositiveNumber(searchParams.get("page"), DEFAULT_PAGE);
-    const requestedLimit = parsePositiveNumber(searchParams.get("limit"), DEFAULT_LIMIT);
-    const limit = Math.min(requestedLimit, MAX_LIMIT);
+    const page = parsePositiveNumber(searchParams.get("page"), DEFAULT_PAGE, MAX_PAGE);
+    const limit = parsePositiveNumber(searchParams.get("limit"), DEFAULT_LIMIT, MAX_LIMIT);
+    const sort = parseSort(searchParams.get("sort"));
+    const categorySlug = searchParams.get("category")?.trim() || undefined;
+    const regionSlug = searchParams.get("region")?.trim() || undefined;
+
+    if (page === null || limit === null) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: `page는 1~${MAX_PAGE}, limit은 1~${MAX_LIMIT} 사이의 정수여야 합니다.`,
+          code: "INVALID_PAGINATION",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (!sort) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택할 수 없는 정렬 방식입니다.",
+          code: "INVALID_SORT",
+        },
+        { status: 400 },
+      );
+    }
+
+    const [category, region] = await Promise.all([
+      categorySlug ? getActiveCategoryBySlug(categorySlug) : null,
+      regionSlug ? getActiveRegionBySlug(regionSlug) : null,
+    ]);
+
+    if (categorySlug && !category) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택할 수 없는 카테고리입니다.",
+          code: "INVALID_CATEGORY",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (regionSlug && !region) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택할 수 없는 지역입니다.",
+          code: "INVALID_REGION",
+        },
+        { status: 400 },
+      );
+    }
+
     const session = await getServerSession(authOptions);
     const data = await searchPosts({
       keyword,
       page,
       limit,
       currentUserId: session?.user?.id,
+      sort,
+      categoryId: category?.id,
+      regionId: region?.id,
     });
 
     return NextResponse.json({

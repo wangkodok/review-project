@@ -10,16 +10,21 @@ type EditPostPageProps = {
   params: Promise<{
     postId: string;
   }>;
+  searchParams: Promise<{
+    from?: string | string[];
+  }>;
 };
 
-export default async function EditPostPage({ params }: EditPostPageProps) {
+export default async function EditPostPage({ params, searchParams }: EditPostPageProps) {
   const { postId } = await params;
+  const { from } = await searchParams;
   const session = await getServerSession(authOptions);
+  const returnSource = from === "my-posts" ? "my-posts" : undefined;
 
   if (!session?.user?.id) {
     return (
       <section className="space-y-5">
-        <PageBackHeader title="게시글 수정" />
+        <PageBackHeader title="리뷰 수정" />
         <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
           <p className="text-sm font-semibold text-neutral-950">로그인이 필요합니다.</p>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
@@ -36,7 +41,7 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
   if (!post) {
     return (
       <section className="space-y-5">
-        <PageBackHeader title="게시글 수정" />
+        <PageBackHeader title="리뷰 수정" />
         <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
           <p className="text-sm font-semibold text-neutral-950">
             존재하지 않는 게시글입니다.
@@ -55,7 +60,7 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
   if (post.user_id !== session.user.id) {
     return (
       <section className="space-y-5">
-        <PageBackHeader title="게시글 수정" />
+        <PageBackHeader title="리뷰 수정" />
         <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
           <p className="text-sm font-semibold text-neutral-950">수정 권한이 없습니다.</p>
           <Link
@@ -70,19 +75,25 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
   }
 
   const currentCategory = Array.isArray(post.category) ? post.category[0] : post.category;
+  const currentRegion = Array.isArray(post.region) ? post.region[0] : post.region;
 
   return (
     <PostForm
       initialCategoryId={post.requiresCategorySelection ? "" : (currentCategory?.id ?? "")}
-      initialContent={post.content}
+      initialCategoryName={post.requiresCategorySelection ? "" : (currentCategory?.name ?? "")}
       initialBadPoints={post.bad_points ?? []}
       initialGoodPoints={post.good_points ?? []}
       initialMenuName={post.menu_name ?? post.title}
       initialOverallReview={post.overall_review}
-      initialTitle={post.title}
+      initialRegionId={post.requiresRegionSelection ? "" : (currentRegion?.id ?? "")}
+      initialRegionName={post.requiresRegionSelection ? "" : (currentRegion?.name ?? "")}
+      initialStoreName={post.store_name}
+      initialUpdatedAt={post.updated_at}
       mode="edit"
       postId={post.id}
       requiresCategorySelection={post.requiresCategorySelection}
+      requiresRegionSelection={post.requiresRegionSelection}
+      returnSource={returnSource}
     />
   );
 }

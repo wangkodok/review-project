@@ -79,7 +79,7 @@ describe("recordSecurityEvent", () => {
   it("records only the allowed rate-limit context", () => {
     const unsafeInput = {
       eventCode: "rate_limit_store_unavailable",
-      policy: "posts",
+      policy: "report",
       resultCode: "timeout",
       provider: "google",
       identifier: "private-request-identifier",
@@ -95,7 +95,7 @@ describe("recordSecurityEvent", () => {
       eventCode: "rate_limit_store_unavailable",
       severity: "error",
       httpStatus: 503,
-      policy: "posts",
+      policy: "report",
       resultCode: "timeout",
     });
     expect(payload).not.toHaveProperty("route");

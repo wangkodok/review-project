@@ -3,6 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   limit: vi.fn(),
   recordSecurityEvent: vi.fn(),
+  slidingWindow: vi.fn((requests: number, window: string) => ({ requests, window })),
+  limiterOptions: [] as Array<{
+    prefix: string;
+    limiter: { requests: number; window: string };
+  }>,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -11,8 +16,15 @@ vi.mock("@upstash/redis", () => ({
 }));
 vi.mock("@upstash/ratelimit", () => ({
   Ratelimit: class Ratelimit {
-    static slidingWindow() {
-      return {};
+    static slidingWindow(requests: number, window: string) {
+      return mocks.slidingWindow(requests, window);
+    }
+
+    constructor(options: {
+      prefix: string;
+      limiter: { requests: number; window: string };
+    }) {
+      mocks.limiterOptions.push(options);
     }
 
     limit = mocks.limit;
@@ -35,6 +47,8 @@ describe("enforceRateLimit security events", () => {
     );
     mocks.limit.mockReset();
     mocks.recordSecurityEvent.mockReset();
+    mocks.slidingWindow.mockClear();
+    mocks.limiterOptions.length = 0;
   });
 
   afterEach(() => {
@@ -73,5 +87,15 @@ describe("enforceRateLimit security events", () => {
       policy: "withdrawal",
       resultCode: "request_failed",
     });
+  });
+
+  it("configures review reports at five requests per ten minutes", async () => {
+    await import("./rateLimit");
+
+    expect(
+      mocks.limiterOptions.find(
+        ({ prefix }) => prefix === "food-review:production:report",
+      )?.limiter,
+    ).toEqual({ requests: 5, window: "10 m" });
   });
 });

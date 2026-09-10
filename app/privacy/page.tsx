@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import PageBackHeader from "@/app/components/common/PageBackHeader";
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 | 쓸래",
@@ -15,6 +16,11 @@ const handledInformation = [
     title: "서비스 계정과 이용 기록",
     detail:
       "내부 사용자 ID, 익명 ID, 닉네임, 게시글, 좋아요, 조회 기록, 검색어와 검색 시각을 서비스 제공과 계정 관리에 이용합니다.",
+  },
+  {
+    title: "리뷰 신고",
+    detail:
+      "신고자 식별을 위한 내부 사용자 ID, 대상 리뷰 ID, 신고 사유, 기타 선택 시 상세 내용과 접수·처리 상태·시각을 부적절한 리뷰 접수, 중복 신고 방지와 운영 검토에 이용합니다.",
   },
   {
     title: "로그인과 보안",
@@ -37,6 +43,7 @@ const retentionItems = [
   ["서비스 계정과 외부 로그인 정보", "회원 탈퇴 완료 시까지"],
   ["게시글·좋아요·조회 기록", "이용자가 삭제하거나 회원 탈퇴를 완료할 때까지"],
   ["검색 기록", "최근 5개를 유지하며 삭제 또는 회원 탈퇴 완료 시까지"],
+  ["리뷰 신고 기록", "신고자가 회원 탈퇴하거나 대상 리뷰가 삭제될 때까지"],
   ["로그인 세션", "발급 후 최대 7일 또는 로그아웃·탈퇴·만료 시까지"],
   ["회원 탈퇴 재인증 상태", "최대 10분 또는 취소·탈퇴 완료 시까지"],
   ["Rate Limit 상태", "정책에 따라 약 1분 또는 10분"],
@@ -61,7 +68,7 @@ const externalServices = [
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-lg font-bold tracking-normal text-neutral-950">
+    <h2 className="text-base font-normal leading-8 text-[#303030]">
       {children}
     </h2>
   );
@@ -69,36 +76,40 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export default function PrivacyPage() {
   return (
-    <article className="space-y-10 pb-2 text-sm leading-7 text-neutral-700">
-      <header className="space-y-3">
-        <p className="text-xs font-semibold text-neutral-500">
-          시행일 2026년 8월 23일
-        </p>
-        <p>
-          쓸래(익명 리뷰 서비스)는 서비스 제공에 필요한 범위에서만
-          개인정보를 처리하고 안전하게 관리하기 위해 다음과 같이
-          개인정보처리방침을 공개합니다.
+    <>
+      <PageBackHeader
+        backIconStrokeWidth={1.25}
+        fullHeightActions
+        title="개인정보 처리방침"
+        titleClassName="text-base font-normal leading-6 text-[#121212]"
+      />
+
+      <article className="-mx-1 -mb-24 pb-10 pt-[18px] text-base font-normal leading-8 text-[#303030]">
+      <header>
+        <p>개인정보 처리방침 (시행일 2026년 09월 09일)</p>
+        <p className="mt-8">
+          쓸래(익명 리뷰 서비스)는 서비스 제공에 필요한 범위에서만 개인정보를
+          처리하고 안전하게 관리하기 위해 다음과 같이 개인정보처리방침을
+          공개합니다.
         </p>
       </header>
 
-      <section className="space-y-4">
+      <section className="mt-8">
         <SectionTitle>1. 운영 주체와 문의처</SectionTitle>
-        <dl className="divide-y divide-neutral-100 border-y border-neutral-100">
-          <div className="py-3">
-            <dt className="font-semibold text-neutral-900">운영자</dt>
-            <dd>쓸래(익명 리뷰 서비스) 운영자</dd>
+        <dl className="mt-1">
+          <div>
+            <dt className="inline">운영자: </dt>
+            <dd className="inline">쓸래(익명 리뷰 서비스) 운영자</dd>
           </div>
-          <div className="py-3">
-            <dt className="font-semibold text-neutral-900">
-              개인정보 보호 및 고충처리 담당
-            </dt>
-            <dd>쓸래 개발자</dd>
+          <div>
+            <dt className="inline">개인정보 보호 및 고충처리 담당: </dt>
+            <dd className="inline">쓸래 개발자</dd>
           </div>
-          <div className="py-3">
-            <dt className="font-semibold text-neutral-900">문의 이메일</dt>
-            <dd>
+          <div>
+            <dt className="inline">문의 이메일: </dt>
+            <dd className="inline">
               <a
-                className="underline decoration-neutral-300 underline-offset-4"
+                className="underline decoration-[#777777] underline-offset-4"
                 href="mailto:sseullae@gmail.com"
               >
                 sseullae@gmail.com
@@ -108,81 +119,82 @@ export default function PrivacyPage() {
         </dl>
       </section>
 
-      <section className="space-y-4">
+      <section className="mt-8">
         <SectionTitle>2. 처리하는 개인정보와 목적</SectionTitle>
-        <div className="divide-y divide-neutral-100 border-y border-neutral-100">
+        <div className="mt-1 space-y-6">
           {handledInformation.map((item) => (
-            <div className="py-4" key={item.title}>
-              <h3 className="font-semibold text-neutral-900">{item.title}</h3>
-              <p className="mt-1">{item.detail}</p>
+            <div key={item.title}>
+              <h3 className="font-normal">{item.title}</h3>
+              <p>{item.detail}</p>
             </div>
           ))}
         </div>
-        <p>
-          서비스는 Google·Kakao 비밀번호를 수집하거나 저장하지 않습니다.
-          Rate Limit 처리 시 원본 IP 대신 서버 비밀값으로 만든 HMAC 식별자를
-          저장하며, Kakao 감사 기록에는 Provider 계정 ID, 이메일, 내부 사용자
-          ID와 OAuth 토큰을 저장하지 않습니다.
+        <p className="mt-6">
+          서비스는 Google·Kakao 비밀번호를 수집하거나 저장하지 않습니다. Rate
+          Limit 처리 시 원본 IP 대신 서버 비밀값으로 만든 HMAC 식별자를 저장하며,
+          Kakao 감사 기록에는 Provider 계정 ID, 이메일, 내부 사용자 ID와 OAuth
+          토큰을 저장하지 않습니다.
         </p>
       </section>
 
-      <section className="space-y-4">
+      <section className="mt-8">
         <SectionTitle>3. 보유기간과 삭제</SectionTitle>
-        <dl className="divide-y divide-neutral-100 border-y border-neutral-100">
+        <dl className="mt-1 space-y-6">
           {retentionItems.map(([name, period]) => (
-            <div className="py-3" key={name}>
-              <dt className="font-semibold text-neutral-900">{name}</dt>
+            <div key={name}>
+              <dt>{name}</dt>
               <dd>{period}</dd>
             </div>
           ))}
         </dl>
-        <p>
+        <p className="mt-6">
           회원 탈퇴가 완료되면 Google 또는 Kakao 연결을 해제하고 내부 계정과
-          연결된 게시글, 좋아요, 조회 기록과 검색 기록을 삭제합니다. 관계
-          법령에 따라 별도 보존이 필요한 정보가 생기면 항목, 근거와 기간을 이
-          방침에 추가합니다.
+          연결된 게시글, 좋아요, 조회 기록, 검색 기록과 신고 기록을 삭제합니다.
+          대상 리뷰가 삭제되면 해당 리뷰에 접수된 신고 기록도 함께 삭제합니다.
+          관계 법령에 따라 별도 보존이 필요한 정보가 생기면 항목, 근거와 기간을
+          이 방침에 추가합니다.
         </p>
       </section>
 
-      <section className="space-y-4">
+      <section className="mt-8">
         <SectionTitle>4. 외부 서비스 이용과 국외 처리</SectionTitle>
         <p>
-          서비스는 운영을 위해 아래 외부 서비스를 이용합니다. 각 제공자의
-          인프라 운영에 따라 실제 처리 위치가 추가되거나 변경될 수 있습니다.
+          서비스는 운영을 위해 아래 외부 서비스를 이용합니다. 각 제공자의 인프라
+          운영에 따라 실제 처리 위치가 추가되거나 변경될 수 있습니다.
         </p>
-        <dl className="divide-y divide-neutral-100 border-y border-neutral-100">
+        <dl className="mt-6 space-y-6">
           {externalServices.map(([service, purpose, region]) => (
-            <div className="py-4" key={service}>
-              <dt className="font-semibold text-neutral-900">{service}</dt>
-              <dd className="mt-1">{purpose}</dd>
-              <dd className="text-xs leading-5 text-neutral-500">{region}</dd>
+            <div key={service}>
+              <dt>{service}</dt>
+              <dd>{purpose}</dd>
+              <dd>{region}</dd>
             </div>
           ))}
         </dl>
-        <p>
+        <p className="mt-6">
           서비스는 이용자의 개인정보를 판매하지 않으며 법령상 근거 또는
           이용자의 동의 없이 제3자에게 제공하지 않습니다.
         </p>
       </section>
 
-      <section className="space-y-3">
+      <section className="mt-8">
         <SectionTitle>5. 이용자의 권리</SectionTitle>
-        <p>
+        <p className="mt-1">
           이용자는 프로필 조회·수정, 검색 기록과 게시글 삭제, 회원 탈퇴 기능을
           이용할 수 있으며 개인정보 열람·정정·삭제·처리정지를 요청할 수
           있습니다. 서비스 기능으로 처리하기 어려운 요청은
           sseullae@gmail.com으로 접수해 주세요.
         </p>
-        <p>
+        <p className="mt-6">
           로그아웃 상태의 민감한 요청에는 현재 로그인 Provider를 통한 재인증이
           필요할 수 있습니다. 서비스는 이메일로 비밀번호, OAuth 토큰, 세션
           값이나 신분증 사본을 요구하지 않습니다.
         </p>
       </section>
 
-      <section className="space-y-3">
+      <section className="mt-8">
         <SectionTitle>6. 쿠키</SectionTitle>
-        <p>
+        <p className="mt-1">
           서비스는 로그인 유지, OAuth 요청 보호, CSRF 방지와 회원 탈퇴
           재인증을 위해 쿠키를 사용합니다. 브라우저에서 쿠키를 삭제하거나
           차단할 수 있지만 로그인과 회원 탈퇴 등 일부 기능이 동작하지 않을 수
@@ -190,35 +202,39 @@ export default function PrivacyPage() {
         </p>
       </section>
 
-      <section className="space-y-3">
+      <section className="mt-8">
         <SectionTitle>7. 안전성 확보조치</SectionTitle>
-        <p>
+        <p className="mt-1">
           브라우저의 직접 DB 접근 차단, 서버 전용 DB 권한, 역할별 최소 권한,
           HTTPS, 인증·소유권 검사, Rate Limit, 원자적 DB 처리와 비밀값의
           클라이언트 노출 방지 등 필요한 보호조치를 적용합니다.
         </p>
       </section>
 
-      <section className="space-y-3">
+      <section className="mt-8">
         <SectionTitle>8. 만 14세 미만 이용자</SectionTitle>
-        <p>
+        <p className="mt-1">
           서비스는 현재 만 14세 미만을 대상으로 제공하지 않으며 연령을 별도로
           수집하지 않습니다. 법정대리인 동의와 확인 절차가 마련되기 전까지 만
           14세 미만은 가입하거나 이용하지 말아 주세요.
         </p>
       </section>
 
-      <section className="space-y-3">
+      <section className="mt-8">
         <SectionTitle>9. 방침의 변경</SectionTitle>
-        <p>
+        <p className="mt-1">
           이 방침이 변경되면 적용 전에 서비스에서 변경 내용과 시행일을
           안내합니다.
         </p>
-        <ul className="text-neutral-600">
-          <li>공고일: 2026년 8월 23일</li>
-          <li>시행일: 2026년 8월 23일</li>
+        <ul className="mt-6">
+          <li>최초 공고일·시행일: 2026년 8월 23일</li>
+          <li>최종 개정일·시행일: 2026년 9월 9일</li>
+          <li>
+            주요 변경 내용: 리뷰 신고 정보의 처리 항목·목적·보유 기준 추가
+          </li>
         </ul>
       </section>
-    </article>
+      </article>
+    </>
   );
 }

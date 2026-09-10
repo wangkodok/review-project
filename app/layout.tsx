@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 import Header from "./components/layout/Header";
 import BottomTab from "./components/layout/BottomTab";
@@ -42,18 +42,10 @@ export default function RootLayout({
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full">
         <QueryProvider>
-          <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
+          <div className="mx-auto flex min-h-dvh w-full max-w-[var(--app-frame-max-width)] flex-col bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
             <Header />
             <main className="flex flex-1 flex-col px-5 pb-24 pt-5">
               <div className="flex-1">{children}</div>
-              <footer className="mt-10 border-t border-neutral-100 pt-5 text-center">
-                <Link
-                  className="text-xs font-medium text-neutral-500 underline decoration-neutral-300 underline-offset-4 active:text-neutral-900"
-                  href="/privacy"
-                >
-                  개인정보처리방침
-                </Link>
-              </footer>
             </main>
             <BottomTab />
           </div>

@@ -56,20 +56,27 @@ export default function LikeButton({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="contents">
       <button
         aria-pressed={isLiked}
-        className={`inline-flex items-center gap-1 text-sm font-semibold disabled:opacity-60 ${
-          isLiked ? "text-neutral-950" : "text-neutral-500"
+        className={`inline-flex min-h-11 items-center gap-1 whitespace-nowrap text-sm font-normal disabled:opacity-60 ${
+          isLiked ? "text-[#3399ff]" : "text-[#777777]"
         }`}
         disabled={isPending}
         onClick={handleClick}
         type="button"
       >
-        <ThumbsUp aria-hidden="true" fill={isLiked ? "currentColor" : "none"} size={18} />
-        {likeCount}
+        <ThumbsUp
+          aria-hidden="true"
+          fill={isLiked ? "currentColor" : "none"}
+          size={18}
+          strokeWidth={1.8}
+        />
+        {likeCount.toLocaleString("ko-KR")}
       </button>
-      {message ? <p className="text-sm font-medium text-neutral-500">{message}</p> : null}
+      {message ? (
+        <p className="w-full pb-3 text-sm font-normal text-[#686868]">{message}</p>
+      ) : null}
     </div>
   );
 }

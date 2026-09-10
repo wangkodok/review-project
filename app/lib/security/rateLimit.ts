@@ -13,6 +13,9 @@ export type RateLimitPolicy =
   | "auth"
   | "like"
   | "posts"
+  | "report"
+  | "reviewCreate"
+  | "reviewManage"
   | "search"
   | "withdrawal";
 
@@ -52,6 +55,9 @@ const limiters: Record<RateLimitPolicy, Ratelimit | null> = {
   auth: createLimiter("auth", 10, "10 m"),
   like: createLimiter("like", 20, "1 m"),
   posts: createLimiter("posts", 60, "1 m"),
+  report: createLimiter("report", 5, "10 m"),
+  reviewCreate: createLimiter("reviewCreate", 5, "10 m"),
+  reviewManage: createLimiter("reviewManage", 20, "10 m"),
   search: createLimiter("search", 30, "1 m"),
   withdrawal: createLimiter("withdrawal", 20, "10 m"),
 };

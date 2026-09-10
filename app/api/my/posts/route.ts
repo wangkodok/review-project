@@ -5,13 +5,18 @@ import { getMyPosts } from "@/app/lib/posts/service";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
+const MAX_PAGE = 10_000;
 const MAX_LIMIT = 50;
 
-function parsePositiveNumber(value: string | null, defaultValue: number) {
+function parsePositiveNumber(value: string | null, defaultValue: number, maximum: number) {
+  if (value === null) {
+    return defaultValue;
+  }
+
   const parsedValue = Number(value);
 
-  if (!Number.isInteger(parsedValue) || parsedValue < 1) {
-    return defaultValue;
+  if (!Number.isSafeInteger(parsedValue) || parsedValue < 1 || parsedValue > maximum) {
+    return null;
   }
 
   return parsedValue;
@@ -34,9 +39,25 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parsePositiveNumber(searchParams.get("page"), DEFAULT_PAGE);
-    const requestedLimit = parsePositiveNumber(searchParams.get("limit"), DEFAULT_LIMIT);
-    const limit = Math.min(requestedLimit, MAX_LIMIT);
+    const page = parsePositiveNumber(
+      searchParams.get("page"),
+      DEFAULT_PAGE,
+      MAX_PAGE,
+    );
+    const limit = parsePositiveNumber(searchParams.get("limit"), DEFAULT_LIMIT, MAX_LIMIT);
+
+    if (page === null || limit === null) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: `page는 1~${MAX_PAGE}, limit은 1~${MAX_LIMIT} 사이의 정수여야 합니다.`,
+          code: "INVALID_PAGINATION",
+        },
+        { status: 400 },
+      );
+    }
+
     const data = await getMyPosts({
       userId: session.user.id,
       page,

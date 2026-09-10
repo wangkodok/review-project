@@ -1,15 +1,10 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { BAD_REVIEW_OPTIONS, GOOD_REVIEW_OPTIONS } from "@/app/constants/reviewOptions";
 import { authOptions } from "@/app/lib/auth/options";
 import { deletePost, getPostDetail, updatePost } from "@/app/lib/posts/service";
-import {
-  buildStructuredReviewContent,
-  MENU_NAME_MAX_LENGTH,
-  MENU_NAME_MIN_LENGTH,
-  normalizeOverallReview,
-  parseReviewPointKeys,
-} from "@/app/lib/posts/structuredReview";
+import { isUuid, parseReviewWriteInput } from "@/app/lib/posts/reviewInput";
+import { buildStructuredReviewContent } from "@/app/lib/posts/structuredReview";
+import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
 
 type RouteContext = {
   params: Promise<{
@@ -17,14 +12,31 @@ type RouteContext = {
   }>;
 };
 
-const TITLE_MIN_LENGTH = 2;
-const TITLE_MAX_LENGTH = 50;
-const CONTENT_MIN_LENGTH = 10;
-const CONTENT_MAX_LENGTH = 3000;
-
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   try {
+    const rateLimitResponse = await enforceRateLimit({
+      identifier: getRequestIp(request),
+      policy: "posts",
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const { postId } = await context.params;
+
+    if (!isUuid(postId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "리뷰 주소를 확인해 주세요.",
+          code: "INVALID_POST_ID",
+        },
+        { status: 400 },
+      );
+    }
+
     const session = await getServerSession(authOptions);
     const post = await getPostDetail(postId, session?.user?.id);
 
@@ -33,7 +45,7 @@ export async function GET(_request: Request, context: RouteContext) {
         {
           success: false,
           data: null,
-          message: "존재하지 않는 게시글입니다.",
+          message: "삭제되었거나 존재하지 않는 리뷰입니다.",
           code: "POST_NOT_FOUND",
         },
         { status: 404 },
@@ -43,14 +55,14 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({
       success: true,
       data: { post },
-      message: "게시글을 조회했습니다.",
+      message: "리뷰를 조회했습니다.",
     });
   } catch {
     return NextResponse.json(
       {
         success: false,
         data: null,
-        message: "게시글을 불러오지 못했습니다.",
+        message: "리뷰를 불러오지 못했습니다.",
         code: "INTERNAL_SERVER_ERROR",
       },
       { status: 500 },
@@ -75,128 +87,77 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const { postId } = await context.params;
-    const body = (await request.json()) as {
-      title?: unknown;
-      content?: unknown;
-      categoryId?: unknown;
-      menuName?: unknown;
-      goodPoints?: unknown;
-      badPoints?: unknown;
-      overallReview?: unknown;
-    };
-    const categoryId =
-      body.categoryId === undefined
-        ? undefined
-        : typeof body.categoryId === "string"
-          ? body.categoryId.trim()
-          : "";
-    const isStructuredReviewRequest =
-      body.menuName !== undefined ||
-      body.goodPoints !== undefined ||
-      body.badPoints !== undefined ||
-      body.overallReview !== undefined;
-    let title = typeof body.title === "string" ? body.title.trim() : "";
-    let content = typeof body.content === "string" ? body.content.trim() : "";
-    let menuName: string | undefined;
-    let goodPoints: string[] | undefined;
-    let badPoints: string[] | undefined;
-    let overallReview: string | null | undefined;
 
-    if (isStructuredReviewRequest) {
-      menuName = typeof body.menuName === "string" ? body.menuName.trim() : "";
-      goodPoints = parseReviewPointKeys(body.goodPoints, GOOD_REVIEW_OPTIONS) ?? undefined;
-      badPoints = parseReviewPointKeys(body.badPoints, BAD_REVIEW_OPTIONS) ?? undefined;
-      const normalizedOverallReview = normalizeOverallReview(body.overallReview);
-
-      if (menuName.length < MENU_NAME_MIN_LENGTH || menuName.length > MENU_NAME_MAX_LENGTH) {
-        return NextResponse.json(
-          {
-            success: false,
-            data: null,
-            message: "메뉴 이름은 2~50자여야 합니다.",
-            code: "INVALID_MENU_NAME",
-          },
-          { status: 400 },
-        );
-      }
-
-      if (!goodPoints) {
-        return NextResponse.json(
-          {
-            success: false,
-            data: null,
-            message: "좋았던 점은 1~3개 선택해야 합니다.",
-            code: "INVALID_GOOD_POINTS",
-          },
-          { status: 400 },
-        );
-      }
-
-      if (!badPoints) {
-        return NextResponse.json(
-          {
-            success: false,
-            data: null,
-            message: "아쉬웠던 점은 1~3개 선택해야 합니다.",
-            code: "INVALID_BAD_POINTS",
-          },
-          { status: 400 },
-        );
-      }
-
-      if (normalizedOverallReview === false) {
-        return NextResponse.json(
-          {
-            success: false,
-            data: null,
-            message: "남기고 싶은 한마디는 300자 이하여야 합니다.",
-            code: "INVALID_OVERALL_REVIEW",
-          },
-          { status: 400 },
-        );
-      }
-
-      overallReview =
-        normalizedOverallReview === undefined ? undefined : normalizedOverallReview;
-
-      title = menuName;
-      content = buildStructuredReviewContent({ goodPoints, badPoints });
-    }
-
-    if (title.length < TITLE_MIN_LENGTH || title.length > TITLE_MAX_LENGTH) {
+    if (!isUuid(postId)) {
       return NextResponse.json(
         {
           success: false,
           data: null,
-          message: "제목은 2~50자여야 합니다.",
-          code: "INVALID_TITLE",
+          message: "리뷰 주소를 확인해 주세요.",
+          code: "INVALID_POST_ID",
         },
         { status: 400 },
       );
     }
 
-    if (content.length < CONTENT_MIN_LENGTH || content.length > CONTENT_MAX_LENGTH) {
+    const rateLimitResponse = await enforceRateLimit({
+      identifier: session.user.id,
+      policy: "reviewManage",
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
         {
           success: false,
           data: null,
-          message: "내용은 10~3000자여야 합니다.",
-          code: "INVALID_CONTENT",
+          message: "요청 내용을 확인해 주세요.",
+          code: "INVALID_REQUEST",
         },
         { status: 400 },
       );
     }
+
+    const parsed = parseReviewWriteInput(body, { requireUpdatedAt: true });
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: parsed.error.message,
+          code: parsed.error.code,
+        },
+        { status: 400 },
+      );
+    }
+
+    const review = parsed.data;
+    const content = buildStructuredReviewContent({
+      goodPoints: review.goodPoints,
+      badPoints: review.badPoints,
+    });
 
     const result = await updatePost({
       postId,
       userId: session.user.id,
-      title,
+      storeName: review.storeName,
+      regionId: review.regionId,
+      title: review.menuName,
       content,
-      categoryId,
-      menuName,
-      goodPoints,
-      badPoints,
-      overallReview,
+      categoryId: review.categoryId,
+      menuName: review.menuName,
+      goodPoints: review.goodPoints,
+      badPoints: review.badPoints,
+      overallReview: review.overallReview,
+      expectedUpdatedAt: review.expectedUpdatedAt!,
     });
 
     if (result.status === "not_found") {
@@ -204,7 +165,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         {
           success: false,
           data: null,
-          message: "존재하지 않는 게시글입니다.",
+          message: "삭제되었거나 존재하지 않는 리뷰입니다.",
           code: "POST_NOT_FOUND",
         },
         { status: 404 },
@@ -216,7 +177,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         {
           success: false,
           data: null,
-          message: "수정 권한이 없습니다.",
+          message: "해당 리뷰는 수정할 수 없습니다.",
           code: "FORBIDDEN",
         },
         { status: 403 },
@@ -228,10 +189,34 @@ export async function PATCH(request: Request, context: RouteContext) {
         {
           success: false,
           data: null,
-          message: "카테고리를 선택해주세요.",
+          message: "선택할 수 없는 카테고리입니다.",
           code: "INVALID_CATEGORY",
         },
         { status: 400 },
+      );
+    }
+
+    if (result.status === "invalid_region") {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택할 수 없는 지역입니다.",
+          code: "INVALID_REGION",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (result.status === "conflict") {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "리뷰가 다른 곳에서 변경되었습니다. 최신 내용을 다시 확인해 주세요.",
+          code: "REVIEW_CONFLICT",
+        },
+        { status: 409 },
       );
     }
 
@@ -240,16 +225,17 @@ export async function PATCH(request: Request, context: RouteContext) {
       data: {
         post: {
           id: result.post.id,
+          updatedAt: result.post.updatedAt,
         },
       },
-      message: "게시글이 수정되었습니다.",
+      message: "리뷰가 수정되었습니다.",
     });
   } catch {
     return NextResponse.json(
       {
         success: false,
         data: null,
-        message: "게시글 수정에 실패했습니다.",
+        message: "리뷰를 수정하지 못했습니다. 잠시 후 다시 시도해 주세요.",
         code: "INTERNAL_SERVER_ERROR",
       },
       { status: 500 },
@@ -274,6 +260,28 @@ export async function DELETE(_request: Request, context: RouteContext) {
     }
 
     const { postId } = await context.params;
+
+    if (!isUuid(postId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "리뷰 주소를 확인해 주세요.",
+          code: "INVALID_POST_ID",
+        },
+        { status: 400 },
+      );
+    }
+
+    const rateLimitResponse = await enforceRateLimit({
+      identifier: session.user.id,
+      policy: "reviewManage",
+    });
+
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const result = await deletePost({
       postId,
       userId: session.user.id,
@@ -284,7 +292,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
         {
           success: false,
           data: null,
-          message: "존재하지 않는 게시글입니다.",
+          message: "삭제되었거나 존재하지 않는 리뷰입니다.",
           code: "POST_NOT_FOUND",
         },
         { status: 404 },
@@ -296,7 +304,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
         {
           success: false,
           data: null,
-          message: "삭제 권한이 없습니다.",
+          message: "해당 리뷰는 삭제할 수 없습니다.",
           code: "FORBIDDEN",
         },
         { status: 403 },
@@ -306,14 +314,14 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({
       success: true,
       data: null,
-      message: "게시글이 삭제되었습니다.",
+      message: "리뷰가 삭제되었습니다.",
     });
   } catch {
     return NextResponse.json(
       {
         success: false,
         data: null,
-        message: "게시글 삭제에 실패했습니다.",
+        message: "리뷰를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
         code: "INTERNAL_SERVER_ERROR",
       },
       { status: 500 },

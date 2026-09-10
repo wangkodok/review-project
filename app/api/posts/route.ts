@@ -1,25 +1,17 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { BAD_REVIEW_OPTIONS, GOOD_REVIEW_OPTIONS } from "@/app/constants/reviewOptions";
 import { authOptions } from "@/app/lib/auth/options";
 import { getActiveCategoryBySlug } from "@/app/lib/categories/service";
 import { createPost, getPosts } from "@/app/lib/posts/service";
+import { parseReviewWriteInput } from "@/app/lib/posts/reviewInput";
+import { getActiveRegionBySlug } from "@/app/lib/regions/service";
 import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
-import {
-  buildStructuredReviewContent,
-  MENU_NAME_MAX_LENGTH,
-  MENU_NAME_MIN_LENGTH,
-  normalizeOverallReview,
-  parseReviewPointKeys,
-} from "@/app/lib/posts/structuredReview";
+import { buildStructuredReviewContent } from "@/app/lib/posts/structuredReview";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
-const MAX_LIMIT = 100;
-const TITLE_MIN_LENGTH = 2;
-const TITLE_MAX_LENGTH = 50;
-const CONTENT_MIN_LENGTH = 10;
-const CONTENT_MAX_LENGTH = 3000;
+const MAX_PAGE = 10_000;
+const MAX_LIMIT = 20;
 const SORT_VALUES = ["latest", "likes", "views"] as const;
 
 type SortValue = (typeof SORT_VALUES)[number];
@@ -38,12 +30,12 @@ function parsePositiveNumber(value: string | null, fallback: number, maximum?: n
   return parsed;
 }
 
-function parseSort(value: string | null): SortValue {
-  if (value && SORT_VALUES.includes(value as SortValue)) {
-    return value as SortValue;
+function parseSort(value: string | null): SortValue | null {
+  if (value === null) {
+    return "latest";
   }
 
-  return "latest";
+  return SORT_VALUES.includes(value as SortValue) ? (value as SortValue) : null;
 }
 
 export async function GET(request: Request) {
@@ -58,7 +50,7 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parsePositiveNumber(searchParams.get("page"), DEFAULT_PAGE);
+    const page = parsePositiveNumber(searchParams.get("page"), DEFAULT_PAGE, MAX_PAGE);
     const limit = parsePositiveNumber(searchParams.get("limit"), DEFAULT_LIMIT, MAX_LIMIT);
 
     if (page === null || limit === null) {
@@ -66,7 +58,7 @@ export async function GET(request: Request) {
         {
           success: false,
           data: null,
-          message: `page는 1 이상의 정수, limit은 1~${MAX_LIMIT} 사이의 정수여야 합니다.`,
+          message: `page는 1~${MAX_PAGE}, limit은 1~${MAX_LIMIT} 사이의 정수여야 합니다.`,
           code: "INVALID_PAGINATION",
         },
         { status: 400 },
@@ -75,7 +67,36 @@ export async function GET(request: Request) {
     const search = searchParams.get("search")?.trim() ?? "";
     const sort = parseSort(searchParams.get("sort"));
     const categorySlug = searchParams.get("category")?.trim() || undefined;
-    const category = categorySlug ? await getActiveCategoryBySlug(categorySlug) : null;
+    const regionSlug = searchParams.get("region")?.trim() || undefined;
+
+    if (search.length > 30) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "검색어는 30자 이하여야 합니다.",
+          code: "INVALID_SEARCH_KEYWORD",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (!sort) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택할 수 없는 정렬 방식입니다.",
+          code: "INVALID_SORT",
+        },
+        { status: 400 },
+      );
+    }
+
+    const [category, region] = await Promise.all([
+      categorySlug ? getActiveCategoryBySlug(categorySlug) : null,
+      regionSlug ? getActiveRegionBySlug(regionSlug) : null,
+    ]);
 
     if (categorySlug && !category) {
       return NextResponse.json(
@@ -89,6 +110,18 @@ export async function GET(request: Request) {
       );
     }
 
+    if (regionSlug && !region) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택할 수 없는 지역입니다.",
+          code: "INVALID_REGION",
+        },
+        { status: 400 },
+      );
+    }
+
     const session = await getServerSession(authOptions);
     const data = await getPosts({
       page,
@@ -97,6 +130,7 @@ export async function GET(request: Request) {
       sort,
       currentUserId: session?.user?.id,
       categoryId: category?.id,
+      regionId: region?.id,
     });
 
     return NextResponse.json({
@@ -133,121 +167,62 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json()) as {
-      title?: unknown;
-      content?: unknown;
-      categoryId?: unknown;
-      menuName?: unknown;
-      goodPoints?: unknown;
-      badPoints?: unknown;
-      overallReview?: unknown;
-    };
-    const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : "";
-    const isStructuredReviewRequest =
-      body.menuName !== undefined ||
-      body.goodPoints !== undefined ||
-      body.badPoints !== undefined ||
-      body.overallReview !== undefined;
-    let title = typeof body.title === "string" ? body.title.trim() : "";
-    let content = typeof body.content === "string" ? body.content.trim() : "";
-    let menuName: string | undefined;
-    let goodPoints: string[] | undefined;
-    let badPoints: string[] | undefined;
-    let overallReview: string | null | undefined;
+    const rateLimitResponse = await enforceRateLimit({
+      identifier: session.user.id,
+      policy: "reviewCreate",
+    });
 
-    if (isStructuredReviewRequest) {
-      menuName = typeof body.menuName === "string" ? body.menuName.trim() : "";
-      goodPoints = parseReviewPointKeys(body.goodPoints, GOOD_REVIEW_OPTIONS) ?? undefined;
-      badPoints = parseReviewPointKeys(body.badPoints, BAD_REVIEW_OPTIONS) ?? undefined;
-      const normalizedOverallReview = normalizeOverallReview(body.overallReview);
-
-      if (menuName.length < MENU_NAME_MIN_LENGTH || menuName.length > MENU_NAME_MAX_LENGTH) {
-        return NextResponse.json(
-          {
-            success: false,
-            data: null,
-            message: "메뉴 이름은 2~50자여야 합니다.",
-            code: "INVALID_MENU_NAME",
-          },
-          { status: 400 },
-        );
-      }
-
-      if (!goodPoints) {
-        return NextResponse.json(
-          {
-            success: false,
-            data: null,
-            message: "좋았던 점은 1~3개 선택해야 합니다.",
-            code: "INVALID_GOOD_POINTS",
-          },
-          { status: 400 },
-        );
-      }
-
-      if (!badPoints) {
-        return NextResponse.json(
-          {
-            success: false,
-            data: null,
-            message: "아쉬웠던 점은 1~3개 선택해야 합니다.",
-            code: "INVALID_BAD_POINTS",
-          },
-          { status: 400 },
-        );
-      }
-
-      if (normalizedOverallReview === false) {
-        return NextResponse.json(
-          {
-            success: false,
-            data: null,
-            message: "남기고 싶은 한마디는 300자 이하여야 합니다.",
-            code: "INVALID_OVERALL_REVIEW",
-          },
-          { status: 400 },
-        );
-      }
-
-      overallReview = normalizedOverallReview ?? null;
-
-      title = menuName;
-      content = buildStructuredReviewContent({ goodPoints, badPoints });
+    if (rateLimitResponse) {
+      return rateLimitResponse;
     }
 
-    if (title.length < TITLE_MIN_LENGTH || title.length > TITLE_MAX_LENGTH) {
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
         {
           success: false,
           data: null,
-          message: "제목은 2~50자여야 합니다.",
-          code: "INVALID_TITLE",
+          message: "요청 내용을 확인해 주세요.",
+          code: "INVALID_REQUEST",
         },
         { status: 400 },
       );
     }
 
-    if (content.length < CONTENT_MIN_LENGTH || content.length > CONTENT_MAX_LENGTH) {
+    const parsed = parseReviewWriteInput(body);
+
+    if (!parsed.success) {
       return NextResponse.json(
         {
           success: false,
           data: null,
-          message: "내용은 10~3000자여야 합니다.",
-          code: "INVALID_CONTENT",
+          message: parsed.error.message,
+          code: parsed.error.code,
         },
         { status: 400 },
       );
     }
+
+    const review = parsed.data;
+    const content = buildStructuredReviewContent({
+      goodPoints: review.goodPoints,
+      badPoints: review.badPoints,
+    });
 
     const post = await createPost({
       userId: session.user.id,
-      title,
+      storeName: review.storeName,
+      regionId: review.regionId,
+      title: review.menuName,
       content,
-      categoryId,
-      menuName,
-      goodPoints,
-      badPoints,
-      overallReview,
+      categoryId: review.categoryId,
+      menuName: review.menuName,
+      goodPoints: review.goodPoints,
+      badPoints: review.badPoints,
+      overallReview: review.overallReview,
     });
 
     if (post.status === "invalid_category") {
@@ -255,8 +230,20 @@ export async function POST(request: Request) {
         {
           success: false,
           data: null,
-          message: "카테고리를 선택해주세요.",
+          message: "선택할 수 없는 카테고리입니다.",
           code: "INVALID_CATEGORY",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (post.status === "invalid_region") {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택할 수 없는 지역입니다.",
+          code: "INVALID_REGION",
         },
         { status: 400 },
       );
@@ -266,7 +253,7 @@ export async function POST(request: Request) {
       {
         success: true,
         data: { post: post.post },
-        message: "게시글이 등록되었습니다.",
+        message: "리뷰가 저장되었습니다.",
       },
       { status: 201 },
     );
@@ -275,7 +262,7 @@ export async function POST(request: Request) {
       {
         success: false,
         data: null,
-        message: "게시글 등록에 실패했습니다.",
+        message: "리뷰를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
         code: "INTERNAL_SERVER_ERROR",
       },
       { status: 500 },

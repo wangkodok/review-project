@@ -12,7 +12,7 @@ export default function CategoryReselectionDialog({
   return (
     <div
       aria-modal="true"
-      className="fixed inset-y-0 left-1/2 z-50 flex w-full max-w-[375px] -translate-x-1/2 items-center justify-center bg-black/40 px-5"
+      className="fixed inset-y-0 left-1/2 z-50 flex w-full max-w-[var(--app-frame-max-width)] -translate-x-1/2 items-center justify-center bg-black/40 px-5"
       role="dialog"
     >
       <div className="w-full max-w-[335px] rounded-lg bg-white p-5 shadow-xl">
