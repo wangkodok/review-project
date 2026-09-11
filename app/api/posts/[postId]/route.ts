@@ -98,7 +98,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           message: "리뷰 주소를 확인해 주세요.",
           code: "INVALID_POST_ID",
         },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -123,7 +123,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           message: "요청 내용을 확인해 주세요.",
           code: "INVALID_REQUEST",
         },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -137,7 +137,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           message: parsed.error.message,
           code: parsed.error.code,
         },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -182,7 +182,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           message: "해당 리뷰는 수정할 수 없습니다.",
           code: "FORBIDDEN",
         },
-        { status: 403 },
+        { status: 403, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -194,7 +194,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           message: "선택할 수 없는 카테고리입니다.",
           code: "INVALID_CATEGORY",
         },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -206,7 +206,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           message: "선택할 수 없는 지역입니다.",
           code: "INVALID_REGION",
         },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -271,7 +271,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
           message: "리뷰 주소를 확인해 주세요.",
           code: "INVALID_POST_ID",
         },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -309,7 +309,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
           message: "해당 리뷰는 삭제할 수 없습니다.",
           code: "FORBIDDEN",
         },
-        { status: 403 },
+        { status: 403, headers: NO_STORE_HEADERS },
       );
     }
 

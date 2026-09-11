@@ -87,6 +87,22 @@ describe("PATCH /api/posts/[postId]", () => {
     expect((await response.json()).code).toBe("REVIEW_CONFLICT");
   });
 
+  it("returns a non-cacheable response when a user does not own the review", async () => {
+    mocks.updatePost.mockResolvedValue({ status: "forbidden" });
+    const response = await PATCH(
+      new Request(`http://localhost/api/posts/${POST_ID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewBody()),
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect((await response.json()).code).toBe("FORBIDDEN");
+  });
+
   it("updates a valid owned review with the expected timestamp", async () => {
     const response = await PATCH(
       new Request(`http://localhost/api/posts/${POST_ID}`, {
@@ -128,6 +144,7 @@ describe("DELETE /api/posts/[postId]", () => {
     );
 
     expect(response.status).toBe(403);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(await response.json()).toMatchObject({
       code: "FORBIDDEN",
       message: "해당 리뷰는 삭제할 수 없습니다.",

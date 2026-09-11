@@ -78,7 +78,17 @@ describe("POST /api/posts", () => {
     const response = await POST(postRequest("{"));
 
     expect(response.status).toBe(400);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect((await response.json()).code).toBe("INVALID_REQUEST");
+    expect(mocks.createPost).not.toHaveBeenCalled();
+  });
+
+  it("returns a non-cacheable 400 response for invalid review input", async () => {
+    const response = await POST(postRequest(JSON.stringify({})));
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect((await response.json()).code).toBe("INVALID_STORE_NAME");
     expect(mocks.createPost).not.toHaveBeenCalled();
   });
 
@@ -88,6 +98,7 @@ describe("POST /api/posts", () => {
     );
 
     expect(response.status).toBe(400);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect((await response.json()).code).toBe("INVALID_BAD_POINTS");
     expect(mocks.createPost).not.toHaveBeenCalled();
   });

@@ -189,7 +189,7 @@ export async function POST(request: Request) {
           message: "요청 내용을 확인해 주세요.",
           code: "INVALID_REQUEST",
         },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -203,7 +203,7 @@ export async function POST(request: Request) {
           message: parsed.error.message,
           code: parsed.error.code,
         },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -234,7 +234,7 @@ export async function POST(request: Request) {
           message: "선택할 수 없는 카테고리입니다.",
           code: "INVALID_CATEGORY",
         },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -246,7 +246,7 @@ export async function POST(request: Request) {
           message: "선택할 수 없는 지역입니다.",
           code: "INVALID_REGION",
         },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
