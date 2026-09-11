@@ -68,6 +68,7 @@ describe("POST /api/posts", () => {
     const response = await POST(postRequest(JSON.stringify(reviewBody())));
 
     expect(response.status).toBe(401);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect((await response.json()).code).toBe("UNAUTHORIZED");
     expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
     expect(mocks.createPost).not.toHaveBeenCalled();

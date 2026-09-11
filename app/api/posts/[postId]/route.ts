@@ -12,6 +12,8 @@ type RouteContext = {
   }>;
 };
 
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
 export async function GET(request: Request, context: RouteContext) {
   try {
     const rateLimitResponse = await enforceRateLimit({
@@ -82,7 +84,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           message: "로그인이 필요합니다.",
           code: "UNAUTHORIZED",
         },
-        { status: 401 },
+        { status: 401, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -255,7 +257,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
           message: "로그인이 필요합니다.",
           code: "UNAUTHORIZED",
         },
-        { status: 401 },
+        { status: 401, headers: NO_STORE_HEADERS },
       );
     }
 

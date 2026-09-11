@@ -13,6 +13,7 @@ const DEFAULT_LIMIT = 10;
 const MAX_PAGE = 10_000;
 const MAX_LIMIT = 20;
 const SORT_VALUES = ["latest", "likes", "views"] as const;
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
 type SortValue = (typeof SORT_VALUES)[number];
 
@@ -163,7 +164,7 @@ export async function POST(request: Request) {
           message: "로그인이 필요합니다.",
           code: "UNAUTHORIZED",
         },
-        { status: 401 },
+        { status: 401, headers: NO_STORE_HEADERS },
       );
     }
 

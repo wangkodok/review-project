@@ -54,6 +54,24 @@ describe("PATCH /api/posts/[postId]", () => {
     });
   });
 
+  it("returns a non-cacheable response for an unauthenticated request", async () => {
+    mocks.getServerSession.mockResolvedValue(null);
+    const response = await PATCH(
+      new Request(`http://localhost/api/posts/${POST_ID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewBody()),
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect((await response.json()).code).toBe("UNAUTHORIZED");
+    expect(mocks.updatePost).not.toHaveBeenCalled();
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
+  });
+
   it("returns 409 when another edit won the optimistic lock", async () => {
     mocks.updatePost.mockResolvedValue({ status: "conflict" });
     const response = await PATCH(
@@ -124,6 +142,7 @@ describe("DELETE /api/posts/[postId]", () => {
     );
 
     expect(response.status).toBe(401);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(mocks.deletePost).not.toHaveBeenCalled();
     expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
   });
