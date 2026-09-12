@@ -204,7 +204,9 @@ export default function ReviewListControls({
           <button
             aria-expanded={isSortMenuOpen}
             aria-haspopup="menu"
-            className="flex h-10 items-center gap-[5px] whitespace-nowrap text-base text-[#121212]"
+            className={`flex h-10 items-center gap-[5px] whitespace-nowrap text-base text-[#121212] ${
+              isSortMenuOpen ? "relative z-40" : ""
+            }`}
             onClick={() => setIsSortMenuOpen((current) => !current)}
             ref={sortTriggerRef}
             type="button"

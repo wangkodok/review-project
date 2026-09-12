@@ -9,6 +9,7 @@ type ReviewConfirmDialogProps = {
   cancelLabel: string;
   confirmLabel: string;
   tone?: "primary" | "danger";
+  compact?: boolean;
   isPending?: boolean;
   pendingLabel?: string;
   errorMessage?: string;
@@ -23,6 +24,7 @@ export default function ReviewConfirmDialog({
   cancelLabel,
   confirmLabel,
   tone = "primary",
+  compact = false,
   isPending = false,
   pendingLabel,
   errorMessage,
@@ -72,7 +74,9 @@ export default function ReviewConfirmDialog({
           {title}
         </h2>
         <p
-          className="mt-2.5 min-h-[46px] whitespace-pre-line text-base leading-[1.55] text-neutral-500"
+          className={`mt-2.5 whitespace-pre-line text-base leading-[1.55] text-neutral-500 ${
+            compact ? "" : "min-h-[46px]"
+          }`}
           id={descriptionId}
         >
           {description}
@@ -85,18 +89,18 @@ export default function ReviewConfirmDialog({
             {errorMessage}
           </p>
         ) : null}
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className={`${compact ? "mt-3" : "mt-4"} grid grid-cols-2 gap-2`}>
           <button
-            className="h-[52px] rounded-[7px] bg-neutral-100 text-base font-bold text-neutral-950 active:bg-neutral-200 disabled:text-neutral-400"
+            className={`${compact ? "h-12" : "h-[52px]"} rounded-[7px] bg-neutral-100 text-base text-neutral-950 active:bg-neutral-200 disabled:text-neutral-400`}
             disabled={isPending}
             onClick={onCancel}
             ref={cancelButtonRef}
             type="button"
           >
-            {cancelLabel}
+            <span className="font-bold">{cancelLabel}</span>
           </button>
           <button
-            className={`h-[52px] rounded-[7px] text-base font-bold text-white disabled:bg-neutral-300 ${
+            className={`${compact ? "h-12" : "h-[52px]"} rounded-[7px] text-base text-white disabled:bg-neutral-300 ${
               tone === "danger"
                 ? "bg-[#f44250] active:bg-[#dc3543]"
                 : "bg-[#3399ff] active:bg-[#2186e8]"
@@ -105,7 +109,9 @@ export default function ReviewConfirmDialog({
             onClick={onConfirm}
             type="button"
           >
-            {isPending ? (pendingLabel ?? confirmLabel) : confirmLabel}
+            <span className="font-bold">
+              {isPending ? (pendingLabel ?? confirmLabel) : confirmLabel}
+            </span>
           </button>
         </div>
       </div>
