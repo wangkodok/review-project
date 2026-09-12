@@ -7,6 +7,8 @@ import {
   recordSearchHistory,
 } from "@/app/lib/search/histories";
 
+const PRIVATE_NO_STORE_HEADERS = { "Cache-Control": "private, no-store" };
+
 function unauthorizedResponse() {
   return NextResponse.json(
     {
@@ -15,7 +17,7 @@ function unauthorizedResponse() {
       message: "로그인이 필요합니다.",
       code: "UNAUTHORIZED",
     },
-    { status: 401 },
+    { status: 401, headers: PRIVATE_NO_STORE_HEADERS },
   );
 }
 
@@ -29,11 +31,14 @@ export async function GET() {
 
     const histories = await getSearchHistories(session.user.id);
 
-    return NextResponse.json({
-      success: true,
-      data: { histories },
-      message: "최근 검색어를 조회했습니다.",
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: { histories },
+        message: "최근 검색어를 조회했습니다.",
+      },
+      { headers: PRIVATE_NO_STORE_HEADERS },
+    );
   } catch {
     return NextResponse.json(
       {
@@ -42,7 +47,7 @@ export async function GET() {
         message: "최근 검색어를 불러오지 못했습니다.",
         code: "INTERNAL_SERVER_ERROR",
       },
-      { status: 500 },
+      { status: 500, headers: PRIVATE_NO_STORE_HEADERS },
     );
   }
 }
@@ -66,7 +71,7 @@ export async function POST(request: Request) {
           message: "검색어는 1~30자여야 합니다.",
           code: "INVALID_SEARCH_KEYWORD",
         },
-        { status: 400 },
+        { status: 400, headers: PRIVATE_NO_STORE_HEADERS },
       );
     }
 
@@ -76,7 +81,7 @@ export async function POST(request: Request) {
         data: null,
         message: "최근 검색어를 저장했습니다.",
       },
-      { status: 201 },
+      { status: 201, headers: PRIVATE_NO_STORE_HEADERS },
     );
   } catch {
     return NextResponse.json(
@@ -86,7 +91,7 @@ export async function POST(request: Request) {
         message: "최근 검색어 저장에 실패했습니다.",
         code: "INTERNAL_SERVER_ERROR",
       },
-      { status: 500 },
+      { status: 500, headers: PRIVATE_NO_STORE_HEADERS },
     );
   }
 }
@@ -101,11 +106,14 @@ export async function DELETE() {
 
     await clearSearchHistories(session.user.id);
 
-    return NextResponse.json({
-      success: true,
-      data: null,
-      message: "최근 검색어를 모두 삭제했습니다.",
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: null,
+        message: "최근 검색어를 모두 삭제했습니다.",
+      },
+      { headers: PRIVATE_NO_STORE_HEADERS },
+    );
   } catch {
     return NextResponse.json(
       {
@@ -114,7 +122,7 @@ export async function DELETE() {
         message: "최근 검색어 삭제에 실패했습니다.",
         code: "INTERNAL_SERVER_ERROR",
       },
-      { status: 500 },
+      { status: 500, headers: PRIVATE_NO_STORE_HEADERS },
     );
   }
 }

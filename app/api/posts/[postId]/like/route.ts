@@ -10,6 +10,8 @@ type RouteContext = {
   }>;
 };
 
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
 export async function POST(_request: Request, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
@@ -22,7 +24,7 @@ export async function POST(_request: Request, context: RouteContext) {
           message: "로그인이 필요합니다.",
           code: "UNAUTHORIZED",
         },
-        { status: 401 },
+        { status: 401, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -49,18 +51,21 @@ export async function POST(_request: Request, context: RouteContext) {
           message: "존재하지 않는 게시글입니다.",
           code: "POST_NOT_FOUND",
         },
-        { status: 404 },
+        { status: 404, headers: NO_STORE_HEADERS },
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        liked: result.liked,
-        likeCount: result.likeCount,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          liked: result.liked,
+          likeCount: result.likeCount,
+        },
+        message: result.liked ? "좋아요를 눌렀습니다." : "좋아요를 취소했습니다.",
       },
-      message: result.liked ? "좋아요를 눌렀습니다." : "좋아요를 취소했습니다.",
-    });
+      { headers: NO_STORE_HEADERS },
+    );
   } catch {
     return NextResponse.json(
       {
@@ -69,7 +74,7 @@ export async function POST(_request: Request, context: RouteContext) {
         message: "좋아요 처리에 실패했습니다.",
         code: "INTERNAL_SERVER_ERROR",
       },
-      { status: 500 },
+      { status: 500, headers: NO_STORE_HEADERS },
     );
   }
 }

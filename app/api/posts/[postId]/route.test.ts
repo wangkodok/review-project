@@ -21,7 +21,7 @@ vi.mock("@/app/lib/security/rateLimit", () => ({
   getRequestIp: mocks.getRequestIp,
 }));
 
-import { DELETE, PATCH } from "./route";
+import { DELETE, GET, PATCH } from "./route";
 
 const POST_ID = "33333333-3333-4333-8333-333333333333";
 const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -42,6 +42,67 @@ function reviewBody() {
     updatedAt: UPDATED_AT,
   };
 }
+
+describe("GET /api/posts/[postId]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getRequestIp.mockReturnValue("request-ip");
+    mocks.enforceRateLimit.mockResolvedValue(null);
+    mocks.getServerSession.mockResolvedValue({ user: { id: USER_ID } });
+    mocks.getPostDetail.mockResolvedValue({ id: POST_ID });
+  });
+
+  it("returns the shared rate limit response before storage access", async () => {
+    mocks.enforceRateLimit.mockResolvedValue(
+      Response.json({ success: false, code: "RATE_LIMIT_EXCEEDED" }, { status: 429 }),
+    );
+
+    const response = await GET(
+      new Request(`http://localhost/api/posts/${POST_ID}`),
+      context,
+    );
+
+    expect(response.status).toBe(429);
+    expect(mocks.getPostDetail).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid review id before session and storage access", async () => {
+    const response = await GET(new Request("http://localhost/api/posts/invalid"), {
+      params: Promise.resolve({ postId: "invalid" }),
+    });
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("INVALID_POST_ID");
+    expect(mocks.getServerSession).not.toHaveBeenCalled();
+    expect(mocks.getPostDetail).not.toHaveBeenCalled();
+  });
+
+  it("passes the authenticated user to the detail service", async () => {
+    const response = await GET(
+      new Request(`http://localhost/api/posts/${POST_ID}`),
+      context,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      success: true,
+      data: { post: { id: POST_ID } },
+    });
+    expect(mocks.getPostDetail).toHaveBeenCalledWith(POST_ID, USER_ID);
+  });
+
+  it("maps a missing review to the public 404 contract", async () => {
+    mocks.getPostDetail.mockResolvedValue(null);
+
+    const response = await GET(
+      new Request(`http://localhost/api/posts/${POST_ID}`),
+      context,
+    );
+
+    expect(response.status).toBe(404);
+    expect((await response.json()).code).toBe("POST_NOT_FOUND");
+  });
+});
 
 describe("PATCH /api/posts/[postId]", () => {
   beforeEach(() => {

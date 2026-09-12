@@ -9,6 +9,8 @@ type RouteContext = {
   }>;
 };
 
+const PRIVATE_NO_STORE_HEADERS = { "Cache-Control": "private, no-store" };
+
 function unauthorizedResponse() {
   return NextResponse.json(
     {
@@ -17,7 +19,7 @@ function unauthorizedResponse() {
       message: "로그인이 필요합니다.",
       code: "UNAUTHORIZED",
     },
-    { status: 401 },
+    { status: 401, headers: PRIVATE_NO_STORE_HEADERS },
   );
 }
 
@@ -40,15 +42,18 @@ export async function DELETE(_request: Request, context: RouteContext) {
           message: "최근 검색어를 찾을 수 없습니다.",
           code: "SEARCH_HISTORY_NOT_FOUND",
         },
-        { status: 404 },
+        { status: 404, headers: PRIVATE_NO_STORE_HEADERS },
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: null,
-      message: "최근 검색어를 삭제했습니다.",
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: null,
+        message: "최근 검색어를 삭제했습니다.",
+      },
+      { headers: PRIVATE_NO_STORE_HEADERS },
+    );
   } catch {
     return NextResponse.json(
       {
@@ -57,7 +62,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
         message: "최근 검색어 삭제에 실패했습니다.",
         code: "INTERNAL_SERVER_ERROR",
       },
-      { status: 500 },
+      { status: 500, headers: PRIVATE_NO_STORE_HEADERS },
     );
   }
 }

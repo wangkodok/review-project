@@ -7,6 +7,7 @@ const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
 const MAX_PAGE = 10_000;
 const MAX_LIMIT = 50;
+const PRIVATE_NO_STORE_HEADERS = { "Cache-Control": "private, no-store" };
 
 function parsePositiveNumber(value: string | null, defaultValue: number, maximum: number) {
   if (value === null) {
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
           message: "로그인이 필요합니다.",
           code: "UNAUTHORIZED",
         },
-        { status: 401 },
+        { status: 401, headers: PRIVATE_NO_STORE_HEADERS },
       );
     }
 
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
           message: `page는 1~${MAX_PAGE}, limit은 1~${MAX_LIMIT} 사이의 정수여야 합니다.`,
           code: "INVALID_PAGINATION",
         },
-        { status: 400 },
+        { status: 400, headers: PRIVATE_NO_STORE_HEADERS },
       );
     }
 
@@ -64,11 +65,14 @@ export async function GET(request: Request) {
       limit,
     });
 
-    return NextResponse.json({
-      success: true,
-      data,
-      message: "내가 작성한 게시글 목록을 조회했습니다.",
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data,
+        message: "내가 작성한 게시글 목록을 조회했습니다.",
+      },
+      { headers: PRIVATE_NO_STORE_HEADERS },
+    );
   } catch {
     return NextResponse.json(
       {
@@ -77,7 +81,7 @@ export async function GET(request: Request) {
         message: "내가 작성한 게시글을 불러오지 못했습니다.",
         code: "INTERNAL_SERVER_ERROR",
       },
-      { status: 500 },
+      { status: 500, headers: PRIVATE_NO_STORE_HEADERS },
     );
   }
 }
