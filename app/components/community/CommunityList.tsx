@@ -3,7 +3,8 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ChevronDown, PenLine } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReviewWriteLoginDialog from "@/app/components/auth/ReviewWriteLoginDialog";
 import type { PostCategory, PostRegion, PostsPage } from "@/app/types/post";
 import PostRows from "./PostRows";
 import ReviewListControls, {
@@ -96,6 +97,8 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
   const [pickerKind, setPickerKind] = useState<PickerKind>(null);
   const [deletedPostIds, setDeletedPostIds] = useState<Set<string>>(() => new Set());
   const [successMessage, setSuccessMessage] = useState("");
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
+  const reviewWriteButtonRef = useRef<HTMLButtonElement>(null);
   const categoriesQuery = useQuery({
     queryKey: ["categories"],
     queryFn: fetchCategories,
@@ -153,6 +156,13 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
     setRegionSlug("");
     setCategorySlug("");
   }
+
+  const closeLoginDialog = useCallback(() => {
+    setIsLoginDialogOpen(false);
+    window.requestAnimationFrame(() => {
+      reviewWriteButtonRef.current?.focus({ preventScroll: true });
+    });
+  }, []);
 
   const pickerOptions = (
     pickerKind === "region" ? regionsQuery.data ?? [] : categoriesQuery.data ?? []
@@ -255,14 +265,27 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
       ) : null}
 
       <div className="pointer-events-none fixed bottom-20 left-1/2 z-20 flex w-full max-w-[var(--app-frame-max-width)] -translate-x-1/2 justify-end px-4">
-        <Link
-          aria-label="리뷰쓰기"
-          className="pointer-events-auto inline-flex h-[34px] items-center justify-center gap-1 rounded-full bg-[#3399ff] px-[13px] text-sm leading-5 text-white shadow-sm active:bg-[#2186e8]"
-          href="/community/write"
-        >
-          <PenLine aria-hidden="true" size={16} strokeWidth={1.3} />
-          리뷰쓰기
-        </Link>
+        {isAuthenticated ? (
+          <Link
+            aria-label="리뷰쓰기"
+            className="pointer-events-auto inline-flex h-[34px] items-center justify-center gap-1 rounded-full bg-[#3399ff] px-[13px] text-sm leading-5 text-white shadow-sm active:bg-[#2186e8]"
+            href="/community/write"
+          >
+            <PenLine aria-hidden="true" size={16} strokeWidth={1.3} />
+            리뷰쓰기
+          </Link>
+        ) : (
+          <button
+            aria-label="리뷰쓰기"
+            className="pointer-events-auto inline-flex h-[34px] items-center justify-center gap-1 rounded-full bg-[#3399ff] px-[13px] text-sm leading-5 text-white shadow-sm active:bg-[#2186e8]"
+            onClick={() => setIsLoginDialogOpen(true)}
+            ref={reviewWriteButtonRef}
+            type="button"
+          >
+            <PenLine aria-hidden="true" size={16} strokeWidth={1.3} />
+            리뷰쓰기
+          </button>
+        )}
       </div>
 
       {successMessage ? (
@@ -297,6 +320,11 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
         options={pickerOptions}
         title={pickerTitle}
         value={pickerValue}
+      />
+
+      <ReviewWriteLoginDialog
+        isOpen={isLoginDialogOpen}
+        onClose={closeLoginDialog}
       />
     </section>
   );

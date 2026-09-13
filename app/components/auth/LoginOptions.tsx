@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { LoaderCircle, RotateCcw } from "lucide-react";
+import { LoaderCircle, MessageCircle, RotateCcw } from "lucide-react";
 import { getProviders, signIn } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -17,6 +17,7 @@ type LoginProviderId = (typeof LOGIN_PROVIDER_ORDER)[number];
 type LoginOptionsProps = {
   callbackUrl?: string;
   className?: string;
+  variant?: "default" | "my-guest" | "review-write-dialog";
 };
 
 function getSafeCallbackUrl(callbackUrl: string) {
@@ -30,6 +31,7 @@ function getSafeCallbackUrl(callbackUrl: string) {
 export default function LoginOptions({
   callbackUrl = "/my",
   className = "",
+  variant = "default",
 }: LoginOptionsProps) {
   const [availableProviders, setAvailableProviders] = useState<
     LoginProviderId[] | null
@@ -43,6 +45,9 @@ export default function LoginOptions({
     () => getSafeCallbackUrl(callbackUrl),
     [callbackUrl],
   );
+  const isMyGuestVariant = variant === "my-guest";
+  const isReviewWriteDialogVariant = variant === "review-write-dialog";
+  const isKoreanVariant = isMyGuestVariant || isReviewWriteDialogVariant;
 
   useEffect(() => {
     let isCancelled = false;
@@ -99,6 +104,90 @@ export default function LoginOptions({
     setRequestVersion((currentVersion) => currentVersion + 1);
   }
 
+  const googleLoginButton = availableProviders?.includes("google") ? (
+    <button
+      aria-label={isKoreanVariant ? "구글 로그인" : "Google로 로그인"}
+      className={
+        isKoreanVariant
+          ? `relative flex w-full items-center justify-center border border-[#dbdbdb] bg-white px-12 text-base font-medium leading-6 text-[#121212] active:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 ${
+              isReviewWriteDialogVariant
+                ? "h-14 rounded-[8px]"
+                : "h-[52px] rounded-[4px]"
+            }`
+          : "relative flex aspect-[20/3] w-full items-center justify-center rounded-xl border border-[#747775] bg-white px-12 text-sm font-semibold text-[#1f1f1f] active:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+      }
+      disabled={activeProvider !== null}
+      onClick={() => void handleSignIn("google")}
+      type="button"
+    >
+      <Image
+        alt=""
+        className={`absolute ${
+          isReviewWriteDialogVariant
+            ? "left-4 h-[18px] w-[18px]"
+            : `h-5 w-5 ${isKoreanVariant ? "left-4" : "left-3"}`
+        }`}
+        height={20}
+        src="/auth/google-g-logo.png"
+        width={20}
+      />
+      <span>
+        {activeProvider === "google"
+          ? "로그인 중"
+          : isKoreanVariant
+            ? "구글 로그인"
+            : "Google로 로그인"}
+      </span>
+    </button>
+  ) : null;
+
+  const kakaoLoginButton = availableProviders?.includes("kakao") ? (
+    <button
+      aria-label="카카오 로그인"
+      className={
+        isReviewWriteDialogVariant
+          ? "relative flex h-14 w-full items-center justify-center rounded-[8px] bg-[#fee500] px-12 text-base font-medium leading-6 text-[#121212] active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+          : isKoreanVariant
+            ? "relative h-[52px] w-full overflow-hidden rounded-[4px] active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+          : "relative aspect-[20/3] w-full overflow-hidden rounded-xl active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+      }
+      disabled={activeProvider !== null}
+      onClick={() => void handleSignIn("kakao")}
+      type="button"
+    >
+      {isReviewWriteDialogVariant ? (
+        <>
+          <MessageCircle
+            aria-hidden="true"
+            className="absolute left-4 h-[21px] w-[21px] fill-current"
+            strokeWidth={2}
+          />
+          <span>
+            {activeProvider === "kakao" ? "로그인 중" : "카카오 로그인"}
+          </span>
+        </>
+      ) : (
+        <>
+          <Image
+            alt=""
+            className="object-cover"
+            fill
+            priority
+            sizes={
+              isKoreanVariant
+                ? "(max-width: 480px) calc(100vw - 32px), 448px"
+                : "(max-width: 430px) calc(100vw - 40px), 335px"
+            }
+            src="/auth/kakao-login-large-wide.png"
+          />
+          <span className="sr-only">
+            {activeProvider === "kakao" ? "로그인 중" : "카카오 로그인"}
+          </span>
+        </>
+      )}
+    </button>
+  ) : null;
+
   return (
     <div className={className}>
       {availableProviders === null ? (
@@ -107,7 +196,15 @@ export default function LoginOptions({
           className="space-y-2"
           role="status"
         >
-          <div className="flex aspect-[20/3] w-full items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50">
+          <div
+            className={`flex w-full items-center justify-center border border-neutral-200 bg-neutral-50 ${
+              isReviewWriteDialogVariant
+                ? "h-14 rounded-[8px]"
+                : isMyGuestVariant
+                  ? "h-[52px] rounded-[4px]"
+                  : "aspect-[20/3] rounded-xl"
+            }`}
+          >
             <LoaderCircle
               aria-hidden="true"
               className="animate-spin text-neutral-400"
@@ -115,54 +212,22 @@ export default function LoginOptions({
               strokeWidth={1.8}
             />
           </div>
-          <div className="aspect-[20/3] w-full rounded-xl bg-neutral-100" />
+          <div
+            className={`w-full bg-neutral-100 ${
+              isReviewWriteDialogVariant
+                ? "h-14 rounded-[8px]"
+                : isMyGuestVariant
+                  ? "h-[52px] rounded-[4px]"
+                  : "aspect-[20/3] rounded-xl"
+            }`}
+          />
         </div>
       ) : null}
 
       {availableProviders && availableProviders.length > 0 ? (
-        <div className="space-y-2">
-          {availableProviders.includes("google") ? (
-            <button
-              aria-label="Google로 로그인"
-              className="relative flex aspect-[20/3] w-full items-center justify-center rounded-xl border border-[#747775] bg-white px-12 text-sm font-semibold text-[#1f1f1f] active:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={activeProvider !== null}
-              onClick={() => void handleSignIn("google")}
-              type="button"
-            >
-              <Image
-                alt=""
-                className="absolute left-3 h-5 w-5"
-                height={20}
-                src="/auth/google-g-logo.png"
-                width={20}
-              />
-              <span>
-                {activeProvider === "google" ? "로그인 중" : "Google로 로그인"}
-              </span>
-            </button>
-          ) : null}
-
-          {availableProviders.includes("kakao") ? (
-            <button
-              aria-label="카카오 로그인"
-              className="relative aspect-[20/3] w-full overflow-hidden rounded-xl active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={activeProvider !== null}
-              onClick={() => void handleSignIn("kakao")}
-              type="button"
-            >
-              <Image
-                alt=""
-                className="object-cover"
-                fill
-                priority
-                sizes="(max-width: 430px) calc(100vw - 40px), 335px"
-                src="/auth/kakao-login-large-wide.png"
-              />
-              <span className="sr-only">
-                {activeProvider === "kakao" ? "로그인 중" : "카카오 로그인"}
-              </span>
-            </button>
-          ) : null}
+        <div className="flex flex-col gap-2">
+          {isKoreanVariant ? kakaoLoginButton : googleLoginButton}
+          {isKoreanVariant ? googleLoginButton : kakaoLoginButton}
         </div>
       ) : null}
 
@@ -186,16 +251,18 @@ export default function LoginOptions({
         </div>
       ) : null}
 
-      <p className="mt-4 text-center text-xs leading-5 text-neutral-500">
-        로그인 전에{" "}
-        <Link
-          className="font-semibold text-neutral-700 underline decoration-neutral-300 underline-offset-4 active:text-neutral-950"
-          href="/privacy"
-        >
-          개인정보처리방침
-        </Link>
-        을 확인해 주세요.
-      </p>
+      {!isKoreanVariant ? (
+        <p className="mt-4 text-center text-xs leading-5 text-neutral-500">
+          로그인 전에{" "}
+          <Link
+            className="font-semibold text-neutral-700 underline decoration-neutral-300 underline-offset-4 active:text-neutral-950"
+            href="/privacy"
+          >
+            개인정보처리방침
+          </Link>
+          을 확인해 주세요.
+        </p>
+      ) : null}
     </div>
   );
 }

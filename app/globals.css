@@ -52,6 +52,15 @@ select {
   font: inherit;
 }
 
+.app-shell:has(.guest-login-screen) > header,
+.app-shell:has(.guest-login-screen) > nav {
+  display: none;
+}
+
+.app-shell:has(.guest-login-screen) > main {
+  padding: 0;
+}
+
 @keyframes review-list-skeleton-shimmer {
   from {
     transform: translateX(-100%);
