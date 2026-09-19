@@ -98,4 +98,14 @@ describe("enforceRateLimit security events", () => {
       )?.limiter,
     ).toEqual({ requests: 5, window: "10 m" });
   });
+
+  it("configures review image uploads at five requests per ten minutes", async () => {
+    await import("./rateLimit");
+
+    expect(
+      mocks.limiterOptions.find(
+        ({ prefix }) => prefix === "food-review:production:reviewImageUpload",
+      )?.limiter,
+    ).toEqual({ requests: 5, window: "10 m" });
+  });
 });

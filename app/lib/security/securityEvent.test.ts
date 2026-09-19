@@ -102,4 +102,59 @@ describe("recordSecurityEvent", () => {
     expect(payload).not.toHaveProperty("provider");
     expect(payload).not.toHaveProperty("identifier");
   });
+
+  it("records review image cleanup failures without private identifiers", () => {
+    const unsafeInput = {
+      eventCode: "review_image_storage_failed",
+      resultCode: "cleanup_queue_failed",
+      userId: "private-user-id",
+      imageId: "private-image-id",
+      objectKey: "private-object-key",
+      error: "private-storage-detail",
+    } as unknown as SecurityEventInput;
+
+    recordSecurityEvent(unsafeInput);
+
+    const payload = JSON.parse(
+      vi.mocked(console.error).mock.calls[0][0] as string,
+    );
+
+    expect(payload).toEqual({
+      schemaVersion: 1,
+      timestamp: "2026-08-26T01:02:03.000Z",
+      eventCode: "review_image_storage_failed",
+      severity: "error",
+      environment: "test",
+      route: "/api/review-images",
+      httpStatus: 503,
+      resultCode: "cleanup_queue_failed",
+    });
+  });
+
+  it("records only a bounded cleanup worker result", () => {
+    const unsafeInput = {
+      eventCode: "review_image_cleanup_failed",
+      resultCode: "job_completion_failed",
+      jobId: "private-job-id",
+      objectKey: "private-object-key",
+      error: "private-storage-detail",
+    } as unknown as SecurityEventInput;
+
+    recordSecurityEvent(unsafeInput);
+
+    const payload = JSON.parse(
+      vi.mocked(console.error).mock.calls[0][0] as string,
+    );
+
+    expect(payload).toEqual({
+      schemaVersion: 1,
+      timestamp: "2026-08-26T01:02:03.000Z",
+      eventCode: "review_image_cleanup_failed",
+      severity: "error",
+      environment: "test",
+      route: "/api/internal/review-images/cleanup",
+      httpStatus: 503,
+      resultCode: "job_completion_failed",
+    });
+  });
 });

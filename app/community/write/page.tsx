@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import GuestLoginScreen from "@/app/components/auth/GuestLoginScreen";
 import PostForm from "@/app/components/community/PostForm";
 import { authOptions } from "@/app/lib/auth/options";
+import { isReviewImageUploadEnabled } from "@/app/lib/reviewImages/config";
 
 export default async function WritePostPage() {
   const session = await getServerSession(authOptions);
@@ -10,5 +11,5 @@ export default async function WritePostPage() {
     return <GuestLoginScreen />;
   }
 
-  return <PostForm />;
+  return <PostForm imageUploadEnabled={isReviewImageUploadEnabled()} />;
 }

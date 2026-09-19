@@ -5,6 +5,7 @@ import PageBackHeader from "@/app/components/common/PageBackHeader";
 import PostForm from "@/app/components/community/PostForm";
 import { authOptions } from "@/app/lib/auth/options";
 import { getPostForEdit } from "@/app/lib/posts/service";
+import { isReviewImageUploadEnabled } from "@/app/lib/reviewImages/config";
 
 type EditPostPageProps = {
   params: Promise<{
@@ -79,6 +80,8 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
 
   return (
     <PostForm
+      imageUploadEnabled={isReviewImageUploadEnabled()}
+      initialImage={post.image}
       initialCategoryId={post.requiresCategorySelection ? "" : (currentCategory?.id ?? "")}
       initialCategoryName={post.requiresCategorySelection ? "" : (currentCategory?.name ?? "")}
       initialBadPoints={post.bad_points ?? []}

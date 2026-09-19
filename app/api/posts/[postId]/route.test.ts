@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   deletePost: vi.fn(),
   enforceRateLimit: vi.fn(),
   getRequestIp: vi.fn(),
+  isReviewImageUploadEnabled: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: mocks.getServerSession }));
@@ -20,6 +21,9 @@ vi.mock("@/app/lib/security/rateLimit", () => ({
   enforceRateLimit: mocks.enforceRateLimit,
   getRequestIp: mocks.getRequestIp,
 }));
+vi.mock("@/app/lib/reviewImages/config", () => ({
+  isReviewImageUploadEnabled: mocks.isReviewImageUploadEnabled,
+}));
 
 import { DELETE, GET, PATCH } from "./route";
 
@@ -28,9 +32,10 @@ const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const REGION_ID = "11111111-1111-4111-8111-111111111111";
 const CATEGORY_ID = "22222222-2222-4222-8222-222222222222";
 const UPDATED_AT = "2026-09-07T12:00:00.000Z";
+const IMAGE_ID = "44444444-4444-4444-8444-444444444444";
 const context = { params: Promise.resolve({ postId: POST_ID }) };
 
-function reviewBody() {
+function reviewBody(overrides: Record<string, unknown> = {}) {
   return {
     storeName: "냉면과고기집",
     menuName: "물냉면",
@@ -40,6 +45,7 @@ function reviewBody() {
     badPoints: ["long_wait_time"],
     overallReview: null,
     updatedAt: UPDATED_AT,
+    ...overrides,
   };
 }
 
@@ -48,6 +54,7 @@ describe("GET /api/posts/[postId]", () => {
     vi.clearAllMocks();
     mocks.getRequestIp.mockReturnValue("request-ip");
     mocks.enforceRateLimit.mockResolvedValue(null);
+    mocks.isReviewImageUploadEnabled.mockReturnValue(true);
     mocks.getServerSession.mockResolvedValue({ user: { id: USER_ID } });
     mocks.getPostDetail.mockResolvedValue({ id: POST_ID });
   });
@@ -109,6 +116,7 @@ describe("PATCH /api/posts/[postId]", () => {
     vi.clearAllMocks();
     mocks.getServerSession.mockResolvedValue({ user: { id: USER_ID } });
     mocks.enforceRateLimit.mockResolvedValue(null);
+    mocks.isReviewImageUploadEnabled.mockReturnValue(true);
     mocks.updatePost.mockResolvedValue({
       status: "ok",
       post: { id: POST_ID, updatedAt: "2026-09-07T12:01:00.000Z" },
@@ -180,12 +188,105 @@ describe("PATCH /api/posts/[postId]", () => {
         postId: POST_ID,
         userId: USER_ID,
         expectedUpdatedAt: UPDATED_AT,
+        imageAction: "keep",
+        imageId: null,
       }),
     );
     expect(mocks.enforceRateLimit).toHaveBeenCalledWith({
       identifier: USER_ID,
       policy: "reviewManage",
     });
+  });
+
+  it.each([
+    [null, "remove", null],
+    [IMAGE_ID, "replace", IMAGE_ID],
+  ])("maps imageId %s to the %s action", async (imageId, imageAction, expectedId) => {
+    const response = await PATCH(
+      new Request(`http://localhost/api/posts/${POST_ID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewBody({ imageId })),
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.updatePost).toHaveBeenCalledWith(
+      expect.objectContaining({ imageAction, imageId: expectedId }),
+    );
+  });
+
+  it("allows image removal while new uploads are disabled", async () => {
+    mocks.isReviewImageUploadEnabled.mockReturnValue(false);
+
+    const response = await PATCH(
+      new Request(`http://localhost/api/posts/${POST_ID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewBody({ imageId: null })),
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.updatePost).toHaveBeenCalledWith(
+      expect.objectContaining({ imageAction: "remove", imageId: null }),
+    );
+  });
+
+  it("rejects image replacement while uploads are disabled", async () => {
+    mocks.isReviewImageUploadEnabled.mockReturnValue(false);
+
+    const response = await PATCH(
+      new Request(`http://localhost/api/posts/${POST_ID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewBody({ imageId: IMAGE_ID })),
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(503);
+    expect((await response.json()).code).toBe("IMAGE_UPLOAD_DISABLED");
+    expect(mocks.updatePost).not.toHaveBeenCalled();
+  });
+
+  it.each(["image_not_found", "image_forbidden", "image_invalid_state"])(
+    "maps %s without exposing image ownership or state",
+    async (status) => {
+      mocks.updatePost.mockResolvedValue({ status });
+
+      const response = await PATCH(
+        new Request(`http://localhost/api/posts/${POST_ID}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(reviewBody({ imageId: IMAGE_ID })),
+        }),
+        context,
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.code).toBe("INVALID_REVIEW_IMAGE");
+      expect(JSON.stringify(body)).not.toContain(status);
+    },
+  );
+
+  it("maps an expired replacement image to a retryable conflict", async () => {
+    mocks.updatePost.mockResolvedValue({ status: "image_expired" });
+
+    const response = await PATCH(
+      new Request(`http://localhost/api/posts/${POST_ID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewBody({ imageId: IMAGE_ID })),
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe("IMAGE_EXPIRED");
   });
 });
 

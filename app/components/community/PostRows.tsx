@@ -1,6 +1,7 @@
 "use client";
 
 import { Eye, ThumbsUp } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -98,34 +99,50 @@ export default function PostRows({
             </div>
 
             <Link className="block active:bg-neutral-50" href={detailHref}>
-              <h2 className="line-clamp-2 break-words text-xl font-bold leading-7 text-[#121212]">
-                {displayStoreName}
-              </h2>
-              {post.overallReview ? (
-                <p className="mt-1.5 line-clamp-2 break-words text-base font-normal leading-6 text-[#3d3d3d]">
-                  {post.overallReview}
-                </p>
-              ) : null}
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <h2 className="line-clamp-2 break-words text-xl font-bold leading-7 text-[#121212]">
+                    {displayStoreName}
+                  </h2>
+                  {post.overallReview ? (
+                    <p className="mt-1.5 line-clamp-2 break-words text-base font-normal leading-6 text-[#3d3d3d]">
+                      {post.overallReview}
+                    </p>
+                  ) : null}
 
-              {reviewLabels.length ? (
-                <div className="mt-[9px] flex flex-wrap gap-1">
-                  {visibleReviewLabels.map((label, index) => (
-                    <span
-                      className="inline-flex min-h-5 max-w-full items-center overflow-hidden text-ellipsis whitespace-nowrap bg-[#efefef] px-2 py-px text-xs font-normal leading-[18px] text-[#373737]"
-                      key={`${label}-${index}`}
-                    >
-                      {label}
-                    </span>
-                  ))}
-                  {hiddenReviewLabelCount > 0 ? (
-                    <span className="inline-flex min-h-5 items-center bg-[#efefef] px-2 py-px text-xs font-normal leading-[18px] text-[#373737]">
-                      +{hiddenReviewLabelCount}
-                    </span>
+                  {reviewLabels.length ? (
+                    <div className="mt-[9px] flex flex-wrap gap-1">
+                      {visibleReviewLabels.map((label, index) => (
+                        <span
+                          className="inline-flex min-h-5 max-w-full items-center overflow-hidden text-ellipsis whitespace-nowrap bg-[#efefef] px-2 py-px text-xs font-normal leading-[18px] text-[#373737]"
+                          key={`${label}-${index}`}
+                        >
+                          {label}
+                        </span>
+                      ))}
+                      {hiddenReviewLabelCount > 0 ? (
+                        <span className="inline-flex min-h-5 items-center bg-[#efefef] px-2 py-px text-xs font-normal leading-[18px] text-[#373737]">
+                          +{hiddenReviewLabelCount}
+                        </span>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
-              ) : null}
 
-              <div className="mt-[30px] flex min-h-[18px] flex-wrap items-center justify-between gap-x-2.5 gap-y-1.5 text-xs leading-[18px] text-[#656565]">
+                {post.image ? (
+                  <Image
+                    alt={`${displayStoreName} 대표 사진`}
+                    className="h-24 w-24 shrink-0 object-cover"
+                    height={96}
+                    loading="lazy"
+                    src={post.image.thumbnailUrl}
+                    unoptimized
+                    width={96}
+                  />
+                ) : null}
+              </div>
+
+              <div className={`${post.image ? "mt-3" : "mt-[30px]"} flex min-h-[18px] flex-wrap items-center justify-between gap-x-2.5 gap-y-1.5 text-xs leading-[18px] text-[#656565]`}>
                 <div className="min-w-0 break-words">
                   {post.author.anonymousId} ·{" "}
                   <time dateTime={post.createdAt}>{formatDate(post.createdAt)}</time>

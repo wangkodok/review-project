@@ -1,11 +1,25 @@
 import type { NextConfig } from "next";
 
 const isDevelopment = process.env.NODE_ENV !== "production";
+const reviewImageBaseUrl = (() => {
+  const value = process.env.REVIEW_IMAGE_PUBLIC_BASE_URL?.trim();
+
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url : null;
+  } catch {
+    return null;
+  }
+})();
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
+  `img-src 'self' data: blob:${reviewImageBaseUrl ? ` ${reviewImageBaseUrl.origin}` : ""}`,
   "font-src 'self' data:",
   `connect-src 'self'${isDevelopment ? " ws: wss:" : ""}`,
   "object-src 'none'",
@@ -21,6 +35,18 @@ const contentSecurityPolicy = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  images: reviewImageBaseUrl
+    ? {
+        remotePatterns: [
+          {
+            protocol: "https",
+            hostname: reviewImageBaseUrl.hostname,
+            port: reviewImageBaseUrl.port,
+            pathname: "/**",
+          },
+        ],
+      }
+    : undefined,
   async headers() {
     return [
       {

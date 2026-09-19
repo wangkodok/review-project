@@ -1,9 +1,17 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
+import { Camera, ChevronDown, LoaderCircle, X } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   BAD_REVIEW_OPTIONS,
   GOOD_REVIEW_OPTIONS,
@@ -18,6 +26,12 @@ import {
   MENU_NAME_MIN_LENGTH,
   OVERALL_REVIEW_MAX_LENGTH,
 } from "@/app/lib/posts/structuredReview";
+import {
+  ClientReviewImageError,
+  PreparedClientReviewImage,
+  prepareReviewImageForUpload,
+} from "@/app/lib/reviewImages/clientProcessor";
+import type { PostImage } from "@/app/types/post";
 import PageBackHeader from "../common/PageBackHeader";
 import ReviewConfirmDialog from "./ReviewConfirmDialog";
 import ReviewPickerDialog, { ReviewPickerOption } from "./ReviewPickerDialog";
@@ -32,6 +46,25 @@ type PostFormResponse = {
   } | null;
   message: string;
   code?: string;
+};
+
+type ReviewImageUploadResponse = {
+  success: boolean;
+  data: {
+    image: {
+      id: string;
+      width: number;
+      height: number;
+      detailByteSize: number;
+      thumbnailByteSize: number;
+    };
+  } | null;
+  message: string;
+  code?: string;
+};
+
+type SelectedReviewImage = PreparedClientReviewImage & {
+  previewUrl: string;
 };
 
 type PostFormProps = {
@@ -50,6 +83,8 @@ type PostFormProps = {
   requiresCategorySelection?: boolean;
   requiresRegionSelection?: boolean;
   returnSource?: "my-posts";
+  imageUploadEnabled?: boolean;
+  initialImage?: PostImage | null;
 };
 
 type ReferenceOption = ReviewPickerOption & {
@@ -144,8 +179,14 @@ export default function PostForm({
   requiresCategorySelection = false,
   requiresRegionSelection = false,
   returnSource,
+  imageUploadEnabled = false,
+  initialImage = null,
 }: PostFormProps) {
   const router = useRouter();
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const selectedImageRef = useRef<SelectedReviewImage | null>(null);
+  const preparedImageIdRef = useRef<string | null>(null);
+  const imageSelectionVersionRef = useRef(0);
   const initialStoreValue = initialStoreName?.trim() ?? "";
   const initialMenuValue = initialMenuName.trim();
   const initialGoodPointValues = getInitialReviewPoints(initialGoodPoints, GOOD_OPTION_KEYS);
@@ -161,7 +202,13 @@ export default function PostForm({
   const [activePicker, setActivePicker] = useState<PickerKind | null>(null);
   const [confirmMode, setConfirmMode] = useState<ConfirmMode | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [imageErrorMessage, setImageErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImageProcessing, setIsImageProcessing] = useState(false);
+  const [submitPhase, setSubmitPhase] = useState<"uploading" | "saving" | null>(null);
+  const [selectedImage, setSelectedImage] = useState<SelectedReviewImage | null>(null);
+  const [preparedImageId, setPreparedImageId] = useState<string | null>(null);
+  const [isInitialImageRemoved, setIsInitialImageRemoved] = useState(false);
   const categoryQuery = useQuery({
     queryKey: ["categories"],
     queryFn: () => fetchReferenceOptions("/api/categories", "categories"),
@@ -182,6 +229,8 @@ export default function PostForm({
     overallReview !== initialOverallReviewValue ||
     categoryId !== initialCategoryId ||
     regionId !== initialRegionId ||
+    selectedImage !== null ||
+    isInitialImageRemoved ||
     !hasSameItems(goodPoints, initialGoodPointValues) ||
     !hasSameItems(badPoints, initialBadPointValues);
   const isStoreNameValid =
@@ -209,7 +258,8 @@ export default function PostForm({
     areBadPointsValid &&
     isCategoryValid &&
     isRegionValid;
-  const isSaveDisabled = !isValid || isSubmitting || (isEditMode && !isDirty);
+  const isSaveDisabled =
+    !isValid || isSubmitting || isImageProcessing || (isEditMode && !isDirty);
   const selectedRegionName = getSelectedName({
     options: regionQuery.data,
     selectedId: regionId,
@@ -231,6 +281,9 @@ export default function PostForm({
   const detailHref = postId
     ? `/community/${postId}${returnSource === "my-posts" ? "?from=my-posts" : ""}`
     : "";
+  const visibleImageUrl =
+    selectedImage?.previewUrl ??
+    (!isInitialImageRemoved ? initialImage?.thumbnailUrl : undefined);
 
   const closePicker = useCallback(() => setActivePicker(null), []);
   const closeConfirm = useCallback(() => {
@@ -252,6 +305,155 @@ export default function PostForm({
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty, isSubmitting]);
+
+  useEffect(() => {
+    return () => {
+      imageSelectionVersionRef.current += 1;
+
+      if (selectedImageRef.current) {
+        URL.revokeObjectURL(selectedImageRef.current.previewUrl);
+      }
+
+      const imageId = preparedImageIdRef.current;
+
+      if (imageId) {
+        void fetch(`/api/review-images/${imageId}`, {
+          method: "DELETE",
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+    };
+  }, []);
+
+  function setPreparedImage(nextImageId: string | null) {
+    preparedImageIdRef.current = nextImageId;
+    setPreparedImageId(nextImageId);
+  }
+
+  function replaceSelectedImage(nextImage: SelectedReviewImage | null) {
+    const previousImage = selectedImageRef.current;
+
+    if (previousImage && previousImage.previewUrl !== nextImage?.previewUrl) {
+      URL.revokeObjectURL(previousImage.previewUrl);
+    }
+
+    selectedImageRef.current = nextImage;
+    setSelectedImage(nextImage);
+  }
+
+  async function cancelPreparedImage(imageId: string) {
+    try {
+      const response = await fetch(`/api/review-images/${imageId}`, {
+        method: "DELETE",
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || isSubmitting || isImageProcessing) {
+      return;
+    }
+
+    const selectionVersion = imageSelectionVersionRef.current + 1;
+    imageSelectionVersionRef.current = selectionVersion;
+    setIsImageProcessing(true);
+    setImageErrorMessage("");
+
+    try {
+      const processed = await prepareReviewImageForUpload(file);
+
+      if (selectionVersion !== imageSelectionVersionRef.current) {
+        return;
+      }
+
+      const previousPreparedId = preparedImageIdRef.current;
+
+      if (previousPreparedId) {
+        const canceled = await cancelPreparedImage(previousPreparedId);
+
+        if (!canceled) {
+          throw new ClientReviewImageError(
+            "이전 사진을 정리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+          );
+        }
+
+        setPreparedImage(null);
+      }
+
+      const previewUrl = URL.createObjectURL(processed.blob);
+      replaceSelectedImage({ ...processed, previewUrl });
+      setErrorMessage("");
+    } catch (error) {
+      if (selectionVersion === imageSelectionVersionRef.current) {
+        setImageErrorMessage(
+          error instanceof ClientReviewImageError
+            ? error.message
+            : "사진을 처리하지 못했습니다. 다른 사진을 선택해 주세요.",
+        );
+      }
+    } finally {
+      if (selectionVersion === imageSelectionVersionRef.current) {
+        setIsImageProcessing(false);
+      }
+    }
+  }
+
+  async function handleImageRemove() {
+    if (isSubmitting || isImageProcessing) {
+      return;
+    }
+
+    imageSelectionVersionRef.current += 1;
+    const imageId = preparedImageIdRef.current;
+
+    if (selectedImageRef.current) {
+      replaceSelectedImage(null);
+      setPreparedImage(null);
+    } else if (initialImage) {
+      setIsInitialImageRemoved(true);
+    }
+
+    setImageErrorMessage("");
+
+    if (imageId && !(await cancelPreparedImage(imageId))) {
+      setImageErrorMessage(
+        "사진 정리가 지연되고 있습니다. 잠시 후 다시 선택해 주세요.",
+      );
+    }
+  }
+
+  async function uploadSelectedImage() {
+    if (!selectedImage) {
+      return null;
+    }
+
+    if (preparedImageId) {
+      return preparedImageId;
+    }
+
+    setSubmitPhase("uploading");
+    const response = await fetch("/api/review-images", {
+      method: "POST",
+      headers: { "Content-Type": selectedImage.blob.type },
+      body: selectedImage.blob,
+    });
+    const result = (await response.json()) as ReviewImageUploadResponse;
+
+    if (!response.ok || !result.success || !result.data?.image.id) {
+      throw new ClientReviewImageError(
+        result.message || "사진을 올리지 못했습니다. 다시 시도해 주세요.",
+      );
+    }
+
+    setPreparedImage(result.data.image.id);
+    return result.data.image.id;
+  }
 
   function handleBack() {
     if (isEditMode || isDirty) {
@@ -326,8 +528,11 @@ export default function PostForm({
 
     setIsSubmitting(true);
     setErrorMessage("");
+    setImageErrorMessage("");
 
     try {
+      const imageId = await uploadSelectedImage();
+      setSubmitPhase("saving");
       const response = await fetch(isEditMode ? `/api/posts/${postId}` : "/api/posts", {
         method: isEditMode ? "PATCH" : "POST",
         headers: {
@@ -341,26 +546,41 @@ export default function PostForm({
           goodPoints,
           badPoints,
           overallReview: trimmedOverallReview || null,
+          ...(imageId
+            ? { imageId }
+            : isEditMode && isInitialImageRemoved
+              ? { imageId: null }
+              : {}),
           ...(isEditMode ? { updatedAt: initialUpdatedAt } : {}),
         }),
       });
       const result = (await response.json()) as PostFormResponse;
 
       if (!response.ok || !result.success || !result.data) {
+        if (result.code === "IMAGE_EXPIRED" || result.code === "INVALID_REVIEW_IMAGE") {
+          setPreparedImage(null);
+        }
+
         setConfirmMode(null);
         setErrorMessage(getSaveErrorMessage(result, fallbackErrorMessage));
         return;
       }
 
+      preparedImageIdRef.current = null;
       router.replace(
         `/community/${result.data.post.id}${
           returnSource === "my-posts" ? "?from=my-posts" : ""
         }`,
       );
-    } catch {
+    } catch (error) {
       setConfirmMode(null);
-      setErrorMessage("인터넷 연결을 확인한 후 다시 시도해 주세요.");
+      setErrorMessage(
+        error instanceof ClientReviewImageError
+          ? error.message
+          : "인터넷 연결을 확인한 후 다시 시도해 주세요.",
+      );
     } finally {
+      setSubmitPhase(null);
       setIsSubmitting(false);
     }
   }
@@ -507,6 +727,79 @@ export default function PostForm({
         <span><span className="text-[#ff4d5e]">*</span>필수</span>
       </div>
 
+      {imageUploadEnabled || initialImage ? (
+        <section className="mb-[30px]">
+          <p className="mb-2.5 text-[17px] font-bold leading-6 text-neutral-950">
+            대표 사진 첨부{" "}
+            <span className="text-[13px] font-normal text-neutral-400">(선택 사항)</span>
+          </p>
+          <div className="flex min-h-12 items-center gap-2">
+            {imageUploadEnabled ? (
+              <button
+                aria-label={visibleImageUrl ? "대표 사진 변경" : "대표 사진 선택"}
+                className="grid h-12 w-12 shrink-0 place-items-center border border-[#dbdbdb] bg-neutral-100 text-neutral-500 disabled:text-neutral-300"
+                disabled={isSubmitting || isImageProcessing}
+                onClick={() => imageInputRef.current?.click()}
+                type="button"
+              >
+                <span className="grid place-items-center">
+                  {isImageProcessing ? (
+                    <LoaderCircle aria-hidden="true" className="animate-spin" size={19} strokeWidth={1.4} />
+                  ) : (
+                    <Camera aria-hidden="true" size={20} strokeWidth={1.4} />
+                  )}
+                  <span className="-mt-0.5 text-[10px] leading-none">
+                    {visibleImageUrl ? "1/1" : "0/1"}
+                  </span>
+                </span>
+              </button>
+            ) : null}
+
+            {visibleImageUrl ? (
+              <div className="relative h-12 w-12 shrink-0">
+                <Image
+                  alt="대표 사진 미리보기"
+                  className="h-12 w-12 border border-[#dbdbdb] object-cover"
+                  height={48}
+                  src={visibleImageUrl}
+                  unoptimized
+                  width={48}
+                />
+                <button
+                  aria-label="대표 사진 삭제"
+                  className="absolute -right-[7px] -top-[7px] z-[1] grid h-[18px] w-[18px] place-items-center rounded-full border border-neutral-950 bg-white text-neutral-950 disabled:text-neutral-400"
+                  disabled={isSubmitting || isImageProcessing}
+                  onClick={handleImageRemove}
+                  title="사진 삭제"
+                  type="button"
+                >
+                  <X aria-hidden="true" size={11} strokeWidth={1.4} />
+                </button>
+              </div>
+            ) : null}
+
+            <input
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              disabled={isSubmitting || isImageProcessing}
+              onChange={handleImageChange}
+              ref={imageInputRef}
+              type="file"
+            />
+          </div>
+          {isImageProcessing ? (
+            <p aria-live="polite" className="mt-2 text-xs leading-5 text-neutral-500">
+              사진 용량을 줄이는 중입니다.
+            </p>
+          ) : null}
+          {imageErrorMessage ? (
+            <p aria-live="polite" className="mt-2 text-xs font-semibold leading-5 text-[#e53948]">
+              {imageErrorMessage}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="mb-[30px]">
         <div className="mb-2.5 flex items-baseline justify-between gap-3">
           <label className="text-[17px] font-bold leading-6 text-neutral-950" htmlFor="review-store-name">
@@ -642,7 +935,7 @@ export default function PostForm({
         isPending={isSubmitting}
         onCancel={closeConfirm}
         onConfirm={confirmMode === "save" ? saveReview : handleLeave}
-        pendingLabel="저장 중..."
+        pendingLabel={submitPhase === "uploading" ? "사진 올리는 중..." : "저장 중..."}
         title={confirmMode === "save" ? saveDialog.title : leaveDialog.title}
         tone={confirmMode === "leave" ? "danger" : "primary"}
       />

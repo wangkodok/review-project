@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getPosts: vi.fn(),
   enforceRateLimit: vi.fn(),
   getRequestIp: vi.fn(),
+  isReviewImageUploadEnabled: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: mocks.getServerSession }));
@@ -26,12 +27,16 @@ vi.mock("@/app/lib/security/rateLimit", () => ({
   enforceRateLimit: mocks.enforceRateLimit,
   getRequestIp: mocks.getRequestIp,
 }));
+vi.mock("@/app/lib/reviewImages/config", () => ({
+  isReviewImageUploadEnabled: mocks.isReviewImageUploadEnabled,
+}));
 
 import { GET, POST } from "./route";
 
 const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const REGION_ID = "11111111-1111-4111-8111-111111111111";
 const CATEGORY_ID = "22222222-2222-4222-8222-222222222222";
+const IMAGE_ID = "33333333-3333-4333-8333-333333333333";
 
 function reviewBody(overrides: Record<string, unknown> = {}) {
   return {
@@ -59,6 +64,7 @@ describe("POST /api/posts", () => {
     vi.clearAllMocks();
     mocks.getServerSession.mockResolvedValue({ user: { id: USER_ID } });
     mocks.enforceRateLimit.mockResolvedValue(null);
+    mocks.isReviewImageUploadEnabled.mockReturnValue(true);
     mocks.createPost.mockResolvedValue({ status: "ok", post: { id: "post-id" } });
   });
 
@@ -127,7 +133,59 @@ describe("POST /api/posts", () => {
       goodPoints: ["tasty"],
       badPoints: ["long_wait_time"],
       overallReview: null,
+      imageId: null,
     });
+  });
+
+  it("passes a selected image to the atomic create service", async () => {
+    const response = await POST(
+      postRequest(JSON.stringify(reviewBody({ imageId: IMAGE_ID }))),
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.createPost).toHaveBeenCalledWith(
+      expect.objectContaining({ imageId: IMAGE_ID }),
+    );
+  });
+
+  it("rejects image attachment while uploads are disabled", async () => {
+    mocks.isReviewImageUploadEnabled.mockReturnValue(false);
+
+    const response = await POST(
+      postRequest(JSON.stringify(reviewBody({ imageId: IMAGE_ID }))),
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect((await response.json()).code).toBe("IMAGE_UPLOAD_DISABLED");
+    expect(mocks.createPost).not.toHaveBeenCalled();
+  });
+
+  it.each(["image_not_found", "image_forbidden", "image_invalid_state"])(
+    "maps %s without exposing image ownership or state",
+    async (status) => {
+      mocks.createPost.mockResolvedValue({ status });
+
+      const response = await POST(
+        postRequest(JSON.stringify(reviewBody({ imageId: IMAGE_ID }))),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.code).toBe("INVALID_REVIEW_IMAGE");
+      expect(JSON.stringify(body)).not.toContain(status);
+    },
+  );
+
+  it("maps an expired image to a retryable conflict", async () => {
+    mocks.createPost.mockResolvedValue({ status: "image_expired" });
+
+    const response = await POST(
+      postRequest(JSON.stringify(reviewBody({ imageId: IMAGE_ID }))),
+    );
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe("IMAGE_EXPIRED");
   });
 });
 

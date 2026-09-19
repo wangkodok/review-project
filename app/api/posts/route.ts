@@ -6,6 +6,7 @@ import { createPost, getPosts } from "@/app/lib/posts/service";
 import { parseReviewWriteInput } from "@/app/lib/posts/reviewInput";
 import { getActiveRegionBySlug } from "@/app/lib/regions/service";
 import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
+import { isReviewImageUploadEnabled } from "@/app/lib/reviewImages/config";
 import { buildStructuredReviewContent } from "@/app/lib/posts/structuredReview";
 
 const DEFAULT_PAGE = 1;
@@ -208,6 +209,19 @@ export async function POST(request: Request) {
     }
 
     const review = parsed.data;
+
+    if (typeof review.imageId === "string" && !isReviewImageUploadEnabled()) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "사진 업로드를 현재 사용할 수 없습니다.",
+          code: "IMAGE_UPLOAD_DISABLED",
+        },
+        { status: 503, headers: NO_STORE_HEADERS },
+      );
+    }
+
     const content = buildStructuredReviewContent({
       goodPoints: review.goodPoints,
       badPoints: review.badPoints,
@@ -224,6 +238,7 @@ export async function POST(request: Request) {
       goodPoints: review.goodPoints,
       badPoints: review.badPoints,
       overallReview: review.overallReview,
+      imageId: review.imageId ?? null,
     });
 
     if (post.status === "invalid_category") {
@@ -245,6 +260,46 @@ export async function POST(request: Request) {
           data: null,
           message: "선택할 수 없는 지역입니다.",
           code: "INVALID_REGION",
+        },
+        { status: 400, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (post.status === "user_not_found") {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "로그인 정보를 다시 확인해 주세요.",
+          code: "UNAUTHORIZED",
+        },
+        { status: 401, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (post.status === "image_expired") {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "사진 업로드 시간이 지났습니다. 다시 선택해 주세요.",
+          code: "IMAGE_EXPIRED",
+        },
+        { status: 409, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (
+      post.status === "image_not_found" ||
+      post.status === "image_forbidden" ||
+      post.status === "image_invalid_state"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택한 사진을 사용할 수 없습니다. 다시 선택해 주세요.",
+          code: "INVALID_REVIEW_IMAGE",
         },
         { status: 400, headers: NO_STORE_HEADERS },
       );

@@ -10,6 +10,13 @@ export type PostRegion = {
   slug: string;
 };
 
+export type PostImage = {
+  detailUrl: string;
+  thumbnailUrl: string;
+  width: number;
+  height: number;
+};
+
 export type CommunityPost = {
   id: string;
   title: string;
@@ -29,6 +36,7 @@ export type CommunityPost = {
   };
   category: PostCategory | null;
   region: PostRegion | null;
+  image: PostImage | null;
   isOwner: boolean;
   requiresCategorySelection: boolean;
   requiresRegionSelection: boolean;

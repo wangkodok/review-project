@@ -2,9 +2,11 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
-import { ArrowLeft, UserRound } from "lucide-react";
+import { ArrowLeft, UserRound, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   MY_POSTS_QUERY_KEY,
   markMyPostsDeleteSuccess,
@@ -86,6 +88,7 @@ export default function PostDetail({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const query = useQuery({
     queryKey: ["post", postId],
     queryFn: () => fetchPostDetail(postId),
@@ -97,6 +100,27 @@ export default function PostDetail({
   const displayStoreName = query.data?.storeName || query.data?.menuName || "";
   const hasTaxonomy = Boolean(query.data?.region || query.data?.category);
   const showMenuCopy = Boolean(query.data?.storeName && query.data.menuName);
+
+  useEffect(() => {
+    if (!isImageViewerOpen) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsImageViewerOpen(false);
+      }
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isImageViewerOpen]);
 
   function handleDeleteSuccess(deletedPostId: string) {
     if (source !== "my-posts") {
@@ -232,6 +256,24 @@ export default function PostDetail({
               </p>
             ) : null}
 
+            {query.data.image ? (
+              <button
+                aria-label="대표 사진 크게 보기"
+                className="relative mb-7 block aspect-[4/3] w-full overflow-hidden bg-[#f3f3f3]"
+                onClick={() => setIsImageViewerOpen(true)}
+                type="button"
+              >
+                <Image
+                  alt={`${displayStoreName} 대표 사진`}
+                  className="object-cover"
+                  fill
+                  sizes="(max-width: 480px) calc(100vw - 32px), 448px"
+                  src={query.data.image.detailUrl}
+                  unoptimized
+                />
+              </button>
+            ) : null}
+
             {goodPointLabels.length ? (
               <section className="mb-7">
                 <h2 className="mb-2.5 inline-block bg-[#ddf3ff] px-2 py-[5px] text-[13px] font-normal leading-[18px] text-[#3399ff]">
@@ -281,6 +323,41 @@ export default function PostDetail({
             </div>
           </div>
         </article>
+      ) : null}
+
+      {query.data?.image && isImageViewerOpen ? (
+        <div
+          aria-label="대표 사진 전체 화면"
+          aria-modal="true"
+          className="fixed inset-0 z-50 grid place-items-center bg-black/90 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsImageViewerOpen(false);
+            }
+          }}
+          role="dialog"
+        >
+          <button
+            aria-label="사진 닫기"
+            autoFocus
+            className="absolute right-3 top-3 z-[1] grid h-11 w-11 place-items-center text-white active:bg-white/10"
+            onClick={() => setIsImageViewerOpen(false)}
+            title="닫기"
+            type="button"
+          >
+            <X aria-hidden="true" size={28} strokeWidth={1.5} />
+          </button>
+          <div className="pointer-events-none relative h-full w-full">
+            <Image
+              alt={`${displayStoreName} 대표 사진 크게 보기`}
+              className="object-contain"
+              fill
+              sizes="100vw"
+              src={query.data.image.detailUrl}
+              unoptimized
+            />
+          </div>
+        </div>
       ) : null}
     </section>
   );

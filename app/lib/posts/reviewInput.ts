@@ -18,6 +18,7 @@ type ReviewInputErrorCode =
   | "INVALID_GOOD_POINTS"
   | "INVALID_BAD_POINTS"
   | "INVALID_OVERALL_REVIEW"
+  | "INVALID_IMAGE_ID"
   | "INVALID_UPDATED_AT";
 
 type ReviewWriteInput = {
@@ -28,6 +29,7 @@ type ReviewWriteInput = {
   goodPoints: string[];
   badPoints: string[];
   overallReview: string | null;
+  imageId?: string | null;
   expectedUpdatedAt?: string;
 };
 
@@ -68,6 +70,18 @@ export function parseReviewWriteInput(
   const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : "";
   const goodPoints = parseReviewPointKeys(body.goodPoints, GOOD_REVIEW_OPTIONS);
   const badPoints = parseReviewPointKeys(body.badPoints, BAD_REVIEW_OPTIONS);
+  const hasImageId = Object.prototype.hasOwnProperty.call(body, "imageId");
+  let imageId: string | null | undefined;
+
+  if (hasImageId) {
+    if (body.imageId === null) {
+      imageId = null;
+    } else if (typeof body.imageId === "string" && isUuid(body.imageId.trim())) {
+      imageId = body.imageId.trim();
+    } else {
+      return error("INVALID_IMAGE_ID", "선택한 사진 정보를 확인해 주세요.");
+    }
+  }
 
   if (
     storeName.length < STORE_NAME_MIN_LENGTH ||
@@ -137,6 +151,7 @@ export function parseReviewWriteInput(
       goodPoints,
       badPoints,
       overallReview,
+      imageId,
       expectedUpdatedAt,
     },
   };

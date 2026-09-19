@@ -4,6 +4,7 @@ import { parseReviewWriteInput } from "./reviewInput";
 const REGION_ID = "11111111-1111-4111-8111-111111111111";
 const CATEGORY_ID = "22222222-2222-4222-8222-222222222222";
 const UPDATED_AT = "2026-09-07T12:00:00.000Z";
+const IMAGE_ID = "33333333-3333-4333-8333-333333333333";
 
 function validInput(overrides: Record<string, unknown> = {}) {
   return {
@@ -30,6 +31,7 @@ describe("parseReviewWriteInput", () => {
         goodPoints: ["tasty"],
         badPoints: ["long_wait_time"],
         overallReview: "다시 방문하고 싶어요.",
+        imageId: undefined,
         expectedUpdatedAt: undefined,
       },
     });
@@ -102,6 +104,25 @@ describe("parseReviewWriteInput", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.overallReview).toBeNull();
+    }
+  });
+
+  it("distinguishes an omitted, removed, and selected image", () => {
+    const omitted = parseReviewWriteInput(validInput());
+    const removed = parseReviewWriteInput(validInput({ imageId: null }));
+    const selected = parseReviewWriteInput(validInput({ imageId: ` ${IMAGE_ID} ` }));
+
+    expect(omitted.success && omitted.data.imageId).toBeUndefined();
+    expect(removed.success && removed.data.imageId).toBeNull();
+    expect(selected.success && selected.data.imageId).toBe(IMAGE_ID);
+  });
+
+  it.each(["", "not-a-uuid", 123, false])("rejects invalid imageId %s", (imageId) => {
+    const result = parseReviewWriteInput(validInput({ imageId }));
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("INVALID_IMAGE_ID");
     }
   });
 

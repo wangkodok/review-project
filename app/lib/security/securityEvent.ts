@@ -7,6 +7,7 @@ type RateLimitPolicy =
   | "posts"
   | "report"
   | "reviewCreate"
+  | "reviewImageUpload"
   | "reviewManage"
   | "search"
   | "withdrawal";
@@ -46,10 +47,23 @@ type KakaoSecurityEvent =
       eventCode: "kakao_webhook_processing_failed";
     };
 
+type ReviewImageSecurityEvent = {
+  eventCode: "review_image_storage_failed";
+  resultCode: "cleanup_queued" | "cleanup_queue_failed";
+} | {
+  eventCode: "review_image_cleanup_failed";
+  resultCode:
+    | "configuration_missing"
+    | "execution_failed"
+    | "job_completion_failed"
+    | "permanent_failure";
+};
+
 export type SecurityEventInput =
   | WithdrawalSecurityEvent
   | RateLimitSecurityEvent
-  | KakaoSecurityEvent;
+  | KakaoSecurityEvent
+  | ReviewImageSecurityEvent;
 
 type SecurityEventSeverity = "warn" | "error";
 
@@ -120,6 +134,16 @@ const EVENT_DEFINITIONS: Record<
     route: "/api/webhooks/kakao/account-events",
     httpStatus: 503,
   },
+  review_image_storage_failed: {
+    severity: "error",
+    route: "/api/review-images",
+    httpStatus: 503,
+  },
+  review_image_cleanup_failed: {
+    severity: "error",
+    route: "/api/internal/review-images/cleanup",
+    httpStatus: 503,
+  },
 };
 
 function getEnvironment() {
@@ -167,6 +191,14 @@ export function recordSecurityEvent(event: SecurityEventInput) {
       resultCode: event.resultCode,
     };
   } else if (event.eventCode === "kakao_event_storage_failed") {
+    payload = {
+      ...basePayload,
+      resultCode: event.resultCode,
+    };
+  } else if (
+    event.eventCode === "review_image_storage_failed" ||
+    event.eventCode === "review_image_cleanup_failed"
+  ) {
     payload = {
       ...basePayload,
       resultCode: event.resultCode,

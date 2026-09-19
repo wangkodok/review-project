@@ -5,6 +5,7 @@ import { deletePost, getPostDetail, updatePost } from "@/app/lib/posts/service";
 import { isUuid, parseReviewWriteInput } from "@/app/lib/posts/reviewInput";
 import { buildStructuredReviewContent } from "@/app/lib/posts/structuredReview";
 import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
+import { isReviewImageUploadEnabled } from "@/app/lib/reviewImages/config";
 
 type RouteContext = {
   params: Promise<{
@@ -142,6 +143,25 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const review = parsed.data;
+
+    if (typeof review.imageId === "string" && !isReviewImageUploadEnabled()) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "사진 업로드를 현재 사용할 수 없습니다.",
+          code: "IMAGE_UPLOAD_DISABLED",
+        },
+        { status: 503, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    const imageAction =
+      review.imageId === undefined
+        ? "keep"
+        : review.imageId === null
+          ? "remove"
+          : "replace";
     const content = buildStructuredReviewContent({
       goodPoints: review.goodPoints,
       badPoints: review.badPoints,
@@ -160,6 +180,8 @@ export async function PATCH(request: Request, context: RouteContext) {
       badPoints: review.badPoints,
       overallReview: review.overallReview,
       expectedUpdatedAt: review.expectedUpdatedAt!,
+      imageAction,
+      imageId: typeof review.imageId === "string" ? review.imageId : null,
     });
 
     if (result.status === "not_found") {
@@ -219,6 +241,34 @@ export async function PATCH(request: Request, context: RouteContext) {
           code: "REVIEW_CONFLICT",
         },
         { status: 409 },
+      );
+    }
+
+    if (result.status === "image_expired") {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "사진 업로드 시간이 지났습니다. 다시 선택해 주세요.",
+          code: "IMAGE_EXPIRED",
+        },
+        { status: 409, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (
+      result.status === "image_not_found" ||
+      result.status === "image_forbidden" ||
+      result.status === "image_invalid_state"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택한 사진을 사용할 수 없습니다. 다시 선택해 주세요.",
+          code: "INVALID_REVIEW_IMAGE",
+        },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 

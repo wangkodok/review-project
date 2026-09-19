@@ -2,9 +2,11 @@ import {
   BAD_REVIEW_OPTION_LABEL_MAP,
   GOOD_REVIEW_OPTION_LABEL_MAP,
 } from "@/app/constants/reviewOptions";
-import { getRegionForWrite } from "@/app/lib/regions/service";
+import {
+  type ReviewImageRelationRow,
+  toPublicReviewImage,
+} from "@/app/lib/reviewImages/publicUrl";
 import { createSupabaseServerClient } from "../supabase/server";
-import { getCategoryForWrite } from "../categories/service";
 import { getPostLikedByUser } from "./likes";
 import { increaseViewCountIfNeeded } from "./views";
 
@@ -37,6 +39,7 @@ type CreatePostParams = {
   goodPoints: string[];
   badPoints: string[];
   overallReview: string | null;
+  imageId: string | null;
 };
 
 type UpdatePostParams = {
@@ -52,7 +55,49 @@ type UpdatePostParams = {
   badPoints: string[];
   overallReview: string | null;
   expectedUpdatedAt: string;
+  imageAction: "keep" | "remove" | "replace";
+  imageId: string | null;
 };
+
+type AtomicCreatePostRow = {
+  result: string;
+  post_id: string | null;
+  updated_at: string | null;
+};
+
+type AtomicUpdatePostRow = AtomicCreatePostRow & {
+  replaced_image_id: string | null;
+};
+
+type CreatePostFailureStatus =
+  | "invalid_category"
+  | "invalid_region"
+  | "user_not_found"
+  | "image_not_found"
+  | "image_forbidden"
+  | "image_invalid_state"
+  | "image_expired";
+
+type UpdatePostFailureStatus =
+  | "not_found"
+  | "forbidden"
+  | "conflict"
+  | "invalid_category"
+  | "invalid_region"
+  | "image_not_found"
+  | "image_forbidden"
+  | "image_invalid_state"
+  | "image_expired";
+
+type FailureResult<T extends string> = T extends T ? { status: T } : never;
+
+type CreatePostResult =
+  | { status: "ok"; post: { id: string } }
+  | FailureResult<CreatePostFailureStatus>;
+
+type UpdatePostResult =
+  | { status: "ok"; post: { id: string; updatedAt: string } }
+  | FailureResult<UpdatePostFailureStatus>;
 
 type DeletePostParams = {
   postId: string;
@@ -102,6 +147,7 @@ type PostWithRelationsRow = PostRow & {
   author: RelatedRow<Pick<UserRow, "anonymous_id">>;
   category: RelatedRow<CategoryRow>;
   region: RelatedRow<RegionRow>;
+  image: RelatedRow<ReviewImageRelationRow>;
 };
 
 type PostForEditRow = Pick<
@@ -121,6 +167,7 @@ type PostForEditRow = Pick<
 > & {
   category: RelatedRow<CategoryRow>;
   region: RelatedRow<RegionRow>;
+  image: RelatedRow<ReviewImageRelationRow>;
 };
 
 type PublicCategory = {
@@ -141,6 +188,10 @@ function getSingleRelatedRow<T>(value: RelatedRow<T>): T | null {
   }
 
   return value;
+}
+
+function getFirstRpcRow<T>(data: unknown): T | null {
+  return Array.isArray(data) && data.length > 0 ? (data[0] as T) : null;
 }
 
 function toPublicCategory(category: RelatedRow<CategoryRow>): PublicCategory | null {
@@ -251,7 +302,7 @@ export async function getPosts({
   let query = supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active),image:review_images!review_images_post_id_fkey(status,detail_object_key,thumbnail_object_key,width,height)",
       {
       count: "exact",
       },
@@ -306,6 +357,7 @@ export async function getPosts({
         createdAt: post.created_at,
         category: toPublicCategory(post.category),
         region: toPublicRegion(post.region),
+        image: toPublicReviewImage(post.image),
         author: {
           anonymousId: getSingleRelatedRow(post.author)?.anonymous_id ?? "",
         },
@@ -333,7 +385,7 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
   const { data, error, count } = await supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active),image:review_images!review_images_post_id_fkey(status,detail_object_key,thumbnail_object_key,width,height)",
       {
         count: "exact",
       },
@@ -369,6 +421,7 @@ export async function getMyPosts({ userId, page, limit }: GetMyPostsParams) {
         createdAt: post.created_at,
         category: toPublicCategory(post.category),
         region: toPublicRegion(post.region),
+        image: toPublicReviewImage(post.image),
         author: {
           anonymousId: getSingleRelatedRow(post.author)?.anonymous_id ?? "",
         },
@@ -399,43 +452,59 @@ export async function createPost({
   goodPoints,
   badPoints,
   overallReview,
-}: CreatePostParams) {
-  const [category, region] = await Promise.all([
-    getCategoryForWrite(categoryId),
-    getRegionForWrite(regionId),
-  ]);
-
-  if (!category) {
-    return { status: "invalid_category" as const };
-  }
-
-  if (!region) {
-    return { status: "invalid_region" as const };
-  }
-
+  imageId,
+}: CreatePostParams): Promise<CreatePostResult> {
   const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("posts")
-    .insert({
-      user_id: userId,
-      category_id: category.id,
-      region_id: region.id,
-      store_name: storeName,
-      title,
-      content,
-      menu_name: menuName,
-      good_points: goodPoints,
-      bad_points: badPoints,
-      overall_review: overallReview,
-    })
-    .select("id")
-    .single<{ id: string }>();
+  const { data, error } = await supabase.rpc(
+    "create_review_post_with_image_atomic",
+    {
+      p_user_id: userId,
+      p_store_name: storeName,
+      p_region_id: regionId,
+      p_title: title,
+      p_content: content,
+      p_category_id: categoryId,
+      p_menu_name: menuName,
+      p_good_points: goodPoints,
+      p_bad_points: badPoints,
+      p_overall_review: overallReview,
+      p_image_id: imageId,
+    },
+  );
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error("Atomic review create failed");
   }
 
-  return { status: "ok" as const, post: data };
+  const row = getFirstRpcRow<AtomicCreatePostRow>(data);
+
+  if (!row) {
+    throw new Error("Atomic review create returned no result");
+  }
+
+  if (row.result === "ok") {
+    if (!row.post_id) {
+      throw new Error("Atomic review create returned invalid data");
+    }
+
+    return { status: "ok" as const, post: { id: row.post_id } };
+  }
+
+  const failureStatuses = new Set<CreatePostFailureStatus>([
+    "invalid_category",
+    "invalid_region",
+    "user_not_found",
+    "image_not_found",
+    "image_forbidden",
+    "image_invalid_state",
+    "image_expired",
+  ]);
+
+  if (failureStatuses.has(row.result as CreatePostFailureStatus)) {
+    return { status: row.result as CreatePostFailureStatus };
+  }
+
+  throw new Error("Atomic review create returned an unknown result");
 }
 
 export async function getPostForEdit(postId: string) {
@@ -443,7 +512,7 @@ export async function getPostForEdit(postId: string) {
   const { data, error } = await supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,updated_at,category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,updated_at,category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active),image:review_images!review_images_post_id_fkey(status,detail_object_key,thumbnail_object_key,width,height)",
     )
     .eq("id", postId)
     .maybeSingle<PostForEditRow>();
@@ -458,6 +527,7 @@ export async function getPostForEdit(postId: string) {
 
   return {
     ...data,
+    image: toPublicReviewImage(data.image),
     requiresCategorySelection: requiresCategorySelection(data.category),
     requiresRegionSelection: requiresRegionSelection(data.region),
   };
@@ -476,63 +546,69 @@ export async function updatePost({
   badPoints,
   overallReview,
   expectedUpdatedAt,
-}: UpdatePostParams) {
+  imageAction,
+  imageId,
+}: UpdatePostParams): Promise<UpdatePostResult> {
   const supabase = createSupabaseServerClient();
-  const existingPost = await getPostForEdit(postId);
-
-  if (!existingPost) {
-    return { status: "not_found" as const };
-  }
-
-  if (existingPost.user_id !== userId) {
-    return { status: "forbidden" as const };
-  }
-
-  const [category, region] = await Promise.all([
-    getCategoryForWrite(categoryId),
-    getRegionForWrite(regionId),
-  ]);
-
-  if (!category) {
-    return { status: "invalid_category" as const };
-  }
-
-  if (!region) {
-    return { status: "invalid_region" as const };
-  }
-
-  const { data, error } = await supabase
-    .from("posts")
-    .update({
-      category_id: category.id,
-      region_id: region.id,
-      store_name: storeName,
-      title,
-      content,
-      menu_name: menuName,
-      good_points: goodPoints,
-      bad_points: badPoints,
-      overall_review: overallReview,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", postId)
-    .eq("user_id", userId)
-    .eq("updated_at", expectedUpdatedAt)
-    .select("id,updated_at")
-    .maybeSingle<{ id: string; updated_at: string }>();
+  const { data, error } = await supabase.rpc(
+    "update_review_post_with_image_atomic",
+    {
+      p_post_id: postId,
+      p_user_id: userId,
+      p_expected_updated_at: expectedUpdatedAt,
+      p_store_name: storeName,
+      p_region_id: regionId,
+      p_title: title,
+      p_content: content,
+      p_category_id: categoryId,
+      p_menu_name: menuName,
+      p_good_points: goodPoints,
+      p_bad_points: badPoints,
+      p_overall_review: overallReview,
+      p_image_action: imageAction,
+      p_image_id: imageId,
+    },
+  );
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error("Atomic review update failed");
   }
 
-  if (!data) {
-    return { status: "conflict" as const };
+  const row = getFirstRpcRow<AtomicUpdatePostRow>(data);
+
+  if (!row) {
+    throw new Error("Atomic review update returned no result");
   }
 
-  return {
-    status: "ok" as const,
-    post: { id: data.id, updatedAt: data.updated_at },
+  if (row.result === "ok") {
+    if (!row.post_id || !row.updated_at) {
+      throw new Error("Atomic review update returned invalid data");
+    }
+
+    return {
+      status: "ok" as const,
+      post: { id: row.post_id, updatedAt: row.updated_at },
+    };
+  }
+
+  const failureStatusMap: Record<string, UpdatePostFailureStatus | undefined> = {
+    post_not_found: "not_found",
+    forbidden: "forbidden",
+    conflict: "conflict",
+    invalid_category: "invalid_category",
+    invalid_region: "invalid_region",
+    image_not_found: "image_not_found",
+    image_forbidden: "image_forbidden",
+    image_invalid_state: "image_invalid_state",
+    image_expired: "image_expired",
   };
+  const status = failureStatusMap[row.result];
+
+  if (status) {
+    return { status };
+  }
+
+  throw new Error("Atomic review update returned an unknown result");
 }
 
 export async function deletePost({ postId, userId }: DeletePostParams) {
@@ -566,7 +642,7 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
   const { data: post, error: postError } = await supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active)",
+      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active),image:review_images!review_images_post_id_fkey(status,detail_object_key,thumbnail_object_key,width,height)",
     )
     .eq("id", postId)
     .maybeSingle<PostWithRelationsRow>();
@@ -599,6 +675,7 @@ export async function getPostDetail(postId: string, currentUserId?: string) {
     updatedAt: post.updated_at,
     category: toPublicCategory(post.category),
     region: toPublicRegion(post.region),
+    image: toPublicReviewImage(post.image),
     author: {
       anonymousId: getSingleRelatedRow(post.author)?.anonymous_id ?? "",
     },

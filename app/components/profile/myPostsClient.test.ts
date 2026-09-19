@@ -21,6 +21,7 @@ function createPost(id: string): CommunityPost {
     author: { anonymousId: "익명테스트" },
     category: null,
     region: null,
+    image: null,
     isOwner: true,
     requiresCategorySelection: false,
     requiresRegionSelection: false,
