@@ -7,13 +7,13 @@ import QueryProvider from "./components/providers/QueryProvider";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.sseullae.com"),
-  title: "쓸래",
-  description: "광고가 아닌, 솔직한 익명 리뷰 커뮤니티 플랫폼",
+  title: "쓸래? 리뷰 길게 쓰지 않아도 괜찮아요.",
+  description: "간편하게 선택하고, 내가 먹었던 메뉴를 공유해 보세요. 나의 경험이 누군가의 선택에 도움이 돼요.",
   openGraph: {
-    title: "쓸래",
-    description: "광고가 아닌, 솔직한 익명 리뷰 커뮤니티 플랫폼",
+    title: "쓸래? 리뷰 길게 쓰지 않아도 괜찮아요.",
+    description: "간편하게 선택하고, 내가 먹었던 메뉴를 공유해 보세요. 나의 경험이 누군가의 선택에 도움이 돼요.",
     url: "/",
-    siteName: "쓸래",
+    siteName: "쓸래? 리뷰 길게 쓰지 않아도 괜찮아요.",
     locale: "ko_KR",
     type: "website",
     images: [
@@ -21,14 +21,14 @@ export const metadata: Metadata = {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "쓸래",
+        alt: "쓸래? 리뷰 길게 쓰지 않아도 괜찮아요.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "쓸래",
-    description: "광고가 아닌, 솔직한 익명 리뷰 커뮤니티 플랫폼",
+    title: "쓸래? 리뷰 길게 쓰지 않아도 괜찮아요.",
+    description: "간편하게 선택하고, 내가 먹었던 메뉴를 공유해 보세요. 나의 경험이 누군가의 선택에 도움이 돼요.",
     images: ["/og-image.jpg"],
   },
 };

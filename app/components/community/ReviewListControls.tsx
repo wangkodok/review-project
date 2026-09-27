@@ -191,7 +191,9 @@ export default function ReviewListControls({
 
   return (
     <>
+      {/* 필터 상단 */}
       <div className="flex h-11 items-center justify-between px-4">
+        {/* 리뷰 목록 총 건수 */}
         <p aria-live="polite" className="text-base font-bold text-[#121212]">
           {countLabel ?? (
             <>
@@ -200,6 +202,8 @@ export default function ReviewListControls({
             </>
           )}
         </p>
+
+        {/* 최신순 */}
         <div className="relative">
           <button
             aria-expanded={isSortMenuOpen}
@@ -238,6 +242,7 @@ export default function ReviewListControls({
         </div>
       </div>
 
+      {/* 필터 하단 */}
       <div className="flex min-h-[55px] items-center gap-2 px-4 pb-2">
         <FilterRail>
           <FilterButton

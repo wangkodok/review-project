@@ -176,6 +176,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
   return (
     <section className="-mx-5 -mt-5">
       <div className="sticky top-14 z-10 border-b border-[#dbdbdb] bg-white">
+        {/* ReviewListControls 상단 필터 건수, 최신순, 지역, 카테고리, 전체 초기화 */}
         <ReviewListControls
           categoryActive={Boolean(categorySlug)}
           categoryDisabled={!categoriesQuery.data}
