@@ -108,4 +108,14 @@ describe("enforceRateLimit security events", () => {
       )?.limiter,
     ).toEqual({ requests: 5, window: "10 m" });
   });
+
+  it("configures review image finalization at ten requests per ten minutes", async () => {
+    await import("./rateLimit");
+
+    expect(
+      mocks.limiterOptions.find(
+        ({ prefix }) => prefix === "food-review:production:reviewImageFinalize",
+      )?.limiter,
+    ).toEqual({ requests: 10, window: "10 m" });
+  });
 });

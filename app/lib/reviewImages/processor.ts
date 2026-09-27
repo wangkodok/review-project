@@ -9,8 +9,12 @@ import {
   REVIEW_IMAGE_THUMBNAIL_EDGE,
 } from "./constants";
 import { ReviewImageError } from "./errors";
+import { decodeSingleHeic } from "./heicDecoder";
+import type { ActualReviewImageMime } from "./uploadContract";
 
 const SUPPORTED_FORMATS = new Set(["jpeg", "png", "webp"]);
+const HEIC_BRANDS = new Set(["heic", "heix", "hevc", "hevx"]);
+const HEIF_BRANDS = new Set(["mif1", "msf1"]);
 const DETAIL_QUALITIES = [82, 76, 70, 64, 58, 52];
 const DETAIL_EDGES = [MAX_REVIEW_IMAGE_EDGE, 1_440, 1_280, 1_120, 960];
 const THUMBNAIL_QUALITIES = [76, 68, 60, 52, 44];
@@ -21,12 +25,24 @@ type EncodedImage = {
 };
 
 export type ProcessedReviewImage = {
-  inputMimeType: "image/jpeg" | "image/png" | "image/webp";
+  inputMimeType: ActualReviewImageMime;
   detail: EncodedImage;
   thumbnail: EncodedImage;
 };
 
-function toMimeType(format: string): ProcessedReviewImage["inputMimeType"] {
+type ImagePipelineInput =
+  | {
+      kind: "encoded";
+      data: Uint8Array;
+    }
+  | {
+      kind: "rgba";
+      data: Uint8Array;
+      width: number;
+      height: number;
+    };
+
+function toMimeType(format: string): ActualReviewImageMime {
   if (format === "jpeg") {
     return "image/jpeg";
   }
@@ -38,14 +54,47 @@ function toMimeType(format: string): ProcessedReviewImage["inputMimeType"] {
   return "image/webp";
 }
 
-function imagePipeline(input: Uint8Array) {
-  return sharp(input, {
+function readAscii(input: Uint8Array, start: number, end: number) {
+  return String.fromCharCode(...input.subarray(start, end));
+}
+
+function detectHeifMimeType(input: Uint8Array): ActualReviewImageMime | null {
+  if (input.byteLength < 12 || readAscii(input, 4, 8) !== "ftyp") {
+    return null;
+  }
+
+  const brand = readAscii(input, 8, 12);
+
+  if (HEIC_BRANDS.has(brand)) {
+    return "image/heic";
+  }
+
+  if (HEIF_BRANDS.has(brand)) {
+    return "image/heif";
+  }
+
+  return null;
+}
+
+function imagePipeline(input: ImagePipelineInput) {
+  if (input.kind === "rgba") {
+    return sharp(input.data, {
+      raw: {
+        width: input.width,
+        height: input.height,
+        channels: 4,
+      },
+      limitInputPixels: MAX_REVIEW_IMAGE_INPUT_PIXELS,
+    });
+  }
+
+  return sharp(input.data, {
     animated: true,
     limitInputPixels: MAX_REVIEW_IMAGE_INPUT_PIXELS,
   });
 }
 
-async function encodeDetail(input: Uint8Array) {
+async function encodeDetail(input: ImagePipelineInput) {
   for (const edge of DETAIL_EDGES) {
     for (const quality of DETAIL_QUALITIES) {
       const output = await imagePipeline(input)
@@ -72,7 +121,7 @@ async function encodeDetail(input: Uint8Array) {
   );
 }
 
-async function encodeThumbnail(input: Uint8Array) {
+async function encodeThumbnail(input: ImagePipelineInput) {
   for (const quality of THUMBNAIL_QUALITIES) {
     const output = await imagePipeline(input)
       .rotate()
@@ -95,13 +144,35 @@ async function encodeThumbnail(input: Uint8Array) {
   );
 }
 
-export async function processReviewImage(
-  input: Uint8Array,
-): Promise<ProcessedReviewImage> {
+async function inspectReviewImage(input: Uint8Array): Promise<{
+  inputMimeType: ActualReviewImageMime;
+  pipelineInput: ImagePipelineInput;
+}> {
+  const heifMimeType = detectHeifMimeType(input);
+
+  if (heifMimeType) {
+    const decoded = await decodeSingleHeic(input);
+
+    return {
+      inputMimeType: heifMimeType,
+      pipelineInput: {
+        kind: "rgba",
+        data: new Uint8Array(
+          decoded.data.buffer,
+          decoded.data.byteOffset,
+          decoded.data.byteLength,
+        ),
+        width: decoded.width,
+        height: decoded.height,
+      },
+    };
+  }
+
+  const pipelineInput: ImagePipelineInput = { kind: "encoded", data: input };
   let metadata: Awaited<ReturnType<ReturnType<typeof sharp>["metadata"]>>;
 
   try {
-    metadata = await imagePipeline(input).metadata();
+    metadata = await imagePipeline(pipelineInput).metadata();
   } catch {
     throw new ReviewImageError(
       "INVALID_IMAGE",
@@ -114,7 +185,7 @@ export async function processReviewImage(
     throw new ReviewImageError(
       "UNSUPPORTED_IMAGE_TYPE",
       415,
-      "JPEG, PNG, WebP 사진만 올릴 수 있어요.",
+      "JPEG, PNG, WebP, HEIC, HEIF 사진만 올릴 수 있어요.",
     );
   }
 
@@ -126,14 +197,25 @@ export async function processReviewImage(
     );
   }
 
+  return {
+    inputMimeType: toMimeType(metadata.format),
+    pipelineInput,
+  };
+}
+
+export async function processReviewImage(
+  input: Uint8Array,
+): Promise<ProcessedReviewImage> {
+  const inspected = await inspectReviewImage(input);
+
   try {
     const [detail, thumbnail] = await Promise.all([
-      encodeDetail(input),
-      encodeThumbnail(input),
+      encodeDetail(inspected.pipelineInput),
+      encodeThumbnail(inspected.pipelineInput),
     ]);
 
     return {
-      inputMimeType: toMimeType(metadata.format),
+      inputMimeType: inspected.inputMimeType,
       detail,
       thumbnail,
     };

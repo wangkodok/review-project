@@ -3,8 +3,15 @@ import {
   MAX_REVIEW_IMAGE_ORIGINAL_BYTES,
   MAX_REVIEW_IMAGE_UPLOAD_BYTES,
 } from "./constants";
+import type { DeclaredReviewImageMime } from "./uploadContract";
 
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const OPTIMIZABLE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED_IMAGE_TYPES = new Set([
+  ...OPTIMIZABLE_IMAGE_TYPES,
+  "image/heic",
+  "image/heif",
+  "application/octet-stream",
+]);
 const OUTPUT_QUALITIES = [0.86, 0.78, 0.7, 0.62, 0.54];
 const OUTPUT_EDGE_SCALES = [1, 0.9, 0.8, 0.7, 0.6];
 
@@ -17,8 +24,12 @@ export class ClientReviewImageError extends Error {
 
 export type PreparedClientReviewImage = {
   blob: Blob;
-  width: number;
-  height: number;
+  mimeType: DeclaredReviewImageMime;
+  optimized: boolean;
+};
+
+type PrepareReviewImageOptions = {
+  optimizeImage?: (file: File) => Promise<Blob>;
 };
 
 type LoadedImage = {
@@ -28,10 +39,20 @@ type LoadedImage = {
   dispose: () => void;
 };
 
-export function validateReviewImageFile(file: Pick<File, "size" | "type">) {
-  if (!ALLOWED_IMAGE_TYPES.has(file.type.toLowerCase())) {
-    throw new ClientReviewImageError("JPEG, PNG, WebP 사진만 올릴 수 있어요.");
+function normalizeClientMimeType(type: string): DeclaredReviewImageMime {
+  const normalized = type.trim().toLowerCase() || "application/octet-stream";
+
+  if (!ALLOWED_IMAGE_TYPES.has(normalized)) {
+    throw new ClientReviewImageError(
+      "JPEG, PNG, WebP, HEIC, HEIF 사진만 올릴 수 있어요.",
+    );
   }
+
+  return normalized as DeclaredReviewImageMime;
+}
+
+export function validateReviewImageFile(file: Pick<File, "size" | "type">) {
+  normalizeClientMimeType(file.type);
 
   if (file.size <= 0) {
     throw new ClientReviewImageError("사진 파일을 확인해 주세요.");
@@ -117,10 +138,7 @@ async function loadImage(file: File): Promise<LoadedImage> {
   }
 }
 
-export async function prepareReviewImageForUpload(
-  file: File,
-): Promise<PreparedClientReviewImage> {
-  validateReviewImageFile(file);
+async function optimizeReviewImageWithCanvas(file: File): Promise<Blob> {
   const loaded = await loadImage(file);
 
   try {
@@ -136,6 +154,8 @@ export async function prepareReviewImageForUpload(
       Math.max(1, Math.round(initialEdge * scale)),
     );
 
+    let smallestBlob: Blob | null = null;
+
     for (const maxEdge of outputEdges) {
       const dimensions = getConstrainedImageDimensions(
         loaded.width,
@@ -150,16 +170,50 @@ export async function prepareReviewImageForUpload(
       for (const quality of OUTPUT_QUALITIES) {
         const blob = await canvasToWebp(canvas, quality);
 
+        if (!smallestBlob || blob.size < smallestBlob.size) {
+          smallestBlob = blob;
+        }
+
         if (blob.size <= MAX_REVIEW_IMAGE_UPLOAD_BYTES) {
-          return { blob, ...dimensions };
+          return blob;
         }
       }
     }
 
-    throw new ClientReviewImageError(
-      "사진 용량을 충분히 줄이지 못했습니다. 다른 사진을 선택해 주세요.",
-    );
+    if (smallestBlob) {
+      return smallestBlob;
+    }
+
+    throw new ClientReviewImageError("사진을 처리하지 못했습니다.");
   } finally {
     loaded.dispose();
   }
+}
+
+export async function prepareReviewImageForUpload(
+  file: File,
+  options: PrepareReviewImageOptions = {},
+): Promise<PreparedClientReviewImage> {
+  validateReviewImageFile(file);
+  const mimeType = normalizeClientMimeType(file.type);
+
+  if (!OPTIMIZABLE_IMAGE_TYPES.has(mimeType)) {
+    return { blob: file, mimeType, optimized: false };
+  }
+
+  try {
+    const optimized = await (options.optimizeImage ?? optimizeReviewImageWithCanvas)(file);
+
+    if (
+      optimized.size > 0 &&
+      optimized.size < file.size &&
+      optimized.type.toLowerCase() === "image/webp"
+    ) {
+      return { blob: optimized, mimeType: "image/webp", optimized: true };
+    }
+  } catch {
+    // Browser image decoders vary by device. The server remains the final validator.
+  }
+
+  return { blob: file, mimeType, optimized: false };
 }

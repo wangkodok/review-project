@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { ReadyReviewImage } from "./uploadContract";
+
 export type PublicReviewImage = {
   detailUrl: string;
   thumbnailUrl: string;
@@ -80,5 +82,48 @@ export function toPublicReviewImage(value: RelatedReviewImage): PublicReviewImag
     thumbnailUrl: `${baseUrl}/${encodeObjectKey(image.thumbnail_object_key)}`,
     width: image.width as number,
     height: image.height as number,
+  };
+}
+
+export function toReadyReviewImage(input: {
+  imageId: string;
+  detailObjectKey: string;
+  thumbnailObjectKey: string;
+  width: number;
+  height: number;
+  detailByteSize: number;
+  thumbnailByteSize: number;
+}): ReadyReviewImage | null {
+  const baseUrl = getPublicBaseUrl();
+  const expectedDetailKey = `detail/${input.imageId}/image.webp`;
+  const expectedThumbnailKey = `thumbnail/${input.imageId}/image.webp`;
+
+  if (
+    !baseUrl ||
+    !new RegExp(`^${IMAGE_ID_PATTERN}$`, "i").test(input.imageId) ||
+    input.detailObjectKey !== expectedDetailKey ||
+    input.thumbnailObjectKey !== expectedThumbnailKey ||
+    !DETAIL_OBJECT_KEY_PATTERN.test(input.detailObjectKey) ||
+    !THUMBNAIL_OBJECT_KEY_PATTERN.test(input.thumbnailObjectKey) ||
+    !Number.isInteger(input.width) ||
+    !Number.isInteger(input.height) ||
+    !Number.isInteger(input.detailByteSize) ||
+    !Number.isInteger(input.thumbnailByteSize) ||
+    input.width < 1 ||
+    input.height < 1 ||
+    input.detailByteSize < 1 ||
+    input.thumbnailByteSize < 1
+  ) {
+    return null;
+  }
+
+  return {
+    imageId: input.imageId,
+    detailUrl: `${baseUrl}/${encodeObjectKey(input.detailObjectKey)}`,
+    thumbnailUrl: `${baseUrl}/${encodeObjectKey(input.thumbnailObjectKey)}`,
+    width: input.width,
+    height: input.height,
+    detailByteSize: input.detailByteSize,
+    thumbnailByteSize: input.thumbnailByteSize,
   };
 }

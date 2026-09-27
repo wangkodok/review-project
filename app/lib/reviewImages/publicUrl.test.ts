@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { toPublicReviewImage } from "./publicUrl";
+import { toPublicReviewImage, toReadyReviewImage } from "./publicUrl";
 
 const attachedImage = {
   status: "attached",
@@ -28,6 +28,52 @@ describe("review image public URL", () => {
       width: 1200,
       height: 900,
     });
+  });
+
+  it("builds a safe ready DTO only from matching canonical object keys", () => {
+    vi.stubEnv("REVIEW_IMAGE_PUBLIC_BASE_URL", "https://media.example.com/");
+
+    expect(
+      toReadyReviewImage({
+        imageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        detailObjectKey:
+          "detail/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/image.webp",
+        thumbnailObjectKey:
+          "thumbnail/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/image.webp",
+        width: 1_200,
+        height: 900,
+        detailByteSize: 800_000,
+        thumbnailByteSize: 80_000,
+      }),
+    ).toEqual({
+      imageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      detailUrl:
+        "https://media.example.com/detail/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/image.webp",
+      thumbnailUrl:
+        "https://media.example.com/thumbnail/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/image.webp",
+      width: 1_200,
+      height: 900,
+      detailByteSize: 800_000,
+      thumbnailByteSize: 80_000,
+    });
+  });
+
+  it("rejects ready DTO keys that do not belong to the image id", () => {
+    vi.stubEnv("REVIEW_IMAGE_PUBLIC_BASE_URL", "https://media.example.com/");
+
+    expect(
+      toReadyReviewImage({
+        imageId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        detailObjectKey:
+          "detail/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/image.webp",
+        thumbnailObjectKey:
+          "thumbnail/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/image.webp",
+        width: 1_200,
+        height: 900,
+        detailByteSize: 800_000,
+        thumbnailByteSize: 80_000,
+      }),
+    ).toBeNull();
   });
 
   it.each([

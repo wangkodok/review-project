@@ -6,3 +6,21 @@ export const MAX_REVIEW_IMAGE_EDGE = 1_600;
 export const REVIEW_IMAGE_THUMBNAIL_EDGE = 320;
 export const MAX_REVIEW_IMAGE_INPUT_PIXELS = 20_000_000;
 export const REVIEW_IMAGE_RESERVATION_MINUTES = 15;
+export const REVIEW_IMAGE_UPLOAD_URL_SECONDS = 180;
+
+export const DECLARED_REVIEW_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/octet-stream",
+] as const;
+
+export const ACTUAL_REVIEW_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+] as const;

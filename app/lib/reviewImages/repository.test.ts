@@ -10,11 +10,15 @@ vi.mock("@/app/lib/supabase/server", () => ({
 }));
 
 import {
+  claimReviewImageTempUpload,
   claimReviewImageCleanupJobs,
+  completeReviewImageDirectUpload,
   completeReviewImageCleanupJob,
   completeReviewImageUpload,
+  getReviewImageDirectUploadContext,
   queueExpiredReviewImages,
   queueReviewImageCleanup,
+  reserveReviewImageDirectUpload,
   reserveReviewImageUpload,
 } from "./repository";
 
@@ -24,6 +28,217 @@ const USER_ID = "22222222-2222-4222-8222-222222222222";
 describe("review image repository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("maps the owned direct-upload context through exact RPC parameters", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: [
+        {
+          result: "ok",
+          status: "uploading",
+          temp_object_key: `temp/${IMAGE_ID}/source`,
+          detail_object_key: `detail/${IMAGE_ID}/image.webp`,
+          thumbnail_object_key: `thumbnail/${IMAGE_ID}/image.webp`,
+          expected_temp_byte_size: 10_000_000,
+          declared_source_mime_type: "image/heic",
+          source_mime_type: null,
+          width: null,
+          height: null,
+          detail_byte_size: null,
+          thumbnail_byte_size: null,
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      getReviewImageDirectUploadContext({
+        imageId: IMAGE_ID,
+        ownerUserId: USER_ID,
+      }),
+    ).resolves.toEqual({
+      result: "ok",
+      status: "uploading",
+      tempObjectKey: `temp/${IMAGE_ID}/source`,
+      detailObjectKey: `detail/${IMAGE_ID}/image.webp`,
+      thumbnailObjectKey: `thumbnail/${IMAGE_ID}/image.webp`,
+      expectedTempByteSize: 10_000_000,
+      declaredSourceMimeType: "image/heic",
+      sourceMimeType: null,
+      width: null,
+      height: null,
+      detailByteSize: null,
+      thumbnailByteSize: null,
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "get_review_image_direct_upload_context",
+      {
+        p_image_id: IMAGE_ID,
+        p_owner_user_id: USER_ID,
+      },
+    );
+  });
+
+  it("reserves the maximum direct upload as exactly 11,100,000 bytes", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: [
+        {
+          result: "ok",
+          image_id: IMAGE_ID,
+          reserved_byte_size: 11_100_000,
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      reserveReviewImageDirectUpload({
+        imageId: IMAGE_ID,
+        ownerUserId: USER_ID,
+        tempObjectKey: `temp/${IMAGE_ID}/source`,
+        detailObjectKey: `detail/${IMAGE_ID}/image.webp`,
+        thumbnailObjectKey: `thumbnail/${IMAGE_ID}/image.webp`,
+        expectedTempByteSize: 10_000_000,
+        declaredSourceMimeType: "application/octet-stream",
+        expiresAt: "2026-09-22T01:15:00.000Z",
+      }),
+    ).resolves.toEqual({
+      result: "ok",
+      imageId: IMAGE_ID,
+      reservedByteSize: 11_100_000,
+    });
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "reserve_review_image_direct_upload_atomic",
+      {
+        p_image_id: IMAGE_ID,
+        p_owner_user_id: USER_ID,
+        p_temp_object_key: `temp/${IMAGE_ID}/source`,
+        p_detail_object_key: `detail/${IMAGE_ID}/image.webp`,
+        p_thumbnail_object_key: `thumbnail/${IMAGE_ID}/image.webp`,
+        p_expected_temp_byte_size: 10_000_000,
+        p_declared_source_mime_type: "application/octet-stream",
+        p_expires_at: "2026-09-22T01:15:00.000Z",
+      },
+    );
+  });
+
+  it.each([
+    "size_mismatch",
+    "expired",
+    "forbidden",
+    "processing",
+    "invalid_state",
+    "ok",
+  ] as const)("maps the direct-upload claim result %s", async (result) => {
+    mocks.rpc.mockResolvedValue({ data: result, error: null });
+
+    await expect(
+      claimReviewImageTempUpload({
+        imageId: IMAGE_ID,
+        ownerUserId: USER_ID,
+        tempByteSize: 10_000_000,
+      }),
+    ).resolves.toBe(result);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "claim_review_image_temp_upload_atomic",
+      {
+        p_image_id: IMAGE_ID,
+        p_owner_user_id: USER_ID,
+        p_temp_byte_size: 10_000_000,
+      },
+    );
+  });
+
+  it("completes a direct upload with actual source MIME and output sizes", async () => {
+    mocks.rpc.mockResolvedValue({ data: "ok", error: null });
+
+    await expect(
+      completeReviewImageDirectUpload({
+        imageId: IMAGE_ID,
+        ownerUserId: USER_ID,
+        detailObjectKey: `detail/${IMAGE_ID}/image.webp`,
+        thumbnailObjectKey: `thumbnail/${IMAGE_ID}/image.webp`,
+        width: 1_200,
+        height: 800,
+        sourceMimeType: "image/heic",
+        detailByteSize: 900_000,
+        thumbnailByteSize: 90_000,
+        tempDeleted: true,
+      }),
+    ).resolves.toBe("ok");
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "complete_review_image_direct_upload_atomic",
+      {
+        p_image_id: IMAGE_ID,
+        p_owner_user_id: USER_ID,
+        p_detail_object_key: `detail/${IMAGE_ID}/image.webp`,
+        p_thumbnail_object_key: `thumbnail/${IMAGE_ID}/image.webp`,
+        p_width: 1_200,
+        p_height: 800,
+        p_source_mime_type: "image/heic",
+        p_detail_byte_size: 900_000,
+        p_thumbnail_byte_size: 90_000,
+        p_temp_deleted: true,
+      },
+    );
+  });
+
+  it.each([
+    ["context", () => getReviewImageDirectUploadContext({ imageId: IMAGE_ID, ownerUserId: USER_ID })],
+    [
+      "reserve",
+      () =>
+        reserveReviewImageDirectUpload({
+          imageId: IMAGE_ID,
+          ownerUserId: USER_ID,
+          tempObjectKey: `temp/${IMAGE_ID}/source`,
+          detailObjectKey: `detail/${IMAGE_ID}/image.webp`,
+          thumbnailObjectKey: `thumbnail/${IMAGE_ID}/image.webp`,
+          expectedTempByteSize: 1,
+          declaredSourceMimeType: "image/jpeg",
+          expiresAt: "2026-09-22T01:15:00.000Z",
+        }),
+    ],
+    [
+      "claim",
+      () => claimReviewImageTempUpload({ imageId: IMAGE_ID, ownerUserId: USER_ID, tempByteSize: 1 }),
+    ],
+    [
+      "complete",
+      () =>
+        completeReviewImageDirectUpload({
+          imageId: IMAGE_ID,
+          ownerUserId: USER_ID,
+          detailObjectKey: `detail/${IMAGE_ID}/image.webp`,
+          thumbnailObjectKey: `thumbnail/${IMAGE_ID}/image.webp`,
+          width: 1,
+          height: 1,
+          sourceMimeType: "image/jpeg",
+          detailByteSize: 1,
+          thumbnailByteSize: 1,
+          tempDeleted: true,
+        }),
+    ],
+  ] as const)("rejects a malformed %s RPC result", async (_name, invoke) => {
+    mocks.rpc.mockResolvedValue({ data: [{ private: "unexpected" }], error: null });
+
+    await expect(invoke()).rejects.toThrow(/returned invalid data/);
+  });
+
+  it("does not expose direct-upload database errors", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "private direct-upload database detail" },
+    });
+
+    await expect(
+      claimReviewImageTempUpload({
+        imageId: IMAGE_ID,
+        ownerUserId: USER_ID,
+        tempByteSize: 1,
+      }),
+    ).rejects.toThrow("Review image direct-upload claim failed");
   });
 
   it("reserves storage through the approved atomic RPC", async () => {

@@ -1,16 +1,8 @@
 import "server-only";
 
+import type { RateLimitPolicy } from "./rateLimit";
+
 type AuthProvider = "google" | "kakao";
-type RateLimitPolicy =
-  | "auth"
-  | "like"
-  | "posts"
-  | "report"
-  | "reviewCreate"
-  | "reviewImageUpload"
-  | "reviewManage"
-  | "search"
-  | "withdrawal";
 
 type WithdrawalEventCode =
   | "withdrawal_processing_release_failed"
@@ -47,17 +39,22 @@ type KakaoSecurityEvent =
       eventCode: "kakao_webhook_processing_failed";
     };
 
-type ReviewImageSecurityEvent = {
-  eventCode: "review_image_storage_failed";
-  resultCode: "cleanup_queued" | "cleanup_queue_failed";
-} | {
-  eventCode: "review_image_cleanup_failed";
-  resultCode:
-    | "configuration_missing"
-    | "execution_failed"
-    | "job_completion_failed"
-    | "permanent_failure";
-};
+type ReviewImageSecurityEvent =
+  | {
+      eventCode:
+        | "review_image_storage_failed"
+        | "review_image_presign_failed"
+        | "review_image_finalize_failed";
+      resultCode: "cleanup_queued" | "cleanup_queue_failed";
+    }
+  | {
+      eventCode: "review_image_cleanup_failed";
+      resultCode:
+        | "configuration_missing"
+        | "execution_failed"
+        | "job_completion_failed"
+        | "permanent_failure";
+    };
 
 export type SecurityEventInput =
   | WithdrawalSecurityEvent
@@ -139,6 +136,16 @@ const EVENT_DEFINITIONS: Record<
     route: "/api/review-images",
     httpStatus: 503,
   },
+  review_image_presign_failed: {
+    severity: "error",
+    route: "/api/review-images/upload-slot",
+    httpStatus: 503,
+  },
+  review_image_finalize_failed: {
+    severity: "error",
+    route: "/api/review-images/[imageId]/finalize",
+    httpStatus: 503,
+  },
   review_image_cleanup_failed: {
     severity: "error",
     route: "/api/internal/review-images/cleanup",
@@ -197,6 +204,8 @@ export function recordSecurityEvent(event: SecurityEventInput) {
     };
   } else if (
     event.eventCode === "review_image_storage_failed" ||
+    event.eventCode === "review_image_presign_failed" ||
+    event.eventCode === "review_image_finalize_failed" ||
     event.eventCode === "review_image_cleanup_failed"
   ) {
     payload = {

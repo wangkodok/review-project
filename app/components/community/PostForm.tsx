@@ -28,9 +28,15 @@ import {
 } from "@/app/lib/posts/structuredReview";
 import {
   ClientReviewImageError,
-  PreparedClientReviewImage,
   prepareReviewImageForUpload,
 } from "@/app/lib/reviewImages/clientProcessor";
+import {
+  cancelReviewImageUpload,
+  ClientReviewImageUploadError,
+  ReviewImageUploadStage,
+  uploadReviewImage,
+} from "@/app/lib/reviewImages/clientUpload";
+import type { ReadyReviewImage } from "@/app/lib/reviewImages/uploadContract";
 import type { PostImage } from "@/app/types/post";
 import PageBackHeader from "../common/PageBackHeader";
 import ReviewConfirmDialog from "./ReviewConfirmDialog";
@@ -46,25 +52,6 @@ type PostFormResponse = {
   } | null;
   message: string;
   code?: string;
-};
-
-type ReviewImageUploadResponse = {
-  success: boolean;
-  data: {
-    image: {
-      id: string;
-      width: number;
-      height: number;
-      detailByteSize: number;
-      thumbnailByteSize: number;
-    };
-  } | null;
-  message: string;
-  code?: string;
-};
-
-type SelectedReviewImage = PreparedClientReviewImage & {
-  previewUrl: string;
 };
 
 type PostFormProps = {
@@ -107,6 +94,7 @@ type ReviewOption = {
 
 type PickerKind = "region" | "category";
 type ConfirmMode = "save" | "leave";
+type ImageProgressStage = "optimizing" | ReviewImageUploadStage;
 
 const GOOD_OPTION_KEYS = new Set(GOOD_REVIEW_OPTIONS.map((option) => option.key));
 const BAD_OPTION_KEYS = new Set(BAD_REVIEW_OPTIONS.map((option) => option.key));
@@ -184,8 +172,10 @@ export default function PostForm({
 }: PostFormProps) {
   const router = useRouter();
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const selectedImageRef = useRef<SelectedReviewImage | null>(null);
+  const selectedImageRef = useRef<ReadyReviewImage | null>(null);
   const preparedImageIdRef = useRef<string | null>(null);
+  const imageUploadAbortRef = useRef<AbortController | null>(null);
+  const imageProgressStageRef = useRef<ImageProgressStage | null>(null);
   const imageSelectionVersionRef = useRef(0);
   const initialStoreValue = initialStoreName?.trim() ?? "";
   const initialMenuValue = initialMenuName.trim();
@@ -205,8 +195,8 @@ export default function PostForm({
   const [imageErrorMessage, setImageErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImageProcessing, setIsImageProcessing] = useState(false);
-  const [submitPhase, setSubmitPhase] = useState<"uploading" | "saving" | null>(null);
-  const [selectedImage, setSelectedImage] = useState<SelectedReviewImage | null>(null);
+  const [imageProgressStage, setImageProgressStage] = useState<ImageProgressStage | null>(null);
+  const [selectedImage, setSelectedImage] = useState<ReadyReviewImage | null>(null);
   const [preparedImageId, setPreparedImageId] = useState<string | null>(null);
   const [isInitialImageRemoved, setIsInitialImageRemoved] = useState(false);
   const categoryQuery = useQuery({
@@ -282,7 +272,7 @@ export default function PostForm({
     ? `/community/${postId}${returnSource === "my-posts" ? "?from=my-posts" : ""}`
     : "";
   const visibleImageUrl =
-    selectedImage?.previewUrl ??
+    selectedImage?.thumbnailUrl ??
     (!isInitialImageRemoved ? initialImage?.thumbnailUrl : undefined);
 
   const closePicker = useCallback(() => setActivePicker(null), []);
@@ -309,18 +299,12 @@ export default function PostForm({
   useEffect(() => {
     return () => {
       imageSelectionVersionRef.current += 1;
-
-      if (selectedImageRef.current) {
-        URL.revokeObjectURL(selectedImageRef.current.previewUrl);
-      }
+      imageUploadAbortRef.current?.abort();
 
       const imageId = preparedImageIdRef.current;
 
-      if (imageId) {
-        void fetch(`/api/review-images/${imageId}`, {
-          method: "DELETE",
-          keepalive: true,
-        }).catch(() => undefined);
+      if (imageId && imageProgressStageRef.current !== "finalizing") {
+        void cancelReviewImageUpload(imageId, { keepalive: true });
       }
     };
   }, []);
@@ -330,26 +314,9 @@ export default function PostForm({
     setPreparedImageId(nextImageId);
   }
 
-  function replaceSelectedImage(nextImage: SelectedReviewImage | null) {
-    const previousImage = selectedImageRef.current;
-
-    if (previousImage && previousImage.previewUrl !== nextImage?.previewUrl) {
-      URL.revokeObjectURL(previousImage.previewUrl);
-    }
-
+  function replaceSelectedImage(nextImage: ReadyReviewImage | null) {
     selectedImageRef.current = nextImage;
     setSelectedImage(nextImage);
-  }
-
-  async function cancelPreparedImage(imageId: string) {
-    try {
-      const response = await fetch(`/api/review-images/${imageId}`, {
-        method: "DELETE",
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
   }
 
   async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
@@ -363,6 +330,8 @@ export default function PostForm({
     const selectionVersion = imageSelectionVersionRef.current + 1;
     imageSelectionVersionRef.current = selectionVersion;
     setIsImageProcessing(true);
+    imageProgressStageRef.current = "optimizing";
+    setImageProgressStage("optimizing");
     setImageErrorMessage("");
 
     try {
@@ -375,7 +344,7 @@ export default function PostForm({
       const previousPreparedId = preparedImageIdRef.current;
 
       if (previousPreparedId) {
-        const canceled = await cancelPreparedImage(previousPreparedId);
+        const canceled = await cancelReviewImageUpload(previousPreparedId);
 
         if (!canceled) {
           throw new ClientReviewImageError(
@@ -384,21 +353,60 @@ export default function PostForm({
         }
 
         setPreparedImage(null);
+        replaceSelectedImage(null);
       }
 
-      const previewUrl = URL.createObjectURL(processed.blob);
-      replaceSelectedImage({ ...processed, previewUrl });
+      const abortController = new AbortController();
+      imageUploadAbortRef.current = abortController;
+      const readyImage = await uploadReviewImage(processed, {
+        signal: abortController.signal,
+        onReserved: (imageId) => {
+          if (selectionVersion === imageSelectionVersionRef.current) {
+            setPreparedImage(imageId);
+          }
+        },
+        onStage: (stage) => {
+          if (selectionVersion === imageSelectionVersionRef.current) {
+            imageProgressStageRef.current = stage;
+            setImageProgressStage(stage);
+          }
+        },
+      });
+
+      if (selectionVersion !== imageSelectionVersionRef.current) {
+        void cancelReviewImageUpload(readyImage.imageId);
+        return;
+      }
+
+      setPreparedImage(readyImage.imageId);
+      replaceSelectedImage(readyImage);
       setErrorMessage("");
     } catch (error) {
       if (selectionVersion === imageSelectionVersionRef.current) {
+        const reservedImageId = preparedImageIdRef.current;
+        const shouldCancelReservation =
+          !(
+            error instanceof ClientReviewImageUploadError &&
+            error.code === "FINALIZE_FAILED"
+          );
+
+        if (reservedImageId && shouldCancelReservation) {
+          void cancelReviewImageUpload(reservedImageId);
+        }
+        setPreparedImage(null);
+        replaceSelectedImage(null);
         setImageErrorMessage(
-          error instanceof ClientReviewImageError
+          error instanceof ClientReviewImageError ||
+            error instanceof ClientReviewImageUploadError
             ? error.message
             : "사진을 처리하지 못했습니다. 다른 사진을 선택해 주세요.",
         );
       }
     } finally {
       if (selectionVersion === imageSelectionVersionRef.current) {
+        imageUploadAbortRef.current = null;
+        imageProgressStageRef.current = null;
+        setImageProgressStage(null);
         setIsImageProcessing(false);
       }
     }
@@ -410,6 +418,8 @@ export default function PostForm({
     }
 
     imageSelectionVersionRef.current += 1;
+    imageUploadAbortRef.current?.abort();
+    imageUploadAbortRef.current = null;
     const imageId = preparedImageIdRef.current;
 
     if (selectedImageRef.current) {
@@ -421,38 +431,11 @@ export default function PostForm({
 
     setImageErrorMessage("");
 
-    if (imageId && !(await cancelPreparedImage(imageId))) {
+    if (imageId && !(await cancelReviewImageUpload(imageId))) {
       setImageErrorMessage(
         "사진 정리가 지연되고 있습니다. 잠시 후 다시 선택해 주세요.",
       );
     }
-  }
-
-  async function uploadSelectedImage() {
-    if (!selectedImage) {
-      return null;
-    }
-
-    if (preparedImageId) {
-      return preparedImageId;
-    }
-
-    setSubmitPhase("uploading");
-    const response = await fetch("/api/review-images", {
-      method: "POST",
-      headers: { "Content-Type": selectedImage.blob.type },
-      body: selectedImage.blob,
-    });
-    const result = (await response.json()) as ReviewImageUploadResponse;
-
-    if (!response.ok || !result.success || !result.data?.image.id) {
-      throw new ClientReviewImageError(
-        result.message || "사진을 올리지 못했습니다. 다시 시도해 주세요.",
-      );
-    }
-
-    setPreparedImage(result.data.image.id);
-    return result.data.image.id;
   }
 
   function handleBack() {
@@ -516,7 +499,7 @@ export default function PostForm({
   }
 
   async function saveReview() {
-    if (!isValid || isSubmitting || (isEditMode && !isDirty)) {
+    if (!isValid || isSubmitting || isImageProcessing || (isEditMode && !isDirty)) {
       return;
     }
 
@@ -531,8 +514,7 @@ export default function PostForm({
     setImageErrorMessage("");
 
     try {
-      const imageId = await uploadSelectedImage();
-      setSubmitPhase("saving");
+      const imageId = selectedImage ? preparedImageId : null;
       const response = await fetch(isEditMode ? `/api/posts/${postId}` : "/api/posts", {
         method: isEditMode ? "PATCH" : "POST",
         headers: {
@@ -559,6 +541,7 @@ export default function PostForm({
       if (!response.ok || !result.success || !result.data) {
         if (result.code === "IMAGE_EXPIRED" || result.code === "INVALID_REVIEW_IMAGE") {
           setPreparedImage(null);
+          replaceSelectedImage(null);
         }
 
         setConfirmMode(null);
@@ -567,6 +550,7 @@ export default function PostForm({
       }
 
       preparedImageIdRef.current = null;
+      selectedImageRef.current = null;
       router.replace(
         `/community/${result.data.post.id}${
           returnSource === "my-posts" ? "?from=my-posts" : ""
@@ -580,7 +564,6 @@ export default function PostForm({
           : "인터넷 연결을 확인한 후 다시 시도해 주세요.",
       );
     } finally {
-      setSubmitPhase(null);
       setIsSubmitting(false);
     }
   }
@@ -779,7 +762,7 @@ export default function PostForm({
             ) : null}
 
             <input
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
               className="sr-only"
               disabled={isSubmitting || isImageProcessing}
               onChange={handleImageChange}
@@ -789,7 +772,13 @@ export default function PostForm({
           </div>
           {isImageProcessing ? (
             <p aria-live="polite" className="mt-2 text-xs leading-5 text-neutral-500">
-              사진 용량을 줄이는 중입니다.
+              {imageProgressStage === "optimizing"
+                ? "사진 용량을 줄이는 중입니다."
+                : imageProgressStage === "reserving"
+                  ? "사진 업로드를 준비하는 중입니다."
+                  : imageProgressStage === "uploading"
+                    ? "사진을 올리는 중입니다."
+                    : "사진을 안전하게 처리하는 중입니다."}
             </p>
           ) : null}
           {imageErrorMessage ? (
@@ -935,7 +924,7 @@ export default function PostForm({
         isPending={isSubmitting}
         onCancel={closeConfirm}
         onConfirm={confirmMode === "save" ? saveReview : handleLeave}
-        pendingLabel={submitPhase === "uploading" ? "사진 올리는 중..." : "저장 중..."}
+        pendingLabel="저장 중..."
         title={confirmMode === "save" ? saveDialog.title : leaveDialog.title}
         tone={confirmMode === "leave" ? "danger" : "primary"}
       />
