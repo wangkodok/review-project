@@ -17,6 +17,10 @@ type AuthAccountRow = {
   provider_account_id: string;
 };
 
+type WithdrawalAuthAccountRow = AuthAccountRow & {
+  provider_email?: string | null;
+};
+
 export async function getActiveExternalAuthAccount({
   userId,
   provider,
@@ -33,7 +37,7 @@ export async function getActiveExternalAuthAccount({
     .maybeSingle<AuthAccountRow>();
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error("AUTH_ACCOUNT_LOOKUP_FAILED");
   }
 
   if (!data) {
@@ -44,6 +48,41 @@ export async function getActiveExternalAuthAccount({
     userId: data.user_id,
     provider,
     providerAccountId: data.provider_account_id,
+  };
+}
+
+export async function getWithdrawalExternalAuthAccount({
+  userId,
+  provider,
+}: {
+  userId: string;
+  provider: AuthProvider;
+}) {
+  const supabase = createSupabaseServerClient();
+  const selectedColumns =
+    provider === "google"
+      ? "user_id,provider_account_id,provider_email"
+      : "user_id,provider_account_id";
+  const { data, error } = await supabase
+    .from("auth_accounts")
+    .select(selectedColumns)
+    .eq("user_id", userId)
+    .eq("provider", provider)
+    .maybeSingle<WithdrawalAuthAccountRow>();
+
+  if (error) {
+    throw new Error("AUTH_ACCOUNT_LOOKUP_FAILED");
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    userId: data.user_id,
+    provider,
+    providerAccountId: data.provider_account_id,
+    providerEmail: provider === "google" ? (data.provider_email ?? null) : null,
   };
 }
 
@@ -65,15 +104,11 @@ export function invalidateAuthToken(token: JWT) {
   delete token.anonymousId;
   delete token.authenticatedAt;
   delete token.authProvider;
-  delete token.providerAccessToken;
-  delete token.providerAccessTokenExpiresAt;
   delete token.name;
   delete token.email;
   delete token.picture;
   delete token.sub;
   delete token.authValidationUnavailable;
-  delete token.withdrawalFlowId;
-  delete token.withdrawalReauthenticatedAt;
   token.authSessionInvalidated = true;
 }
 

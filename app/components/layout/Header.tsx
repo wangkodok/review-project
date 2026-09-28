@@ -21,6 +21,7 @@ const hiddenHeaderPatterns = [
   /^\/my\/posts$/,
   /^\/my\/profile$/,
   /^\/my\/withdraw$/,
+  /^\/my\/withdraw\/complete$/,
   /^\/privacy$/,
 ];
 

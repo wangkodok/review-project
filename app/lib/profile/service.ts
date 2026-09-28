@@ -14,10 +14,6 @@ type AuthAccountRow = {
   provider_email: string | null;
 };
 
-type DeletedUserRow = {
-  id: string;
-};
-
 type PostActivityRow = {
   like_count: number | null;
   view_count: number | null;
@@ -169,20 +165,4 @@ export async function updateNickname({
   };
 }
 
-export async function withdrawUser(userId: string) {
-  const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("users")
-    .delete()
-    .eq("id", userId)
-    .select("id")
-    .maybeSingle<DeletedUserRow>();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  if (!data) {
-    throw new Error("User not found while withdrawing");
-  }
-}
+export { withdrawUser } from "./withdrawalService";

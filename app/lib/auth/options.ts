@@ -1,5 +1,4 @@
 import type { NextAuthOptions } from "next-auth";
-import type { JWT } from "next-auth/jwt";
 import GoogleProvider, { type GoogleProfile } from "next-auth/providers/google";
 import KakaoProvider, { type KakaoProfile } from "next-auth/providers/kakao";
 import { resolveOrCreateUserByExternalIdentity } from "./externalIdentity";
@@ -7,26 +6,6 @@ import {
   hasActiveExternalAuthAccount,
   invalidateAuthToken,
 } from "./sessionSecurity";
-import {
-  WITHDRAWAL_REAUTH_TTL_SECONDS,
-  verifyWithdrawalReauthTarget,
-  WithdrawalReauthStoreUnavailableError,
-} from "./withdrawalReauth";
-
-type WithdrawalReauthAuthContext = {
-  flowId: string;
-  originalToken: JWT | null;
-};
-
-type AuthRequestContext = {
-  withdrawalReauth?: WithdrawalReauthAuthContext;
-};
-
-type WithdrawalSessionUpdate = {
-  clearWithdrawalReauth?: boolean;
-};
-
-const WITHDRAWAL_REAUTH_TTL_MS = WITHDRAWAL_REAUTH_TTL_SECONDS * 1_000;
 const AUTH_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 function requireEnv(name: string) {
@@ -60,102 +39,24 @@ const isKakaoAuthEnabled = isFeatureEnabled("AUTH_KAKAO_ENABLED");
 process.env.NEXTAUTH_SECRET ??= authSecret;
 process.env.NEXTAUTH_URL ??= authUrl;
 
-function withdrawalErrorUrl(code: string) {
-  const url = new URL("/my/withdraw", authUrl);
-  url.searchParams.set("error", code);
-
-  return url.toString();
+function clearDefaultProfileClaims(token: {
+  name?: string | null;
+  email?: string | null;
+  picture?: string | null;
+}) {
+  delete token.name;
+  delete token.email;
+  delete token.picture;
 }
 
-function clearWithdrawalAuthToken(token: JWT) {
+function clearLegacyWithdrawalClaims(token: Record<string, unknown>) {
   delete token.providerAccessToken;
   delete token.providerAccessTokenExpiresAt;
   delete token.withdrawalFlowId;
   delete token.withdrawalReauthenticatedAt;
 }
 
-function clearDefaultProfileClaims(token: JWT) {
-  delete token.name;
-  delete token.email;
-  delete token.picture;
-}
-
-function hasCurrentWithdrawalAuthToken(token: JWT) {
-  const now = Date.now();
-
-  return (
-    typeof token.withdrawalFlowId === "string" &&
-    token.withdrawalFlowId.length > 0 &&
-    typeof token.withdrawalReauthenticatedAt === "number" &&
-    Number.isFinite(token.withdrawalReauthenticatedAt) &&
-    token.withdrawalReauthenticatedAt <= now &&
-    now - token.withdrawalReauthenticatedAt <= WITHDRAWAL_REAUTH_TTL_MS &&
-    typeof token.providerAccessToken === "string" &&
-    token.providerAccessToken.trim().length > 0 &&
-    typeof token.providerAccessTokenExpiresAt === "number" &&
-    token.providerAccessTokenExpiresAt > now
-  );
-}
-
-function clearStaleWithdrawalAuthToken(token: JWT) {
-  const hasWithdrawalAuthState = Boolean(
-    token.withdrawalFlowId ||
-      token.withdrawalReauthenticatedAt ||
-      token.providerAccessToken ||
-      token.providerAccessTokenExpiresAt,
-  );
-
-  if (hasWithdrawalAuthState && !hasCurrentWithdrawalAuthToken(token)) {
-    clearWithdrawalAuthToken(token);
-  }
-}
-
-function preserveWithdrawalSessionToken({
-  originalToken,
-  account,
-  flowId,
-  verifiedAt,
-}: {
-  originalToken: JWT;
-  account: {
-    access_token?: string;
-    expires_at?: number;
-  };
-  flowId: string;
-  verifiedAt: number;
-}) {
-  const token = { ...originalToken };
-  const accessToken =
-    typeof account.access_token === "string" && account.access_token.trim()
-      ? account.access_token
-      : null;
-
-  token.withdrawalFlowId = flowId;
-  token.withdrawalReauthenticatedAt = verifiedAt;
-
-  if (accessToken) {
-    token.providerAccessToken = accessToken;
-  } else {
-    delete token.providerAccessToken;
-  }
-
-  if (typeof account.expires_at === "number") {
-    token.providerAccessTokenExpiresAt = account.expires_at * 1000;
-  } else {
-    delete token.providerAccessTokenExpiresAt;
-  }
-
-  delete token.authValidationUnavailable;
-  delete token.authSessionInvalidated;
-  clearDefaultProfileClaims(token);
-
-  return token;
-}
-
-export function createAuthOptions(
-  requestContext: AuthRequestContext = {},
-): NextAuthOptions {
-  let withdrawalVerifiedAt: number | null = null;
+export function createAuthOptions(): NextAuthOptions {
   const providers: NextAuthOptions["providers"] = [
     GoogleProvider({
       clientId: requireEnv("AUTH_GOOGLE_ID"),
@@ -183,101 +84,7 @@ export function createAuthOptions(
     },
     providers,
     callbacks: {
-      async signIn({ account }) {
-        const withdrawalReauth = requestContext.withdrawalReauth;
-
-        if (!withdrawalReauth) {
-          return true;
-        }
-
-        const originalToken = withdrawalReauth.originalToken;
-
-        if (
-          !originalToken?.userId ||
-          (originalToken.authProvider !== "google" &&
-            originalToken.authProvider !== "kakao") ||
-          originalToken.authValidationUnavailable
-        ) {
-          return withdrawalErrorUrl("session_invalid");
-        }
-
-        if (
-          account?.provider !== originalToken.authProvider ||
-          !account.providerAccountId
-        ) {
-          return withdrawalErrorUrl("provider_invalid");
-        }
-
-        const verifiedAt = Date.now();
-
-        try {
-          const verification = await verifyWithdrawalReauthTarget({
-            flowId: withdrawalReauth.flowId,
-            userId: originalToken.userId,
-            provider: originalToken.authProvider,
-            providerAccountId: account.providerAccountId,
-            verifiedAt,
-          });
-
-          if (verification === "verified") {
-            withdrawalVerifiedAt = verifiedAt;
-            return true;
-          }
-
-          if (verification === "account_mismatch") {
-            return withdrawalErrorUrl("account_mismatch");
-          }
-
-          if (verification === "expired" || verification === "missing") {
-            return withdrawalErrorUrl("flow_expired");
-          }
-
-          return withdrawalErrorUrl("flow_invalid");
-        } catch (error) {
-          if (error instanceof WithdrawalReauthStoreUnavailableError) {
-            return withdrawalErrorUrl("state_unavailable");
-          }
-
-          return withdrawalErrorUrl("verification_failed");
-        }
-      },
-      async jwt({ token, account, user, profile, trigger, session }) {
-        const withdrawalReauth = requestContext.withdrawalReauth;
-
-        if (withdrawalReauth) {
-          if (
-            withdrawalVerifiedAt === null ||
-            !withdrawalReauth.originalToken?.userId ||
-            (withdrawalReauth.originalToken.authProvider !== "google" &&
-              withdrawalReauth.originalToken.authProvider !== "kakao") ||
-            account?.provider !==
-              withdrawalReauth.originalToken.authProvider ||
-            !account.providerAccountId
-          ) {
-            invalidateAuthToken(token);
-            clearDefaultProfileClaims(token);
-            return token;
-          }
-
-          return preserveWithdrawalSessionToken({
-            originalToken: withdrawalReauth.originalToken,
-            account,
-            flowId: withdrawalReauth.flowId,
-            verifiedAt: withdrawalVerifiedAt,
-          });
-        }
-
-        const sessionUpdate = session as WithdrawalSessionUpdate | undefined;
-
-        if (
-          trigger === "update" &&
-          sessionUpdate?.clearWithdrawalReauth === true
-        ) {
-          clearWithdrawalAuthToken(token);
-        } else {
-          clearStaleWithdrawalAuthToken(token);
-        }
-
+      async jwt({ token, account, user, profile }) {
         if (
           account?.providerAccountId &&
           (account.provider === "google" || account.provider === "kakao")
@@ -321,7 +128,6 @@ export function createAuthOptions(
           token.anonymousId = appUser.anonymousId;
           token.authProvider = appUser.authProvider;
           token.authenticatedAt = appUser.authenticatedAt;
-          clearWithdrawalAuthToken(token);
           delete token.authValidationUnavailable;
           delete token.authSessionInvalidated;
         } else if (token.userId && token.authProvider) {
@@ -345,6 +151,7 @@ export function createAuthOptions(
         }
 
         clearDefaultProfileClaims(token);
+        clearLegacyWithdrawalClaims(token);
         return token;
       },
       async session({ session, token }) {

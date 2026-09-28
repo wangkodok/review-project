@@ -1,100 +1,48 @@
 "use client";
 
-import { SessionProvider, useSession } from "next-auth/react";
-import { useState } from "react";
-import PageBackHeader from "@/app/components/common/PageBackHeader";
+import { ChevronLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-type WithdrawalReauthCancelResponse = {
-  success: boolean;
-  data: {
-    status?: "idle" | "cancelled";
-  } | null;
-  message: string;
-  code?: string;
-};
-
-export async function returnToMyAfterWithdrawalCancel({
-  status,
-  clearWithdrawalReauth,
+export function replaceWithdrawalLocation({
+  href,
   replaceLocation,
 }: {
-  status: "idle" | "cancelled" | undefined;
-  clearWithdrawalReauth: () => Promise<unknown>;
+  href: "/" | "/my";
   replaceLocation: (href: string) => void;
 }) {
-  if (status === "cancelled") {
-    await clearWithdrawalReauth();
-  }
-
-  replaceLocation("/my");
+  replaceLocation(href);
 }
 
-function WithdrawalPageHeaderContent() {
-  const { update } = useSession();
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+export default function WithdrawalPageHeader({
+  title,
+  backHref,
+  disabled = false,
+}: {
+  title: "회원 탈퇴" | "완료";
+  backHref: "/" | "/my";
+  disabled?: boolean;
+}) {
+  const router = useRouter();
 
-  async function cancelAndReturn() {
-    if (isCancelling) {
-      return;
-    }
-
-    setIsCancelling(true);
-    setErrorMessage("");
-
-    try {
-      const response = await fetch("/api/withdraw/reauth", {
-        method: "DELETE",
-      });
-      const result = (await response.json()) as WithdrawalReauthCancelResponse;
-
-      if (!response.ok || !result.success) {
-        if (
-          result.code === "UNAUTHORIZED" ||
-          result.code === "SESSION_INVALID" ||
-          result.code === "WITHDRAWAL_FLOW_EXPIRED"
-        ) {
-          window.location.replace("/my");
-          return;
+  return (
+    <header className="relative flex h-14 shrink-0 items-center border-b border-[#dbdbdb] bg-white">
+      <button
+        aria-label="뒤로가기"
+        className="flex h-14 w-14 items-center justify-center text-[#121212] active:bg-[#f7f7f7] disabled:text-[#bdbdbd]"
+        disabled={disabled}
+        onClick={() =>
+          replaceWithdrawalLocation({
+            href: backHref,
+            replaceLocation: (href) => router.replace(href),
+          })
         }
-
-        setErrorMessage(
-          result.message || "본인 확인 요청을 취소하지 못했습니다.",
-        );
-        return;
-      }
-
-      await returnToMyAfterWithdrawalCancel({
-        status: result.data?.status,
-        clearWithdrawalReauth: () =>
-          update({
-            clearWithdrawalReauth: true,
-          }),
-        replaceLocation: (href) => window.location.replace(href),
-      });
-    } catch {
-      setErrorMessage("본인 확인 요청을 취소하지 못했습니다.");
-    } finally {
-      setIsCancelling(false);
-    }
-  }
-
-  return (
-    <>
-      <PageBackHeader onBack={cancelAndReturn} title="회원 탈퇴" />
-      {errorMessage ? (
-        <p className="mt-4 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-          {errorMessage}
-        </p>
-      ) : null}
-    </>
-  );
-}
-
-export default function WithdrawalPageHeader() {
-  return (
-    <SessionProvider>
-      <WithdrawalPageHeaderContent />
-    </SessionProvider>
+        type="button"
+      >
+        <ChevronLeft aria-hidden="true" size={24} strokeWidth={1.6} />
+      </button>
+      <h1 className="pointer-events-none absolute inset-x-14 text-center text-base font-medium leading-6 text-[#121212]">
+        {title}
+      </h1>
+    </header>
   );
 }

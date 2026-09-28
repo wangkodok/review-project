@@ -1,36 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
-import { returnToMyAfterWithdrawalCancel } from "./WithdrawalPageHeader";
+import { replaceWithdrawalLocation } from "./WithdrawalPageHeader";
 
-describe("returnToMyAfterWithdrawalCancel", () => {
-  it("returns to My without updating the session when no reauthentication flow exists", async () => {
-    const clearWithdrawalReauth = vi.fn();
+describe("replaceWithdrawalLocation", () => {
+  it("returns to My without calling a cancellation API or session update", () => {
     const replaceLocation = vi.fn();
 
-    await returnToMyAfterWithdrawalCancel({
-      status: "idle",
-      clearWithdrawalReauth,
+    replaceWithdrawalLocation({
+      href: "/my",
       replaceLocation,
     });
 
-    expect(clearWithdrawalReauth).not.toHaveBeenCalled();
     expect(replaceLocation).toHaveBeenCalledWith("/my");
   });
 
-  it("clears reauthentication state before returning when a flow was cancelled", async () => {
-    const calls: string[] = [];
-    const clearWithdrawalReauth = vi.fn(async () => {
-      calls.push("clear");
-    });
-    const replaceLocation = vi.fn(() => {
-      calls.push("replace");
-    });
+  it("returns to Home from the completion screen", () => {
+    const replaceLocation = vi.fn();
 
-    await returnToMyAfterWithdrawalCancel({
-      status: "cancelled",
-      clearWithdrawalReauth,
+    replaceWithdrawalLocation({
+      href: "/",
       replaceLocation,
     });
 
-    expect(calls).toEqual(["clear", "replace"]);
+    expect(replaceLocation).toHaveBeenCalledWith("/");
   });
 });

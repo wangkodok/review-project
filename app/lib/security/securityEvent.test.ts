@@ -76,6 +76,35 @@ describe("recordSecurityEvent", () => {
     expect(payload).not.toHaveProperty("provider");
   });
 
+  it("records only a fixed provider unlink result", () => {
+    const unsafeInput = {
+      eventCode: "withdrawal_provider_unlink_failed",
+      provider: "kakao",
+      resultCode: "account_mismatch",
+      providerAccountId: "123456789",
+      adminKey: "private-admin-key",
+      error: "private Kakao error",
+    } as unknown as SecurityEventInput;
+
+    recordSecurityEvent(unsafeInput);
+
+    const payload = JSON.parse(
+      vi.mocked(console.warn).mock.calls[0][0] as string,
+    );
+
+    expect(payload).toEqual({
+      schemaVersion: 1,
+      timestamp: "2026-08-26T01:02:03.000Z",
+      eventCode: "withdrawal_provider_unlink_failed",
+      severity: "warn",
+      environment: "test",
+      route: "/api/withdraw",
+      httpStatus: 200,
+      provider: "kakao",
+      resultCode: "account_mismatch",
+    });
+  });
+
   it("records only the allowed rate-limit context", () => {
     const unsafeInput = {
       eventCode: "rate_limit_store_unavailable",

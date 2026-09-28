@@ -18,11 +18,7 @@ declare module "next-auth/jwt" {
     anonymousId?: string;
     authenticatedAt?: number;
     authProvider?: "google" | "kakao";
-    providerAccessToken?: string;
-    providerAccessTokenExpiresAt?: number;
     authValidationUnavailable?: boolean;
     authSessionInvalidated?: boolean;
-    withdrawalFlowId?: string;
-    withdrawalReauthenticatedAt?: number;
   }
 }

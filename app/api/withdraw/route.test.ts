@@ -1,52 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const mocks = vi.hoisted(() => {
-  class WithdrawalReauthStoreUnavailableError extends Error {}
-
-  return {
-    getToken: vi.fn(),
-    unlinkExternalProviderAccount: vi.fn(),
-    expireCurrentAuthSessionCookies: vi.fn(),
-    getActiveExternalAuthAccount: vi.fn(),
-    beginWithdrawalFinalization: vi.fn(),
-    deleteWithdrawalReauthState: vi.fn(),
-    markWithdrawalProviderRevoked: vi.fn(),
-    releaseWithdrawalFinalization: vi.fn(),
-    WithdrawalReauthStoreUnavailableError,
-    expireWithdrawalReauthCookies: vi.fn(),
-    getWithdrawalReauthCsrfCookie: vi.fn(),
-    getWithdrawalReauthFlowCookie: vi.fn(),
-    withdrawUser: vi.fn(),
-    enforceRateLimit: vi.fn(),
-    getRequestIp: vi.fn(),
-    recordSecurityEvent: vi.fn(),
-  };
-});
-
-vi.mock("next-auth/jwt", () => ({ getToken: mocks.getToken }));
-vi.mock("@/app/lib/auth/options", () => ({ authSecret: "test-secret" }));
-vi.mock("@/app/lib/auth/providerOAuth", () => ({
-  unlinkExternalProviderAccount: mocks.unlinkExternalProviderAccount,
+const mocks = vi.hoisted(() => ({
+  getServerSession: vi.fn(),
+  expireCurrentAuthSessionCookies: vi.fn(),
+  getWithdrawalExternalAuthAccount: vi.fn(),
+  withdrawUser: vi.fn(),
+  enforceRateLimit: vi.fn(),
+  getRequestIp: vi.fn(),
+  recordSecurityEvent: vi.fn(),
+  unlinkKakaoAccountWithAdminKey: vi.fn(),
 }));
+
+vi.mock("next-auth", () => ({ getServerSession: mocks.getServerSession }));
+vi.mock("@/app/lib/auth/options", () => ({ authOptions: {} }));
 vi.mock("@/app/lib/auth/sessionSecurity", () => ({
   expireCurrentAuthSessionCookies: mocks.expireCurrentAuthSessionCookies,
-  getActiveExternalAuthAccount: mocks.getActiveExternalAuthAccount,
+  getWithdrawalExternalAuthAccount: mocks.getWithdrawalExternalAuthAccount,
 }));
-vi.mock("@/app/lib/auth/withdrawalReauth", () => ({
-  beginWithdrawalFinalization: mocks.beginWithdrawalFinalization,
-  deleteWithdrawalReauthState: mocks.deleteWithdrawalReauthState,
-  markWithdrawalProviderRevoked: mocks.markWithdrawalProviderRevoked,
-  releaseWithdrawalFinalization: mocks.releaseWithdrawalFinalization,
-  WithdrawalReauthStoreUnavailableError:
-    mocks.WithdrawalReauthStoreUnavailableError,
+vi.mock("@/app/lib/auth/kakaoAdminUnlink", () => ({
+  unlinkKakaoAccountWithAdminKey: mocks.unlinkKakaoAccountWithAdminKey,
 }));
-vi.mock("@/app/lib/auth/withdrawalReauthCookies", () => ({
-  expireWithdrawalReauthCookies: mocks.expireWithdrawalReauthCookies,
-  getWithdrawalReauthCsrfCookie: mocks.getWithdrawalReauthCsrfCookie,
-  getWithdrawalReauthFlowCookie: mocks.getWithdrawalReauthFlowCookie,
+vi.mock("@/app/lib/profile/withdrawalService", () => ({
+  withdrawUser: mocks.withdrawUser,
 }));
-vi.mock("@/app/lib/profile/service", () => ({ withdrawUser: mocks.withdrawUser }));
 vi.mock("@/app/lib/security/rateLimit", () => ({
   enforceRateLimit: mocks.enforceRateLimit,
   getRequestIp: mocks.getRequestIp,
@@ -61,148 +38,254 @@ const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const account = {
   userId: USER_ID,
   provider: "kakao" as const,
-  providerAccountId: "provider-account-id",
+  providerAccountId: "123456789",
+  providerEmail: null,
 };
 
 function request({
   origin = "http://localhost",
-  consent = true,
-}: { origin?: string; consent?: boolean } = {}) {
+  contentType = "application/json",
+  body = JSON.stringify({ consent: true }),
+}: {
+  origin?: string | null;
+  contentType?: string | null;
+  body?: string;
+} = {}) {
+  const headers = new Headers();
+
+  if (origin !== null) {
+    headers.set("Origin", origin);
+  }
+  if (contentType !== null) {
+    headers.set("Content-Type", contentType);
+  }
+
   return new NextRequest("http://localhost/api/withdraw", {
     method: "DELETE",
-    headers: {
-      origin,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ consent }),
+    headers,
+    body,
   });
+}
+
+async function responseBody(response: Response) {
+  return (await response.json()) as {
+    success: boolean;
+    data: unknown;
+    message: string;
+    code?: string;
+  };
 }
 
 describe("DELETE /api/withdraw", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getToken.mockResolvedValue({
-      userId: USER_ID,
-      authProvider: "kakao",
-      withdrawalFlowId: "flow-id",
-      withdrawalReauthenticatedAt: 1_789_162_200_000,
-      providerAccessToken: "provider-access-token",
-      providerAccessTokenExpiresAt: Date.now() + 60_000,
+    mocks.getServerSession.mockResolvedValue({
+      user: { id: USER_ID, authProvider: "kakao" },
     });
-    mocks.getActiveExternalAuthAccount.mockResolvedValue(account);
-    mocks.getWithdrawalReauthFlowCookie.mockReturnValue("flow-id");
-    mocks.getWithdrawalReauthCsrfCookie.mockReturnValue("csrf-nonce");
+    mocks.getWithdrawalExternalAuthAccount.mockResolvedValue(account);
     mocks.enforceRateLimit.mockResolvedValue(null);
     mocks.getRequestIp.mockReturnValue("request-ip");
-    mocks.beginWithdrawalFinalization.mockResolvedValue("processing_started");
-    mocks.unlinkExternalProviderAccount.mockResolvedValue("unlinked");
-    mocks.markWithdrawalProviderRevoked.mockResolvedValue("marked");
-    mocks.withdrawUser.mockResolvedValue(undefined);
-    mocks.deleteWithdrawalReauthState.mockResolvedValue(undefined);
-    mocks.releaseWithdrawalFinalization.mockResolvedValue("released");
+    mocks.withdrawUser.mockResolvedValue("deleted");
+    mocks.unlinkKakaoAccountWithAdminKey.mockResolvedValue("unlinked");
   });
 
-  it("rejects an unauthenticated request before account access", async () => {
-    mocks.getToken.mockResolvedValue(null);
+  it("rejects an unauthenticated request without expiring cookies", async () => {
+    mocks.getServerSession.mockResolvedValue(null);
 
     const response = await DELETE(request());
 
     expect(response.status).toBe(401);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect((await response.json()).code).toBe("UNAUTHORIZED");
-    expect(mocks.getActiveExternalAuthAccount).not.toHaveBeenCalled();
-    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
-    expect(mocks.expireCurrentAuthSessionCookies).toHaveBeenCalled();
+    expect((await responseBody(response)).code).toBe("UNAUTHORIZED");
+    expect(mocks.getWithdrawalExternalAuthAccount).not.toHaveBeenCalled();
+    expect(mocks.expireCurrentAuthSessionCookies).not.toHaveBeenCalled();
   });
 
-  it("rejects a cross-origin request before rate limiting", async () => {
-    const response = await DELETE(request({ origin: "https://example.com" }));
+  it("rejects a session with an unsupported provider", async () => {
+    mocks.getServerSession.mockResolvedValue({
+      user: { id: USER_ID, authProvider: "github" },
+    });
+
+    const response = await DELETE(request());
+
+    expect(response.status).toBe(401);
+    expect((await responseBody(response)).code).toBe("UNAUTHORIZED");
+    expect(mocks.getWithdrawalExternalAuthAccount).not.toHaveBeenCalled();
+    expect(mocks.expireCurrentAuthSessionCookies).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a missing Origin", null],
+    ["a cross Origin", "https://example.com"],
+  ])("rejects %s before rate limiting", async (_name, origin) => {
+    const response = await DELETE(request({ origin }));
 
     expect(response.status).toBe(403);
-    expect((await response.json()).code).toBe("INVALID_ORIGIN");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect((await responseBody(response)).code).toBe("INVALID_ORIGIN");
     expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
+    expect(mocks.expireCurrentAuthSessionCookies).not.toHaveBeenCalled();
   });
 
-  it("returns the shared rate limit response before reading consent", async () => {
-    mocks.enforceRateLimit.mockResolvedValue(
-      Response.json({ success: false, code: "RATE_LIMIT_EXCEEDED" }, { status: 429 }),
+  it("rejects a non-JSON request", async () => {
+    const response = await DELETE(
+      request({ contentType: "text/plain", body: "consent=true" }),
     );
 
-    const response = await DELETE(request());
-
-    expect(response.status).toBe(429);
-    expect(mocks.beginWithdrawalFinalization).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+    expect((await responseBody(response)).code).toBe("INVALID_REQUEST");
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
+    expect(mocks.withdrawUser).not.toHaveBeenCalled();
   });
 
-  it("requires explicit final consent", async () => {
-    const response = await DELETE(request({ consent: false }));
+  it("rejects malformed JSON before rate limiting", async () => {
+    const response = await DELETE(request({ body: "{" }));
 
     expect(response.status).toBe(400);
-    expect((await response.json()).code).toBe("WITHDRAWAL_CONSENT_REQUIRED");
-    expect(mocks.beginWithdrawalFinalization).not.toHaveBeenCalled();
+    expect((await responseBody(response)).code).toBe("INVALID_REQUEST");
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
+    expect(mocks.withdrawUser).not.toHaveBeenCalled();
   });
 
-  it("requires a matching verified flow before finalization", async () => {
-    mocks.getWithdrawalReauthFlowCookie.mockReturnValue(null);
+  it("returns the shared rate limit response before validating consent", async () => {
+    mocks.enforceRateLimit.mockResolvedValue(
+      Response.json(
+        {
+          success: false,
+          data: null,
+          message: "요청이 너무 많습니다.",
+          code: "RATE_LIMIT_EXCEEDED",
+        },
+        { status: 429, headers: { "Cache-Control": "no-store" } },
+      ),
+    );
+
+    const response = await DELETE(
+      request({ body: JSON.stringify({ consent: false }) }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith({
+      identifier: `user:${USER_ID}:ip:request-ip`,
+      policy: "withdrawal",
+    });
+    expect(mocks.getWithdrawalExternalAuthAccount).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["missing consent", {}],
+    ["declined consent", { consent: false }],
+  ])("requires explicit consent for %s", async (_name, body) => {
+    const response = await DELETE(request({ body: JSON.stringify(body) }));
+
+    expect(response.status).toBe(400);
+    expect((await responseBody(response)).code).toBe(
+      "WITHDRAWAL_CONSENT_REQUIRED",
+    );
+    expect(mocks.getWithdrawalExternalAuthAccount).not.toHaveBeenCalled();
+    expect(mocks.expireCurrentAuthSessionCookies).not.toHaveBeenCalled();
+  });
+
+  it("rejects client-selected ownership fields", async () => {
+    const response = await DELETE(
+      request({
+        body: JSON.stringify({ consent: true, userId: "attacker-user" }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((await responseBody(response)).code).toBe("INVALID_REQUEST");
+    expect(mocks.getWithdrawalExternalAuthAccount).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale session account without expiring cookies", async () => {
+    mocks.getWithdrawalExternalAuthAccount.mockResolvedValue(null);
 
     const response = await DELETE(request());
 
-    expect(response.status).toBe(403);
-    expect((await response.json()).code).toBe("WITHDRAWAL_REAUTH_REQUIRED");
-    expect(mocks.beginWithdrawalFinalization).not.toHaveBeenCalled();
-    expect(mocks.expireWithdrawalReauthCookies).toHaveBeenCalled();
+    expect(response.status).toBe(401);
+    expect((await responseBody(response)).code).toBe("UNAUTHORIZED");
+    expect(mocks.withdrawUser).not.toHaveBeenCalled();
+    expect(mocks.expireCurrentAuthSessionCookies).not.toHaveBeenCalled();
   });
 
-  it("unlinks the provider and deletes only the authenticated account", async () => {
+  it("deletes only the current session user and expires cookies on success", async () => {
     const response = await DELETE(request());
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(await response.json()).toMatchObject({
+    expect(await responseBody(response)).toEqual({
       success: true,
       data: null,
+      message: "회원 탈퇴가 완료되었습니다.",
     });
-    expect(mocks.beginWithdrawalFinalization).toHaveBeenCalledWith({
-      flowId: "flow-id",
+    expect(mocks.getServerSession).toHaveBeenCalledWith({});
+    expect(mocks.getWithdrawalExternalAuthAccount).toHaveBeenCalledWith({
       userId: USER_ID,
       provider: "kakao",
-      providerAccountId: "provider-account-id",
-      csrfNonce: "csrf-nonce",
-      verifiedAt: 1_789_162_200_000,
     });
-    expect(mocks.unlinkExternalProviderAccount).toHaveBeenCalledWith({
-      provider: "kakao",
-      accessToken: "provider-access-token",
-      providerAccountId: "provider-account-id",
-    });
-    expect(mocks.markWithdrawalProviderRevoked).toHaveBeenCalled();
     expect(mocks.withdrawUser).toHaveBeenCalledWith(USER_ID);
-    expect(mocks.deleteWithdrawalReauthState).toHaveBeenCalledWith("flow-id");
-    expect(mocks.expireCurrentAuthSessionCookies).toHaveBeenCalled();
-    expect(mocks.expireWithdrawalReauthCookies).toHaveBeenCalled();
+    expect(mocks.unlinkKakaoAccountWithAdminKey).toHaveBeenCalledWith({
+      adminKey: process.env.AUTH_KAKAO_ADMIN_KEY,
+      providerAccountId: "123456789",
+    });
+    expect(mocks.expireCurrentAuthSessionCookies).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      response,
+    );
   });
 
-  it("releases finalization when provider unlink fails", async () => {
-    mocks.unlinkExternalProviderAccount.mockResolvedValue("failed");
+  it("keeps withdrawal successful when Kakao unlink fails", async () => {
+    mocks.unlinkKakaoAccountWithAdminKey.mockResolvedValue("timed_out");
 
     const response = await DELETE(request());
 
-    expect(response.status).toBe(502);
-    expect((await response.json()).code).toBe("PROVIDER_UNLINK_FAILED");
-    expect(mocks.releaseWithdrawalFinalization).toHaveBeenCalledWith({
-      flowId: "flow-id",
-      userId: USER_ID,
+    expect(response.status).toBe(200);
+    expect((await responseBody(response)).data).toBeNull();
+    expect(mocks.recordSecurityEvent).toHaveBeenCalledWith({
+      eventCode: "withdrawal_provider_unlink_failed",
       provider: "kakao",
-      providerAccountId: "provider-account-id",
+      resultCode: "timed_out",
     });
-    expect(mocks.withdrawUser).not.toHaveBeenCalled();
+    expect(mocks.expireCurrentAuthSessionCookies).toHaveBeenCalled();
   });
 
-  it("records a safe event when database deletion fails", async () => {
+  it("does not call Kakao unlink for a Google withdrawal", async () => {
+    mocks.getServerSession.mockResolvedValue({
+      user: { id: USER_ID, authProvider: "google" },
+    });
+    mocks.getWithdrawalExternalAuthAccount.mockResolvedValue({
+      userId: USER_ID,
+      provider: "google",
+      providerAccountId: "google-account-id",
+      providerEmail: "private@example.com",
+    });
+
+    const response = await DELETE(request());
+
+    expect(response.status).toBe(200);
+    expect(mocks.unlinkKakaoAccountWithAdminKey).not.toHaveBeenCalled();
+    expect(JSON.stringify(await responseBody(response))).not.toContain(
+      "private@example.com",
+    );
+  });
+
+  it("does not pretend success when deletion loses a concurrent race", async () => {
+    mocks.withdrawUser.mockResolvedValue("not_found");
+
+    const response = await DELETE(request());
+
+    expect(response.status).toBe(401);
+    expect((await responseBody(response)).code).toBe("UNAUTHORIZED");
+    expect(mocks.expireCurrentAuthSessionCookies).not.toHaveBeenCalled();
+  });
+
+  it("returns a safe error and keeps cookies when deletion fails", async () => {
     mocks.withdrawUser.mockRejectedValue(new Error("private database detail"));
 
     const response = await DELETE(request());
-    const body = await response.json();
+    const body = await responseBody(response);
 
     expect(response.status).toBe(500);
     expect(body.code).toBe("WITHDRAWAL_DELETE_FAILED");
@@ -211,6 +294,24 @@ describe("DELETE /api/withdraw", () => {
       eventCode: "withdrawal_database_delete_failed",
       provider: "kakao",
     });
-    expect(mocks.deleteWithdrawalReauthState).not.toHaveBeenCalled();
+    expect(mocks.expireCurrentAuthSessionCookies).not.toHaveBeenCalled();
+  });
+
+  it("normalizes an active-account lookup failure", async () => {
+    mocks.getWithdrawalExternalAuthAccount.mockRejectedValue(
+      new Error("private database detail"),
+    );
+
+    const response = await DELETE(request());
+    const body = await responseBody(response);
+
+    expect(response.status).toBe(500);
+    expect(body.code).toBe("INTERNAL_SERVER_ERROR");
+    expect(JSON.stringify(body)).not.toContain("private database detail");
+    expect(mocks.recordSecurityEvent).toHaveBeenCalledWith({
+      eventCode: "withdrawal_unexpected_failure",
+      provider: "kakao",
+    });
+    expect(mocks.expireCurrentAuthSessionCookies).not.toHaveBeenCalled();
   });
 });

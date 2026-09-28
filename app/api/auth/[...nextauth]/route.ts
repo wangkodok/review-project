@@ -1,19 +1,18 @@
 import NextAuth from "next-auth";
-import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  authOptions,
-  authSecret,
-  createAuthOptions,
-} from "@/app/lib/auth/options";
-import type { AuthProvider } from "@/app/lib/auth/externalIdentity";
-import {
-  expireWithdrawalReauthCookies,
-  getWithdrawalReauthFlowCookie,
-} from "@/app/lib/auth/withdrawalReauthCookies";
+import { authOptions } from "@/app/lib/auth/options";
 import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
 
 const handler = NextAuth(authOptions);
+const LEGACY_WITHDRAWAL_FLOW_COOKIE_NAMES = [
+  "food-review-withdrawal-reauth-flow",
+  "__Secure-food-review-withdrawal-reauth-flow",
+] as const;
+const LEGACY_WITHDRAWAL_COOKIE_NAMES = [
+  ...LEGACY_WITHDRAWAL_FLOW_COOKIE_NAMES,
+  "food-review-withdrawal-reauth-csrf",
+  "__Secure-food-review-withdrawal-reauth-csrf",
+] as const;
 
 type AuthRouteContext = {
   params: Promise<{
@@ -21,64 +20,43 @@ type AuthRouteContext = {
   }>;
 };
 
-function getAuthCallbackProvider(request: NextRequest): AuthProvider | null {
-  if (request.nextUrl.pathname.endsWith("/api/auth/callback/google")) {
-    return "google";
-  }
-
-  if (request.nextUrl.pathname.endsWith("/api/auth/callback/kakao")) {
-    return "kakao";
-  }
-
-  return null;
+function isProviderCallback(request: NextRequest) {
+  return (
+    request.nextUrl.pathname.endsWith("/api/auth/callback/google") ||
+    request.nextUrl.pathname.endsWith("/api/auth/callback/kakao")
+  );
 }
 
-async function handleAuthRequest(
+function expireLegacyWithdrawalCookies(response: NextResponse) {
+  for (const name of LEGACY_WITHDRAWAL_COOKIE_NAMES) {
+    response.cookies.set({
+      name,
+      value: "",
+      httpOnly: name.includes("flow"),
+      sameSite: name.includes("csrf") ? "strict" : "lax",
+      secure: name.startsWith("__Secure-"),
+      path: "/",
+      expires: new Date(0),
+      maxAge: 0,
+    });
+  }
+}
+
+function handleAuthRequest(
   request: NextRequest,
   context: AuthRouteContext,
 ) {
-  const callbackProvider = getAuthCallbackProvider(request);
+  const hasLegacyWithdrawalFlow = LEGACY_WITHDRAWAL_FLOW_COOKIE_NAMES.some(
+    (name) => request.cookies.has(name),
+  );
 
-  if (!callbackProvider) {
-    return handler(request, context);
+  if (isProviderCallback(request) && hasLegacyWithdrawalFlow) {
+    const response = NextResponse.redirect(new URL("/my", request.url));
+    expireLegacyWithdrawalCookies(response);
+    return response;
   }
 
-  const flowId = getWithdrawalReauthFlowCookie(request);
-
-  if (!flowId) {
-    return handler(request, context);
-  }
-
-  const originalToken = await getToken({
-    req: request,
-    secret: authSecret,
-  });
-
-  if (
-    !originalToken?.userId ||
-    (originalToken.authProvider !== "google" &&
-      originalToken.authProvider !== "kakao") ||
-    originalToken.authValidationUnavailable ||
-    originalToken.authSessionInvalidated
-  ) {
-    const response = await handler(request, context);
-    const cookieResponse = new NextResponse(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
-    expireWithdrawalReauthCookies(cookieResponse);
-    return cookieResponse;
-  }
-
-  const requestAuthOptions = createAuthOptions({
-    withdrawalReauth: {
-      flowId,
-      originalToken,
-    },
-  });
-
-  return NextAuth(request, context, requestAuthOptions);
+  return handler(request, context);
 }
 
 export async function GET(

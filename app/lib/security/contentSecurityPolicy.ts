@@ -11,6 +11,8 @@ type R2OriginEnvironment = Pick<
 >;
 
 const CLOUDFLARE_ACCOUNT_ID_PATTERN = /^[a-f0-9]{32}$/;
+const GOOGLE_GSI_SCRIPT_SOURCE = "https://accounts.google.com/gsi/client";
+const GOOGLE_GSI_PARENT_SOURCE = "https://accounts.google.com/gsi/";
 
 function getHttpsOrigin(value: string | undefined) {
   const trimmed = value?.trim();
@@ -74,16 +76,16 @@ export function buildContentSecurityPolicy(
 
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} ${GOOGLE_GSI_SCRIPT_SOURCE}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${reviewImageBaseUrl ? ` ${reviewImageBaseUrl.origin}` : ""}`,
     "font-src 'self' data:",
-    `connect-src 'self'${isDevelopment ? " ws: wss:" : ""}${r2UploadOrigin ? ` ${r2UploadOrigin}` : ""}`,
+    `connect-src 'self'${isDevelopment ? " ws: wss:" : ""}${r2UploadOrigin ? ` ${r2UploadOrigin}` : ""} ${GOOGLE_GSI_PARENT_SOURCE}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    "frame-src 'none'",
+    `frame-src ${GOOGLE_GSI_PARENT_SOURCE}`,
     "media-src 'self'",
     "manifest-src 'self'",
     "worker-src 'self' blob:",

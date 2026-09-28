@@ -13,10 +13,20 @@ type WithdrawalEventCode =
   | "withdrawal_state_store_unavailable"
   | "withdrawal_unexpected_failure";
 
-type WithdrawalSecurityEvent = {
-  eventCode: WithdrawalEventCode;
-  provider?: AuthProvider;
-};
+type WithdrawalSecurityEvent =
+  | {
+      eventCode: WithdrawalEventCode;
+      provider?: AuthProvider;
+    }
+  | {
+      eventCode: "withdrawal_provider_unlink_failed";
+      provider: AuthProvider;
+      resultCode:
+        | "configuration_missing"
+        | "account_mismatch"
+        | "request_failed"
+        | "timed_out";
+    };
 
 type RateLimitSecurityEvent = {
   eventCode: "rate_limit_store_unavailable";
@@ -107,6 +117,11 @@ const EVENT_DEFINITIONS: Record<
     route: "/api/withdraw",
     httpStatus: 500,
   },
+  withdrawal_provider_unlink_failed: {
+    severity: "warn",
+    route: "/api/withdraw",
+    httpStatus: 200,
+  },
   rate_limit_store_unavailable: {
     severity: "error",
     httpStatus: 503,
@@ -182,7 +197,13 @@ export function recordSecurityEvent(event: SecurityEventInput) {
 
   let payload: Record<string, unknown> = basePayload;
 
-  if (event.eventCode.startsWith("withdrawal_")) {
+  if (event.eventCode === "withdrawal_provider_unlink_failed") {
+    payload = {
+      ...basePayload,
+      provider: event.provider,
+      resultCode: event.resultCode,
+    };
+  } else if (event.eventCode.startsWith("withdrawal_")) {
     const provider = "provider" in event ? event.provider : undefined;
 
     if (provider === "google" || provider === "kakao") {
