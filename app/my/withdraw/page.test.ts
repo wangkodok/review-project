@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next-auth", () => ({
   getServerSession: vi.fn(),
@@ -19,13 +19,7 @@ import { getWithdrawalExternalAuthAccount } from "@/app/lib/auth/sessionSecurity
 import MyWithdrawPage from "./page";
 
 describe("MyWithdrawPage", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.clearAllMocks();
-  });
-
-  it("passes the existing Google client ID to the GIS withdrawal screen", async () => {
-    vi.stubEnv("AUTH_GOOGLE_ID", "public-google-client-id");
+  it("does not expose Google provider data to the withdrawal screen", async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: {
         id: "user-id",
@@ -40,17 +34,10 @@ describe("MyWithdrawPage", () => {
       providerEmail: "private@example.com",
     });
 
-    const result = (await MyWithdrawPage()) as ReactElement<{
-      authProvider: string;
-      googleClientId?: string;
-      googleLoginHint: string;
-    }>;
+    const result = (await MyWithdrawPage()) as ReactElement<Record<string, never>>;
 
     expect(result.type).toBe(WithdrawalConsentScreen);
-    expect(result.props).toMatchObject({
-      authProvider: "google",
-      googleClientId: "public-google-client-id",
-      googleLoginHint: "private@example.com",
-    });
+    expect(result.props).toEqual({});
+    expect(getWithdrawalExternalAuthAccount).not.toHaveBeenCalled();
   });
 });

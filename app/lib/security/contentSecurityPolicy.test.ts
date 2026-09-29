@@ -71,17 +71,9 @@ describe("content security policy", () => {
     expect(policy).not.toContain("javascript:");
   });
 
-  it("allows only the Google Identity Services paths required for revoke", () => {
+  it("does not allow the unused Google Identity Services client", () => {
     const policy = buildContentSecurityPolicy({ nodeEnv: "production" });
 
-    expect(policy).toContain(
-      "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client",
-    );
-    expect(policy).toContain(
-      "connect-src 'self' https://accounts.google.com/gsi/",
-    );
-    expect(policy).toContain("frame-src https://accounts.google.com/gsi/");
-    expect(policy).not.toContain("https://accounts.google.com ");
-    expect(policy).not.toContain("https://*.google.com");
+    expect(policy).not.toContain("accounts.google.com/gsi");
   });
 });

@@ -23,7 +23,6 @@ describe("submitWithdrawal", () => {
 
     const result = await submitWithdrawal({
       consent: false,
-      provider: "kakao",
       lock: createWithdrawalSubmissionLock(),
       requestWithdrawal,
       navigateToComplete,
@@ -51,14 +50,12 @@ describe("submitWithdrawal", () => {
 
     const firstSubmission = submitWithdrawal({
       consent: true,
-      provider: "kakao",
       lock,
       requestWithdrawal,
       navigateToComplete,
     });
     const repeatedSubmission = await submitWithdrawal({
       consent: true,
-      provider: "kakao",
       lock,
       requestWithdrawal,
       navigateToComplete,
@@ -86,7 +83,6 @@ describe("submitWithdrawal", () => {
 
       const result = await submitWithdrawal({
         consent: true,
-        provider: "kakao",
         lock: createWithdrawalSubmissionLock(),
         requestWithdrawal,
         navigateToComplete,
@@ -101,12 +97,8 @@ describe("submitWithdrawal", () => {
     },
   );
 
-  it("revokes Google before requesting deletion and then navigates", async () => {
+  it("requests service data deletion before navigating to completion", async () => {
     const calls: string[] = [];
-    const runGoogleRevoke = vi.fn(async () => {
-      calls.push("revoke");
-      return "success" as const;
-    });
     const requestWithdrawal = vi.fn(async () => {
       calls.push("request");
       return { ok: true, status: 200 } as const;
@@ -117,76 +109,14 @@ describe("submitWithdrawal", () => {
 
     const result = await submitWithdrawal({
       consent: true,
-      provider: "google",
-      lock: createWithdrawalSubmissionLock(),
-      requestWithdrawal,
-      runGoogleRevoke,
-      navigateToComplete,
-    });
-
-    expect(result).toEqual({ status: "success" });
-    expect(calls).toEqual(["revoke", "request", "navigate"]);
-    expect(requestWithdrawal).toHaveBeenCalledWith({
-      googleRevokeStatus: "success",
-    });
-    expect(navigateToComplete).toHaveBeenCalledWith("success");
-  });
-
-  it.each(["failed", "timeout", "not_attempted"] as const)(
-    "continues Google deletion after a %s revoke result",
-    async (googleRevokeStatus) => {
-      const requestWithdrawal = vi.fn(async () => ({ ok: true, status: 200 }) as const);
-      const navigateToComplete = vi.fn();
-
-      const result = await submitWithdrawal({
-        consent: true,
-        provider: "google",
-        lock: createWithdrawalSubmissionLock(),
-        requestWithdrawal,
-        runGoogleRevoke: vi.fn(async () => googleRevokeStatus),
-        navigateToComplete,
-      });
-
-      expect(result).toEqual({ status: "success" });
-      expect(requestWithdrawal).toHaveBeenCalledWith({ googleRevokeStatus });
-      expect(navigateToComplete).toHaveBeenCalledWith(googleRevokeStatus);
-    },
-  );
-
-  it("reports not_attempted when the Google revoke hook is unavailable", async () => {
-    const requestWithdrawal = vi.fn(async () => ({ ok: true, status: 200 }) as const);
-    const navigateToComplete = vi.fn();
-
-    const result = await submitWithdrawal({
-      consent: true,
-      provider: "google",
       lock: createWithdrawalSubmissionLock(),
       requestWithdrawal,
       navigateToComplete,
     });
 
     expect(result).toEqual({ status: "success" });
-    expect(requestWithdrawal).toHaveBeenCalledWith({
-      googleRevokeStatus: "not_attempted",
-    });
-    expect(navigateToComplete).toHaveBeenCalledWith("not_attempted");
-  });
-
-  it("keeps the existing error flow when deletion fails after a successful revoke", async () => {
-    const navigateToComplete = vi.fn();
-    const lock = createWithdrawalSubmissionLock();
-
-    const result = await submitWithdrawal({
-      consent: true,
-      provider: "google",
-      lock,
-      requestWithdrawal: vi.fn(async () => failedRequest(500, "WITHDRAWAL_DELETE_FAILED")),
-      runGoogleRevoke: vi.fn(async () => "success" as const),
-      navigateToComplete,
-    });
-
-    expect(result.status).toBe("error");
-    expect(lock.current).toBe(false);
-    expect(navigateToComplete).not.toHaveBeenCalled();
+    expect(calls).toEqual(["request", "navigate"]);
+    expect(requestWithdrawal).toHaveBeenCalledWith();
+    expect(navigateToComplete).toHaveBeenCalledWith();
   });
 });

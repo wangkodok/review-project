@@ -1,7 +1,3 @@
-import type { GoogleRevokeStatus } from "@/app/lib/auth/googleRevokeStatus";
-
-export type WithdrawalProvider = "google" | "kakao";
-
 export type WithdrawalRequestResult =
   | {
       ok: true;
@@ -60,11 +56,7 @@ function getWithdrawalErrorMessage(result: WithdrawalRequestResult) {
   return "회원 탈퇴를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
 }
 
-export async function requestWithdrawal({
-  googleRevokeStatus,
-}: {
-  googleRevokeStatus?: GoogleRevokeStatus;
-} = {}): Promise<WithdrawalRequestResult> {
+export async function requestWithdrawal(): Promise<WithdrawalRequestResult> {
   let response: Response;
 
   try {
@@ -74,10 +66,7 @@ export async function requestWithdrawal({
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        consent: true,
-        ...(googleRevokeStatus ? { googleRevokeStatus } : {}),
-      }),
+      body: JSON.stringify({ consent: true }),
     });
   } catch {
     return {
@@ -111,20 +100,14 @@ export async function requestWithdrawal({
 
 export async function submitWithdrawal({
   consent,
-  provider,
   lock,
   requestWithdrawal: executeWithdrawalRequest,
-  runGoogleRevoke,
   navigateToComplete,
 }: {
   consent: boolean;
-  provider: WithdrawalProvider;
   lock: WithdrawalSubmissionLock;
-  requestWithdrawal: (input?: {
-    googleRevokeStatus?: GoogleRevokeStatus;
-  }) => Promise<WithdrawalRequestResult>;
-  runGoogleRevoke?: () => Promise<GoogleRevokeStatus>;
-  navigateToComplete: (googleRevokeStatus?: GoogleRevokeStatus) => void;
+  requestWithdrawal: () => Promise<WithdrawalRequestResult>;
+  navigateToComplete: () => void;
 }): Promise<WithdrawalSubmissionResult> {
   if (!consent) {
     return {
@@ -145,23 +128,7 @@ export async function submitWithdrawal({
   lock.current = true;
 
   try {
-    let googleRevokeStatus: GoogleRevokeStatus | undefined;
-
-    if (provider === "google") {
-      if (!runGoogleRevoke) {
-        googleRevokeStatus = "not_attempted";
-      } else {
-        try {
-          googleRevokeStatus = await runGoogleRevoke();
-        } catch {
-          googleRevokeStatus = "failed";
-        }
-      }
-    }
-
-    const result = await executeWithdrawalRequest(
-      googleRevokeStatus ? { googleRevokeStatus } : undefined,
-    );
+    const result = await executeWithdrawalRequest();
 
     if (!result.ok) {
       lock.current = false;
@@ -173,7 +140,7 @@ export async function submitWithdrawal({
       };
     }
 
-    navigateToComplete(googleRevokeStatus);
+    navigateToComplete();
 
     return { status: "success" };
   } catch {

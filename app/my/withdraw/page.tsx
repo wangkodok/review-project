@@ -3,7 +3,6 @@ import LoginOptions from "@/app/components/auth/LoginOptions";
 import WithdrawalConsentScreen from "@/app/components/profile/WithdrawalConsentScreen";
 import WithdrawalPageHeader from "@/app/components/profile/WithdrawalPageHeader";
 import { authOptions } from "@/app/lib/auth/options";
-import { getWithdrawalExternalAuthAccount } from "@/app/lib/auth/sessionSecurity";
 
 export default async function MyWithdrawPage() {
   const session = await getServerSession(authOptions);
@@ -42,30 +41,5 @@ export default async function MyWithdrawPage() {
     );
   }
 
-  let googleLoginHint = "";
-  const googleClientId =
-    authProvider === "google" ? (process.env.AUTH_GOOGLE_ID?.trim() ?? "") : "";
-
-  if (authProvider === "google") {
-    try {
-      const account = await getWithdrawalExternalAuthAccount({
-        userId: session.user.id,
-        provider: authProvider,
-      });
-
-      if (typeof account?.providerEmail === "string") {
-        googleLoginHint = account.providerEmail.trim();
-      }
-    } catch {
-      // Provider cleanup remains best effort; the API revalidates the account.
-    }
-  }
-
-  return (
-    <WithdrawalConsentScreen
-      authProvider={authProvider}
-      googleClientId={googleClientId}
-      googleLoginHint={googleLoginHint}
-    />
-  );
+  return <WithdrawalConsentScreen />;
 }

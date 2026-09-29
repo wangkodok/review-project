@@ -152,15 +152,6 @@ export async function DELETE(request: NextRequest) {
       return invalidRequestResponse();
     }
 
-    const googleRevokeStatus =
-      provider === "google"
-        ? (parsedRequest.value.googleRevokeStatus ?? "not_attempted")
-        : parsedRequest.value.googleRevokeStatus;
-
-    if (provider === "kakao" && googleRevokeStatus) {
-      return invalidRequestResponse();
-    }
-
     const account = await getWithdrawalExternalAuthAccount({
       userId,
       provider,
@@ -168,19 +159,6 @@ export async function DELETE(request: NextRequest) {
 
     if (!account) {
       return unauthorizedResponse();
-    }
-
-    if (provider === "google" && googleRevokeStatus) {
-      try {
-        recordSecurityEvent({
-          eventCode: "withdrawal_google_revoke_result",
-          provider,
-          resultCode: googleRevokeStatus,
-          source: "client_observed",
-        });
-      } catch {
-        // Provider telemetry must never block the user's internal deletion.
-      }
     }
 
     let deletionResult: "deleted" | "not_found";
@@ -233,10 +211,7 @@ export async function DELETE(request: NextRequest) {
 
     const response = jsonResponse({
       success: true,
-      data:
-        provider === "google" && googleRevokeStatus
-          ? { googleRevokeStatus }
-          : null,
+      data: null,
       message: "회원 탈퇴가 완료되었습니다.",
     });
     expireCurrentAuthSessionCookies(request, response);

@@ -251,47 +251,7 @@ describe("DELETE /api/withdraw", () => {
     expect(mocks.expireCurrentAuthSessionCookies).toHaveBeenCalled();
   });
 
-  it.each(["success", "failed", "timeout", "not_attempted"] as const)(
-    "logs Google revoke result %s before deleting the account",
-    async (googleRevokeStatus) => {
-      const calls: string[] = [];
-      mocks.getServerSession.mockResolvedValue({
-        user: { id: USER_ID, authProvider: "google" },
-      });
-      mocks.getWithdrawalExternalAuthAccount.mockResolvedValue({
-        userId: USER_ID,
-        provider: "google",
-        providerAccountId: "google-account-id",
-        providerEmail: "private@example.com",
-      });
-      mocks.recordSecurityEvent.mockImplementation(() => {
-        calls.push("log");
-      });
-      mocks.withdrawUser.mockImplementation(async () => {
-        calls.push("delete");
-        return "deleted";
-      });
-
-      const response = await DELETE(
-        request({
-          body: JSON.stringify({ consent: true, googleRevokeStatus }),
-        }),
-      );
-
-      expect(response.status).toBe(200);
-      expect((await responseBody(response)).data).toEqual({ googleRevokeStatus });
-      expect(calls).toEqual(["log", "delete"]);
-      expect(mocks.recordSecurityEvent).toHaveBeenCalledWith({
-        eventCode: "withdrawal_google_revoke_result",
-        provider: "google",
-        resultCode: googleRevokeStatus,
-        source: "client_observed",
-      });
-      expect(mocks.unlinkKakaoAccountWithAdminKey).not.toHaveBeenCalled();
-    },
-  );
-
-  it("normalizes a missing Google revoke result and still deletes the account", async () => {
+  it("deletes only the service data for a Google account", async () => {
     mocks.getServerSession.mockResolvedValue({
       user: { id: USER_ID, authProvider: "google" },
     });
@@ -305,45 +265,14 @@ describe("DELETE /api/withdraw", () => {
     const response = await DELETE(request());
 
     expect(response.status).toBe(200);
-    expect((await responseBody(response)).data).toEqual({
-      googleRevokeStatus: "not_attempted",
-    });
-    expect(mocks.recordSecurityEvent).toHaveBeenCalledWith({
-      eventCode: "withdrawal_google_revoke_result",
-      provider: "google",
-      resultCode: "not_attempted",
-      source: "client_observed",
-    });
-    expect(mocks.withdrawUser).toHaveBeenCalledWith(USER_ID);
-    expect(mocks.unlinkKakaoAccountWithAdminKey).not.toHaveBeenCalled();
-  });
-
-  it("keeps deleting when Google revoke result logging fails", async () => {
-    mocks.getServerSession.mockResolvedValue({
-      user: { id: USER_ID, authProvider: "google" },
-    });
-    mocks.getWithdrawalExternalAuthAccount.mockResolvedValue({
-      userId: USER_ID,
-      provider: "google",
-      providerAccountId: "google-account-id",
-      providerEmail: "private@example.com",
-    });
-    mocks.recordSecurityEvent.mockImplementationOnce(() => {
-      throw new Error("private logging failure");
-    });
-
-    const response = await DELETE(
-      request({
-        body: JSON.stringify({
-          consent: true,
-          googleRevokeStatus: "failed",
-        }),
+    expect((await responseBody(response)).data).toBeNull();
+    expect(mocks.recordSecurityEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventCode: "withdrawal_google_revoke_result",
       }),
     );
-
-    expect(response.status).toBe(200);
     expect(mocks.withdrawUser).toHaveBeenCalledWith(USER_ID);
-    expect(mocks.expireCurrentAuthSessionCookies).toHaveBeenCalled();
+    expect(mocks.unlinkKakaoAccountWithAdminKey).not.toHaveBeenCalled();
   });
 
   it("rejects a Google revoke result on a Kakao withdrawal", async () => {

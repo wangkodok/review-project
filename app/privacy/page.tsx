@@ -28,11 +28,6 @@ const handledInformation = [
       "세션·CSRF 쿠키, 요청 IP의 일시적 처리, HMAC 기반 Rate Limit 식별자와 제한 상태를 로그인 유지, 요청 위조와 과도한 요청 방지에 이용합니다.",
   },
   {
-    title: "회원 탈퇴 재인증",
-    detail:
-      "재인증 상태와 시각, Provider access token을 동일 계정 확인과 Provider 연결 해제를 위해 최대 10분 동안 일시적으로 처리합니다.",
-  },
-  {
     title: "Kakao 계정 상태 이벤트",
     detail:
       "Provider, 이벤트·트랜잭션 ID, 이벤트 유형·사유, 처리 상태·결과·전송 횟수와 시각을 연결 해제 이벤트 감사와 중복 처리 방지에 이용합니다.",
@@ -45,7 +40,6 @@ const retentionItems = [
   ["검색 기록", "최근 5개를 유지하며 삭제 또는 회원 탈퇴 완료 시까지"],
   ["리뷰 신고 기록", "신고자가 회원 탈퇴하거나 대상 리뷰가 삭제될 때까지"],
   ["로그인 세션", "발급 후 최대 7일 또는 로그아웃·탈퇴·만료 시까지"],
-  ["회원 탈퇴 재인증 상태", "최대 10분 또는 취소·탈퇴 완료 시까지"],
   ["Rate Limit 상태", "정책에 따라 약 1분 또는 10분"],
   ["Vercel Runtime Logs", "현재 Hobby 요금제 기준 1시간"],
   [
@@ -59,10 +53,10 @@ const externalServices = [
   ["Vercel", "웹 호스팅, 서버 함수와 Runtime Logs", "서버 함수 대한민국 서울(icn1)"],
   [
     "Upstash",
-    "Rate Limit과 회원 탈퇴 재인증 임시 상태",
+    "Rate Limit 상태",
     "GCP 도쿄(asia-northeast1) 및 Global 인프라",
   ],
-  ["Google", "Google 로그인과 계정 연결 해제", "Google의 글로벌 인프라"],
+  ["Google", "Google 로그인", "Google의 글로벌 인프라"],
   ["Kakao", "Kakao 로그인, 연결 해제와 계정 상태 웹훅", "대한민국"],
 ];
 
@@ -86,7 +80,7 @@ export default function PrivacyPage() {
 
       <article className="-mx-1 -mb-24 pb-10 pt-[18px] text-base font-normal leading-8 text-[#303030]">
       <header>
-        <p>개인정보 처리방침 (시행일 2026년 09월 09일)</p>
+        <p>개인정보 처리방침 (시행일 2026년 09월 30일)</p>
         <p className="mt-8">
           쓸래(익명 리뷰 서비스)는 서비스 제공에 필요한 범위에서만 개인정보를
           처리하고 안전하게 관리하기 위해 다음과 같이 개인정보처리방침을
@@ -148,11 +142,21 @@ export default function PrivacyPage() {
           ))}
         </dl>
         <p className="mt-6">
-          회원 탈퇴가 완료되면 Google 또는 Kakao 연결을 해제하고 내부 계정과
-          연결된 게시글, 좋아요, 조회 기록, 검색 기록과 신고 기록을 삭제합니다.
-          대상 리뷰가 삭제되면 해당 리뷰에 접수된 신고 기록도 함께 삭제합니다.
-          관계 법령에 따라 별도 보존이 필요한 정보가 생기면 항목, 근거와 기간을
-          이 방침에 추가합니다.
+          회원 탈퇴가 완료되면 내부 계정과 연결된 게시글, 좋아요, 조회 기록,
+          검색 기록과 신고 기록을 삭제합니다. Kakao 계정으로 가입한 경우에는
+          기존 서버 연결 해제를 시도합니다. Google 계정과 서비스 사이의 외부
+          로그인 연결은 자동으로 해제하지 않습니다. 필요한 경우{" "}
+          <a
+            className="underline decoration-[#777777] underline-offset-4"
+            href="https://myaccount.google.com/permissions"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Google 계정의 연결 관리 페이지
+          </a>
+          에서 직접 해제할 수 있습니다. 대상 리뷰가 삭제되면 해당 리뷰에 접수된
+          신고 기록도 함께 삭제합니다. 관계 법령에 따라 별도 보존이 필요한
+          정보가 생기면 항목, 근거와 기간을 이 방침에 추가합니다.
         </p>
       </section>
 
@@ -195,10 +199,10 @@ export default function PrivacyPage() {
       <section className="mt-8">
         <SectionTitle>6. 쿠키</SectionTitle>
         <p className="mt-1">
-          서비스는 로그인 유지, OAuth 요청 보호, CSRF 방지와 회원 탈퇴
-          재인증을 위해 쿠키를 사용합니다. 브라우저에서 쿠키를 삭제하거나
-          차단할 수 있지만 로그인과 회원 탈퇴 등 일부 기능이 동작하지 않을 수
-          있습니다. 현재 맞춤형 광고나 행동 분석 SDK는 사용하지 않습니다.
+          서비스는 로그인 유지, OAuth 요청 보호와 CSRF 방지를 위해 쿠키를
+          사용합니다. 브라우저에서 쿠키를 삭제하거나 차단할 수 있지만 로그인과
+          회원 탈퇴 등 일부 기능이 동작하지 않을 수 있습니다. 현재 맞춤형
+          광고나 행동 분석 SDK는 사용하지 않습니다.
         </p>
       </section>
 
@@ -228,9 +232,9 @@ export default function PrivacyPage() {
         </p>
         <ul className="mt-6">
           <li>최초 공고일·시행일: 2026년 8월 23일</li>
-          <li>최종 개정일·시행일: 2026년 9월 9일</li>
+          <li>최종 개정일·시행일: 2026년 9월 30일</li>
           <li>
-            주요 변경 내용: 리뷰 신고 정보의 처리 항목·목적·보유 기준 추가
+            주요 변경 내용: 현재 회원 탈퇴 흐름과 Google 외부 연결 관리 정책 반영
           </li>
         </ul>
       </section>

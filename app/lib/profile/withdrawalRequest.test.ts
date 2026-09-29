@@ -9,18 +9,6 @@ describe("parseWithdrawalRequest", () => {
     });
   });
 
-  it.each(["success", "failed", "timeout", "not_attempted"])(
-    "accepts the fixed Google revoke result %s",
-    (googleRevokeStatus) => {
-      expect(
-        parseWithdrawalRequest({ consent: true, googleRevokeStatus }),
-      ).toEqual({
-        ok: true,
-        value: { consent: true, googleRevokeStatus },
-      });
-    },
-  );
-
   it.each([
     ["missing consent", {}],
     ["declined consent", { consent: false }],
@@ -39,7 +27,7 @@ describe("parseWithdrawalRequest", () => {
     ["a string consent", { consent: "true" }],
     ["a user id", { consent: true, userId: "attacker-selected-user" }],
     ["a provider", { consent: true, provider: "google" }],
-    ["an invalid Google revoke result", { consent: true, googleRevokeStatus: "unknown" }],
+    ["a Google revoke result", { consent: true, googleRevokeStatus: "success" }],
   ])("rejects malformed input containing %s", (_name, value) => {
     expect(parseWithdrawalRequest(value)).toEqual({
       ok: false,

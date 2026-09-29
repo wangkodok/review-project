@@ -2,32 +2,17 @@
 
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import Script from "next/script";
 import { FormEvent, useRef, useState } from "react";
-import {
-  revokeGoogleIdentityGrant,
-  type GoogleIdentityScriptStatus,
-} from "@/app/lib/auth/googleIdentityClient";
 import WithdrawalPageHeader from "./WithdrawalPageHeader";
 import {
   createWithdrawalSubmissionLock,
   requestWithdrawal,
   submitWithdrawal,
-  type WithdrawalProvider,
 } from "./withdrawalClient";
 
-export default function WithdrawalConsentScreen({
-  authProvider,
-  googleClientId = "",
-  googleLoginHint = "",
-}: {
-  authProvider: WithdrawalProvider;
-  googleClientId?: string;
-  googleLoginHint?: string;
-}) {
+export default function WithdrawalConsentScreen() {
   const router = useRouter();
   const submissionLock = useRef(createWithdrawalSubmissionLock());
-  const googleScriptStatus = useRef<GoogleIdentityScriptStatus>("loading");
   const [consent, setConsent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -44,23 +29,10 @@ export default function WithdrawalConsentScreen({
 
     const result = await submitWithdrawal({
       consent,
-      provider: authProvider,
       lock: submissionLock.current,
       requestWithdrawal,
-      runGoogleRevoke:
-        authProvider === "google"
-          ? () =>
-              revokeGoogleIdentityGrant({
-                clientId: googleClientId,
-                loginHint: googleLoginHint,
-                getScriptStatus: () => googleScriptStatus.current,
-              })
-          : undefined,
-      navigateToComplete: (googleRevokeStatus) => {
-        const query = googleRevokeStatus
-          ? `?googleRevokeStatus=${googleRevokeStatus}`
-          : "";
-        router.replace(`/my/withdraw/complete${query}`);
+      navigateToComplete: () => {
+        router.replace("/my/withdraw/complete");
       },
     });
 
@@ -71,21 +43,7 @@ export default function WithdrawalConsentScreen({
   }
 
   return (
-    <>
-      {authProvider === "google" ? (
-        <Script
-          id="google-identity-services"
-          onError={() => {
-            googleScriptStatus.current = "failed";
-          }}
-          onReady={() => {
-            googleScriptStatus.current = "ready";
-          }}
-          src="https://accounts.google.com/gsi/client"
-          strategy="afterInteractive"
-        />
-      ) : null}
-      <section className="-mx-5 -mb-24 -mt-5 flex min-h-dvh flex-col bg-white">
+    <section className="-mx-5 -mb-24 -mt-5 flex min-h-dvh flex-col bg-white">
       <WithdrawalPageHeader
         backHref="/my"
         disabled={isSubmitting}
@@ -159,7 +117,6 @@ export default function WithdrawalConsentScreen({
           </button>
         </div>
       </form>
-      </section>
-    </>
+    </section>
   );
 }
