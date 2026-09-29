@@ -13,6 +13,7 @@ describe("recordSecurityEvent", () => {
     vi.setSystemTime(new Date("2026-08-26T01:02:03.000Z"));
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -104,6 +105,49 @@ describe("recordSecurityEvent", () => {
       resultCode: "account_mismatch",
     });
   });
+
+  it.each([
+    ["success", "info"],
+    ["failed", "warn"],
+    ["timeout", "warn"],
+    ["not_attempted", "warn"],
+  ] as const)(
+    "records the privacy-minimized Google revoke result %s",
+    (resultCode, expectedSeverity) => {
+      const unsafeInput = {
+        eventCode: "withdrawal_google_revoke_result",
+        provider: "google",
+        resultCode,
+        source: "client_observed",
+        email: "private@example.com",
+        userId: "private-user-id",
+        error: "private Google error",
+      } as unknown as SecurityEventInput;
+
+      recordSecurityEvent(unsafeInput);
+
+      const logger = expectedSeverity === "info" ? console.info : console.warn;
+      const payload = JSON.parse(
+        vi.mocked(logger).mock.calls[0][0] as string,
+      );
+
+      expect(payload).toEqual({
+        schemaVersion: 1,
+        timestamp: "2026-08-26T01:02:03.000Z",
+        eventCode: "withdrawal_google_revoke_result",
+        severity: expectedSeverity,
+        environment: "test",
+        route: "/api/withdraw",
+        httpStatus: 200,
+        provider: "google",
+        resultCode,
+        source: "client_observed",
+      });
+      expect(payload).not.toHaveProperty("email");
+      expect(payload).not.toHaveProperty("userId");
+      expect(payload).not.toHaveProperty("error");
+    },
+  );
 
   it("records only the allowed rate-limit context", () => {
     const unsafeInput = {

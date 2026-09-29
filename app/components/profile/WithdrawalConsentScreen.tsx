@@ -4,7 +4,10 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import { FormEvent, useRef, useState } from "react";
-import { revokeGoogleIdentityGrant } from "@/app/lib/auth/googleIdentityClient";
+import {
+  revokeGoogleIdentityGrant,
+  type GoogleIdentityScriptStatus,
+} from "@/app/lib/auth/googleIdentityClient";
 import WithdrawalPageHeader from "./WithdrawalPageHeader";
 import {
   createWithdrawalSubmissionLock,
@@ -22,6 +25,7 @@ export default function WithdrawalConsentScreen({
 }) {
   const router = useRouter();
   const submissionLock = useRef(createWithdrawalSubmissionLock());
+  const googleScriptStatus = useRef<GoogleIdentityScriptStatus>("loading");
   const [consent, setConsent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -41,11 +45,20 @@ export default function WithdrawalConsentScreen({
       provider: authProvider,
       lock: submissionLock.current,
       requestWithdrawal,
-      runGooglePostSuccess:
+      runGoogleRevoke:
         authProvider === "google"
-          ? () => revokeGoogleIdentityGrant({ loginHint: googleLoginHint })
+          ? () =>
+              revokeGoogleIdentityGrant({
+                loginHint: googleLoginHint,
+                getScriptStatus: () => googleScriptStatus.current,
+              })
           : undefined,
-      navigateToComplete: () => router.replace("/my/withdraw/complete"),
+      navigateToComplete: (googleRevokeStatus) => {
+        const query = googleRevokeStatus
+          ? `?googleRevokeStatus=${googleRevokeStatus}`
+          : "";
+        router.replace(`/my/withdraw/complete${query}`);
+      },
     });
 
     if (result.status !== "success") {
@@ -59,6 +72,12 @@ export default function WithdrawalConsentScreen({
       {authProvider === "google" ? (
         <Script
           id="google-identity-services"
+          onError={() => {
+            googleScriptStatus.current = "failed";
+          }}
+          onReady={() => {
+            googleScriptStatus.current = "ready";
+          }}
           src="https://accounts.google.com/gsi/client"
           strategy="afterInteractive"
         />

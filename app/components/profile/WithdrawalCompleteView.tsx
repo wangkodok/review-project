@@ -1,10 +1,14 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import WithdrawalPageHeader from "./WithdrawalPageHeader";
 
-export default function WithdrawalCompleteView() {
+export default function WithdrawalCompleteView({
+  showGoogleManualUnlinkNotice = false,
+}: {
+  showGoogleManualUnlinkNotice?: boolean;
+}) {
   const router = useRouter();
 
   return (
@@ -22,6 +26,23 @@ export default function WithdrawalCompleteView() {
           서비스를 이용해 주셔서 고맙습니다.
         </p>
       </div>
+
+      {showGoogleManualUnlinkNotice ? (
+        <div className="border-b border-[#dbdbdb] bg-[#fff7f7] px-4 py-5">
+          <p className="text-[15px] font-medium leading-6 text-[#303030]">
+            Google 계정 연결이 자동으로 해제되지 않았을 수 있습니다.
+          </p>
+          <a
+            className="mt-3 inline-flex min-h-11 items-center gap-2 text-[15px] font-semibold text-[#1769d2] underline underline-offset-4"
+            href="https://myaccount.google.com/permissions"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Google 계정 연결 확인
+            <ExternalLink aria-hidden="true" size={17} strokeWidth={2} />
+          </a>
+        </div>
+      ) : null}
 
       <div className="px-4 pt-8">
         <button

@@ -1,5 +1,13 @@
+import {
+  isGoogleRevokeStatus,
+  type GoogleRevokeStatus,
+} from "@/app/lib/auth/googleRevokeStatus";
+
 export type WithdrawalRequestParseResult =
-  | { ok: true; value: { consent: true } }
+  | {
+      ok: true;
+      value: { consent: true; googleRevokeStatus?: GoogleRevokeStatus };
+    }
   | {
       ok: false;
       code: "INVALID_REQUEST" | "WITHDRAWAL_CONSENT_REQUIRED";
@@ -15,7 +23,12 @@ export function parseWithdrawalRequest(
   const input = value as Record<string, unknown>;
   const keys = Object.keys(input);
 
-  if (keys.some((key) => key !== "consent") || keys.length > 1) {
+  if (
+    keys.some(
+      (key) => key !== "consent" && key !== "googleRevokeStatus",
+    ) ||
+    keys.length > 2
+  ) {
     return { ok: false, code: "INVALID_REQUEST" };
   }
 
@@ -27,5 +40,20 @@ export function parseWithdrawalRequest(
     return { ok: false, code: "INVALID_REQUEST" };
   }
 
-  return { ok: true, value: { consent: true } };
+  if (
+    Object.hasOwn(input, "googleRevokeStatus") &&
+    !isGoogleRevokeStatus(input.googleRevokeStatus)
+  ) {
+    return { ok: false, code: "INVALID_REQUEST" };
+  }
+
+  return {
+    ok: true,
+    value: {
+      consent: true,
+      ...(isGoogleRevokeStatus(input.googleRevokeStatus)
+        ? { googleRevokeStatus: input.googleRevokeStatus }
+        : {}),
+    },
+  };
 }

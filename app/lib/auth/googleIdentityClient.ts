@@ -1,10 +1,9 @@
-const GOOGLE_REVOKE_TIMEOUT_MS = 3_000;
+import type { GoogleRevokeStatus } from "./googleRevokeStatus";
 
-export type GoogleRevokeResult =
-  | "revoked"
-  | "failed"
-  | "unavailable"
-  | "timed_out";
+const GOOGLE_REVOKE_TIMEOUT_MS = 3_000;
+const GOOGLE_IDENTITY_POLL_INTERVAL_MS = 25;
+
+export type GoogleIdentityScriptStatus = "loading" | "ready" | "failed";
 
 type GoogleRevocationResponse = {
   successful: boolean;
@@ -38,39 +37,64 @@ function getBrowserGoogleIdentity() {
 
 export function revokeGoogleIdentityGrant({
   loginHint,
-  googleIdentity = getBrowserGoogleIdentity(),
+  getGoogleIdentity = getBrowserGoogleIdentity,
+  getScriptStatus = () => "loading",
 }: {
   loginHint: string;
-  googleIdentity?: GoogleIdentityApi;
-}): Promise<GoogleRevokeResult> {
+  getGoogleIdentity?: () => GoogleIdentityApi | undefined;
+  getScriptStatus?: () => GoogleIdentityScriptStatus;
+}): Promise<GoogleRevokeStatus> {
   const normalizedLoginHint = loginHint.trim();
 
-  if (!normalizedLoginHint || !googleIdentity) {
-    return Promise.resolve("unavailable");
+  if (!normalizedLoginHint) {
+    return Promise.resolve("not_attempted");
   }
 
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (result: GoogleRevokeResult) => {
+    let revokeStarted = false;
+
+    const finish = (result: GoogleRevokeStatus) => {
       if (settled) {
         return;
       }
 
       settled = true;
+      clearInterval(poll);
       clearTimeout(timeout);
       resolve(result);
     };
+
+    const attemptRevoke = () => {
+      if (revokeStarted || settled) {
+        return;
+      }
+
+      try {
+        const googleIdentity = getGoogleIdentity();
+
+        if (!googleIdentity) {
+          if (getScriptStatus() === "failed") {
+            finish("not_attempted");
+          }
+          return;
+        }
+
+        revokeStarted = true;
+        clearInterval(poll);
+        googleIdentity.accounts.id.revoke(normalizedLoginHint, (response) => {
+          finish(response.successful ? "success" : "failed");
+        });
+      } catch {
+        finish("failed");
+      }
+    };
+
     const timeout = setTimeout(
-      () => finish("timed_out"),
+      () => finish("timeout"),
       GOOGLE_REVOKE_TIMEOUT_MS,
     );
-
-    try {
-      googleIdentity.accounts.id.revoke(normalizedLoginHint, (response) => {
-        finish(response.successful ? "revoked" : "failed");
-      });
-    } catch {
-      finish("failed");
-    }
+    const poll = setInterval(attemptRevoke, GOOGLE_IDENTITY_POLL_INTERVAL_MS);
+    attemptRevoke();
   });
 }

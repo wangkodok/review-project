@@ -26,6 +26,12 @@ type WithdrawalSecurityEvent =
         | "account_mismatch"
         | "request_failed"
         | "timed_out";
+    }
+  | {
+      eventCode: "withdrawal_google_revoke_result";
+      provider: "google";
+      resultCode: "success" | "failed" | "timeout" | "not_attempted";
+      source: "client_observed";
     };
 
 type RateLimitSecurityEvent = {
@@ -72,7 +78,7 @@ export type SecurityEventInput =
   | KakaoSecurityEvent
   | ReviewImageSecurityEvent;
 
-type SecurityEventSeverity = "warn" | "error";
+type SecurityEventSeverity = "info" | "warn" | "error";
 
 const EVENT_DEFINITIONS: Record<
   SecurityEventInput["eventCode"],
@@ -118,6 +124,11 @@ const EVENT_DEFINITIONS: Record<
     httpStatus: 500,
   },
   withdrawal_provider_unlink_failed: {
+    severity: "warn",
+    route: "/api/withdraw",
+    httpStatus: 200,
+  },
+  withdrawal_google_revoke_result: {
     severity: "warn",
     route: "/api/withdraw",
     httpStatus: 200,
@@ -185,11 +196,16 @@ function getEnvironment() {
 
 export function recordSecurityEvent(event: SecurityEventInput) {
   const definition = EVENT_DEFINITIONS[event.eventCode];
+  const severity =
+    event.eventCode === "withdrawal_google_revoke_result" &&
+    event.resultCode === "success"
+      ? "info"
+      : definition.severity;
   const basePayload = {
     schemaVersion: 1,
     timestamp: new Date().toISOString(),
     eventCode: event.eventCode,
-    severity: definition.severity,
+    severity,
     environment: getEnvironment(),
     ...(definition.route ? { route: definition.route } : {}),
     httpStatus: definition.httpStatus,
@@ -197,7 +213,14 @@ export function recordSecurityEvent(event: SecurityEventInput) {
 
   let payload: Record<string, unknown> = basePayload;
 
-  if (event.eventCode === "withdrawal_provider_unlink_failed") {
+  if (event.eventCode === "withdrawal_google_revoke_result") {
+    payload = {
+      ...basePayload,
+      provider: event.provider,
+      resultCode: event.resultCode,
+      source: event.source,
+    };
+  } else if (event.eventCode === "withdrawal_provider_unlink_failed") {
     payload = {
       ...basePayload,
       provider: event.provider,
@@ -237,7 +260,12 @@ export function recordSecurityEvent(event: SecurityEventInput) {
 
   const serializedPayload = JSON.stringify(payload);
 
-  if (definition.severity === "warn") {
+  if (severity === "info") {
+    console.info(serializedPayload);
+    return;
+  }
+
+  if (severity === "warn") {
     console.warn(serializedPayload);
     return;
   }
