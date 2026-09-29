@@ -43,6 +43,8 @@ export default async function MyWithdrawPage() {
   }
 
   let googleLoginHint = "";
+  const googleClientId =
+    authProvider === "google" ? (process.env.AUTH_GOOGLE_ID?.trim() ?? "") : "";
 
   if (authProvider === "google") {
     try {
@@ -62,6 +64,7 @@ export default async function MyWithdrawPage() {
   return (
     <WithdrawalConsentScreen
       authProvider={authProvider}
+      googleClientId={googleClientId}
       googleLoginHint={googleLoginHint}
     />
   );

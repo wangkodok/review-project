@@ -13,6 +13,7 @@ type GoogleRevocationResponse = {
 export type GoogleIdentityApi = {
   accounts: {
     id: {
+      initialize: (configuration: { client_id: string }) => void;
       revoke: (
         loginHint: string,
         callback: (response: GoogleRevocationResponse) => void,
@@ -20,6 +21,11 @@ export type GoogleIdentityApi = {
     };
   };
 };
+
+const initializedGoogleIdentityClients = new WeakMap<
+  GoogleIdentityApi,
+  string
+>();
 
 function getBrowserGoogleIdentity() {
   const value = (globalThis as { google?: unknown }).google;
@@ -30,23 +36,27 @@ function getBrowserGoogleIdentity() {
 
   const candidate = value as Partial<GoogleIdentityApi>;
 
-  return typeof candidate.accounts?.id?.revoke === "function"
+  return typeof candidate.accounts?.id?.initialize === "function" &&
+    typeof candidate.accounts.id.revoke === "function"
     ? (candidate as GoogleIdentityApi)
     : undefined;
 }
 
 export function revokeGoogleIdentityGrant({
+  clientId,
   loginHint,
   getGoogleIdentity = getBrowserGoogleIdentity,
   getScriptStatus = () => "loading",
 }: {
+  clientId: string;
   loginHint: string;
   getGoogleIdentity?: () => GoogleIdentityApi | undefined;
   getScriptStatus?: () => GoogleIdentityScriptStatus;
 }): Promise<GoogleRevokeStatus> {
+  const normalizedClientId = clientId.trim();
   const normalizedLoginHint = loginHint.trim();
 
-  if (!normalizedLoginHint) {
+  if (!normalizedClientId || !normalizedLoginHint) {
     return Promise.resolve("not_attempted");
   }
 
@@ -82,6 +92,18 @@ export function revokeGoogleIdentityGrant({
 
         revokeStarted = true;
         clearInterval(poll);
+        if (
+          initializedGoogleIdentityClients.get(googleIdentity) !==
+          normalizedClientId
+        ) {
+          googleIdentity.accounts.id.initialize({
+            client_id: normalizedClientId,
+          });
+          initializedGoogleIdentityClients.set(
+            googleIdentity,
+            normalizedClientId,
+          );
+        }
         googleIdentity.accounts.id.revoke(normalizedLoginHint, (response) => {
           finish(response.successful ? "success" : "failed");
         });

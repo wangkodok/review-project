@@ -18,9 +18,11 @@ import {
 
 export default function WithdrawalConsentScreen({
   authProvider,
+  googleClientId = "",
   googleLoginHint = "",
 }: {
   authProvider: WithdrawalProvider;
+  googleClientId?: string;
   googleLoginHint?: string;
 }) {
   const router = useRouter();
@@ -49,6 +51,7 @@ export default function WithdrawalConsentScreen({
         authProvider === "google"
           ? () =>
               revokeGoogleIdentityGrant({
+                clientId: googleClientId,
                 loginHint: googleLoginHint,
                 getScriptStatus: () => googleScriptStatus.current,
               })
