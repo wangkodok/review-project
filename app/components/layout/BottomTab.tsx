@@ -6,12 +6,6 @@ import { usePathname } from "next/navigation";
 
 const tabs = [
   {
-    href: "/home",
-    label: "홈",
-    activeIcon: "/icons/bottom-tab/home-active.svg",
-    inactiveIcon: "/icons/bottom-tab/home-inactive.svg",
-  },
-  {
     href: "/community",
     label: "커뮤니티",
     activeIcon: "/icons/bottom-tab/community-active.svg",
@@ -37,6 +31,7 @@ const hiddenBottomTabPatterns = [
   /^\/my\/withdraw$/,
   /^\/my\/withdraw\/complete$/,
   /^\/privacy$/,
+  /^\/terms$/,
 ];
 
 function shouldHideBottomTab(pathname: string) {
@@ -51,7 +46,7 @@ export default function BottomTab() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-1/2 z-20 grid h-14 w-full max-w-[var(--app-frame-max-width)] -translate-x-1/2 grid-cols-3 border-t border-[#dbdbdb] bg-white">
+    <nav className="fixed bottom-0 left-1/2 z-20 grid h-14 w-full max-w-[var(--app-frame-max-width)] -translate-x-1/2 grid-cols-2 border-t border-[#dbdbdb] bg-white">
       {tabs.map((tab) => {
         const isActive = pathname === tab.href;
 

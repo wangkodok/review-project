@@ -156,7 +156,8 @@ export function createAuthOptions(): NextAuthOptions {
       },
       async session({ session, token }) {
         if (token.authSessionInvalidated) {
-          throw new Error("AUTH_SESSION_INVALIDATED");
+          delete session.user;
+          return session;
         }
 
         if (

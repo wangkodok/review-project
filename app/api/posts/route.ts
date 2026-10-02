@@ -40,6 +40,14 @@ function parseSort(value: string | null): SortValue | null {
   return SORT_VALUES.includes(value as SortValue) ? (value as SortValue) : null;
 }
 
+function parseWithImage(value: string | null) {
+  if (value === null) {
+    return false;
+  }
+
+  return value === "true" ? true : null;
+}
+
 export async function GET(request: Request) {
   try {
     const rateLimitResponse = await enforceRateLimit({
@@ -68,6 +76,7 @@ export async function GET(request: Request) {
     }
     const search = searchParams.get("search")?.trim() ?? "";
     const sort = parseSort(searchParams.get("sort"));
+    const withImage = parseWithImage(searchParams.get("withImage"));
     const categorySlug = searchParams.get("category")?.trim() || undefined;
     const regionSlug = searchParams.get("region")?.trim() || undefined;
 
@@ -90,6 +99,18 @@ export async function GET(request: Request) {
           data: null,
           message: "선택할 수 없는 정렬 방식입니다.",
           code: "INVALID_SORT",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (withImage === null) {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택할 수 없는 사진 필터입니다.",
+          code: "INVALID_IMAGE_FILTER",
         },
         { status: 400 },
       );
@@ -133,6 +154,7 @@ export async function GET(request: Request) {
       currentUserId: session?.user?.id,
       categoryId: category?.id,
       regionId: region?.id,
+      withImage,
     });
 
     return NextResponse.json({

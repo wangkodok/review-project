@@ -186,4 +186,26 @@ describe("createAuthOptions", () => {
     expect(token).not.toHaveProperty("withdrawalFlowId");
     expect(token).not.toHaveProperty("withdrawalReauthenticatedAt");
   });
+
+  it("treats an invalidated token as an unauthenticated session without throwing", async () => {
+    const session = createAuthOptions().callbacks?.session;
+    expect(session).toBeTypeOf("function");
+
+    const result = await session!({
+      session: {
+        user: {
+          id: appUser.id,
+          nickname: appUser.nickname,
+          anonymousId: appUser.anonymousId,
+          authProvider: "google",
+        },
+        expires: "2099-01-01T00:00:00.000Z",
+      },
+      token: {
+        authSessionInvalidated: true,
+      },
+    } as never);
+
+    expect(result.user).toBeUndefined();
+  });
 });

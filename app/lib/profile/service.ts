@@ -14,6 +14,11 @@ type AuthAccountRow = {
   provider_email: string | null;
 };
 
+type ProfileSummaryRow = {
+  anonymous_id: string;
+  nickname: string;
+};
+
 type PostActivityRow = {
   like_count: number | null;
   view_count: number | null;
@@ -131,6 +136,25 @@ export async function getProfile(userId: string, authProvider?: AuthProvider) {
   }
 
   return toProfileUser(data, authProvider);
+}
+
+export async function getProfileSummary(userId: string) {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("users")
+    .select("anonymous_id,nickname")
+    .eq("id", userId)
+    .single<ProfileSummaryRow>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    anonymousId: data.anonymous_id,
+    nickname: data.nickname,
+    activitySummary: await getActivitySummary(userId),
+  };
 }
 
 export async function updateNickname({

@@ -18,6 +18,10 @@ import WithdrawalConsentScreen from "@/app/components/profile/WithdrawalConsentS
 import { getWithdrawalExternalAuthAccount } from "@/app/lib/auth/sessionSecurity";
 import MyWithdrawPage from "./page";
 
+const renderWithdrawPage = MyWithdrawPage as (props?: {
+  searchParams?: Promise<{ from?: string | string[] }>;
+}) => Promise<ReactElement<Record<string, unknown>>>;
+
 describe("MyWithdrawPage", () => {
   it("does not expose Google provider data to the withdrawal screen", async () => {
     vi.mocked(getServerSession).mockResolvedValue({
@@ -34,10 +38,27 @@ describe("MyWithdrawPage", () => {
       providerEmail: "private@example.com",
     });
 
-    const result = (await MyWithdrawPage()) as ReactElement<Record<string, never>>;
+    const result = await renderWithdrawPage();
 
     expect(result.type).toBe(WithdrawalConsentScreen);
-    expect(result.props).toEqual({});
+    expect(result.props).toEqual({ backHref: "/my" });
     expect(getWithdrawalExternalAuthAccount).not.toHaveBeenCalled();
+  });
+
+  it("returns to the review list when withdrawal starts in the community menu", async () => {
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: {
+        id: "user-id",
+        authProvider: "google",
+      },
+      expires: "2099-01-01T00:00:00.000Z",
+    });
+
+    const result = await renderWithdrawPage({
+      searchParams: Promise.resolve({ from: "community" }),
+    });
+
+    expect(result.type).toBe(WithdrawalConsentScreen);
+    expect(result.props).toEqual({ backHref: "/community" });
   });
 });

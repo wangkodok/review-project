@@ -25,13 +25,31 @@ const sortLabels: Record<ReviewSortValue, string> = {
   views: "조회수순",
 };
 
+export function shouldStartFilterRailDrag({
+  button,
+  isPrimary,
+  pointerType,
+}: {
+  button: number;
+  isPrimary: boolean;
+  pointerType: string;
+}) {
+  return isPrimary && button === 0 && pointerType === "mouse";
+}
+
 function FilterRail({ children }: { children: ReactNode }) {
   const gestureRef = useRef<FilterRailGesture | null>(null);
   const suppressClickRef = useRef(false);
   const [isDragging, setIsDragging] = useState(false);
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!event.isPrimary || event.button !== 0) {
+    if (
+      !shouldStartFilterRailDrag({
+        button: event.button,
+        isPrimary: event.isPrimary,
+        pointerType: event.pointerType,
+      })
+    ) {
       return;
     }
 
@@ -90,7 +108,7 @@ function FilterRail({ children }: { children: ReactNode }) {
   return (
     <div
       aria-label="리뷰 필터"
-      className={`min-w-0 flex-1 touch-pan-y overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+      className={`min-w-0 flex-1 touch-auto overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
         isDragging ? "cursor-grabbing" : "cursor-grab"
       }`}
       onClickCapture={(event) => {

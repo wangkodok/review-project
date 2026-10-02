@@ -4,13 +4,19 @@ import WithdrawalConsentScreen from "@/app/components/profile/WithdrawalConsentS
 import WithdrawalPageHeader from "@/app/components/profile/WithdrawalPageHeader";
 import { authOptions } from "@/app/lib/auth/options";
 
-export default async function MyWithdrawPage() {
+export default async function MyWithdrawPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ from?: string | string[] }>;
+} = {}) {
+  const from = searchParams ? (await searchParams).from : undefined;
+  const backHref = from === "community" ? "/community" : "/my";
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
     return (
       <section className="-mx-5 -mb-24 -mt-5 min-h-dvh bg-white">
-        <WithdrawalPageHeader backHref="/my" title="회원 탈퇴" />
+        <WithdrawalPageHeader backHref={backHref} title="회원 탈퇴" />
         <div className="border-b border-neutral-200 px-5 py-8 text-center">
           <p className="text-sm font-semibold text-neutral-950">
             로그인이 필요합니다.
@@ -31,7 +37,7 @@ export default async function MyWithdrawPage() {
   if (authProvider !== "google" && authProvider !== "kakao") {
     return (
       <section className="-mx-5 -mb-24 -mt-5 min-h-dvh bg-white">
-        <WithdrawalPageHeader backHref="/my" title="회원 탈퇴" />
+        <WithdrawalPageHeader backHref={backHref} title="회원 탈퇴" />
         <div className="px-5 py-8">
           <p className="bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             로그인 세션을 확인할 수 없습니다. 다시 로그인해 주세요.
@@ -41,5 +47,5 @@ export default async function MyWithdrawPage() {
     );
   }
 
-  return <WithdrawalConsentScreen />;
+  return <WithdrawalConsentScreen backHref={backHref} />;
 }

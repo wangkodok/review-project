@@ -45,5 +45,6 @@ export async function searchPosts({
     currentUserId,
     categoryId,
     regionId,
+    withImage: false,
   });
 }

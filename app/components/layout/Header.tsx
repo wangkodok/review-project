@@ -23,6 +23,7 @@ const hiddenHeaderPatterns = [
   /^\/my\/withdraw$/,
   /^\/my\/withdraw\/complete$/,
   /^\/privacy$/,
+  /^\/terms$/,
 ];
 
 function getTitle(pathname: string) {

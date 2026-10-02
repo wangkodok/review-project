@@ -25,7 +25,22 @@ export type ProfileResponse = {
   code?: string;
 };
 
+export type ProfileSummaryUser = Pick<
+  ProfileUser,
+  "anonymousId" | "nickname" | "activitySummary"
+>;
+
+type ProfileSummaryResponse = {
+  success: boolean;
+  data: {
+    user: ProfileSummaryUser;
+  } | null;
+  message: string;
+  code?: string;
+};
+
 export const PROFILE_QUERY_KEY = ["profile"] as const;
+export const COMMUNITY_MENU_PROFILE_QUERY_KEY = ["profile", "community-menu"] as const;
 const activityCountFormatter = new Intl.NumberFormat("en-US");
 
 export function formatActivityCount(value: number) {
@@ -46,6 +61,17 @@ export function formatActivityCount(value: number) {
 export async function fetchProfile() {
   const response = await fetch("/api/profile");
   const result = (await response.json()) as ProfileResponse;
+
+  if (!response.ok || !result.success || !result.data) {
+    throw new Error(result.message || "내 정보를 불러오지 못했습니다.");
+  }
+
+  return result.data.user;
+}
+
+export async function fetchCommunityMenuProfile() {
+  const response = await fetch("/api/profile?view=menu");
+  const result = (await response.json()) as ProfileSummaryResponse;
 
   if (!response.ok || !result.success || !result.data) {
     throw new Error(result.message || "내 정보를 불러오지 못했습니다.");

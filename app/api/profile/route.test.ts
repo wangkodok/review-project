@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getServerSession: vi.fn(),
   getProfile: vi.fn(),
+  getProfileSummary: vi.fn(),
   isValidNickname: vi.fn(),
   updateNickname: vi.fn(),
 }));
@@ -11,6 +12,7 @@ vi.mock("next-auth", () => ({ getServerSession: mocks.getServerSession }));
 vi.mock("@/app/lib/auth/options", () => ({ authOptions: {} }));
 vi.mock("@/app/lib/profile/service", () => ({
   getProfile: mocks.getProfile,
+  getProfileSummary: mocks.getProfileSummary,
   isValidNickname: mocks.isValidNickname,
   updateNickname: mocks.updateNickname,
 }));
@@ -26,12 +28,17 @@ describe("/api/profile", () => {
     vi.clearAllMocks();
     mocks.getServerSession.mockResolvedValue(session);
     mocks.getProfile.mockResolvedValue(profile);
+    mocks.getProfileSummary.mockResolvedValue({
+      anonymousId: "익명F19dF1",
+      nickname: "리뷰어",
+      activitySummary: { totalLikes: 12, totalViews: 34, postCount: 5 },
+    });
     mocks.isValidNickname.mockReturnValue(true);
     mocks.updateNickname.mockResolvedValue({ status: "ok", user: profile });
   });
 
   it("returns a private non-cacheable profile", async () => {
-    const response = await GET();
+    const response = await GET(new Request("http://localhost/api/profile"));
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
@@ -42,10 +49,54 @@ describe("/api/profile", () => {
     expect(mocks.getProfile).toHaveBeenCalledWith(USER_ID, "kakao");
   });
 
+  it("returns only the minimal profile fields for the community menu", async () => {
+    const response = await GET(
+      new Request("http://localhost/api/profile?view=menu"),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(body.data.user).toEqual({
+      anonymousId: "익명F19dF1",
+      nickname: "리뷰어",
+      activitySummary: { totalLikes: 12, totalViews: 34, postCount: 5 },
+    });
+    expect(body.data.user).not.toHaveProperty("email");
+    expect(body.data.user).not.toHaveProperty("authProvider");
+    expect(mocks.getProfileSummary).toHaveBeenCalledWith(USER_ID);
+    expect(mocks.getProfile).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unsupported profile view without reading profile data", async () => {
+    const response = await GET(
+      new Request("http://localhost/api/profile?view=menus"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect((await response.json()).code).toBe("INVALID_PROFILE_VIEW");
+    expect(mocks.getProfileSummary).not.toHaveBeenCalled();
+    expect(mocks.getProfile).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unauthenticated menu profile read without storage access", async () => {
+    mocks.getServerSession.mockResolvedValue(null);
+
+    const response = await GET(
+      new Request("http://localhost/api/profile?view=menu"),
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(mocks.getProfileSummary).not.toHaveBeenCalled();
+    expect(mocks.getProfile).not.toHaveBeenCalled();
+  });
+
   it("rejects unauthenticated profile reads without storage access", async () => {
     mocks.getServerSession.mockResolvedValue(null);
 
-    const response = await GET();
+    const response = await GET(new Request("http://localhost/api/profile"));
 
     expect(response.status).toBe(401);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
@@ -106,7 +157,7 @@ describe("/api/profile", () => {
   it("does not expose an internal profile error", async () => {
     mocks.getProfile.mockRejectedValue(new Error("private database detail"));
 
-    const response = await GET();
+    const response = await GET(new Request("http://localhost/api/profile"));
     const body = await response.json();
 
     expect(response.status).toBe(500);

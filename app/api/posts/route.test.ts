@@ -200,10 +200,10 @@ describe("GET /api/posts", () => {
     mocks.getPosts.mockResolvedValue({ posts: [], page: 1, limit: 10, totalCount: 0, hasMore: false });
   });
 
-  it("passes region, category, and sort filters to the service", async () => {
+  it("passes region, category, photo, and sort filters to the service", async () => {
     const response = await GET(
       new Request(
-        "http://localhost/api/posts?page=1&limit=10&region=seoul&category=korean&sort=likes",
+        "http://localhost/api/posts?page=1&limit=10&region=seoul&category=korean&withImage=true&sort=likes",
       ),
     );
 
@@ -216,7 +216,18 @@ describe("GET /api/posts", () => {
       currentUserId: undefined,
       categoryId: CATEGORY_ID,
       regionId: REGION_ID,
+      withImage: true,
     });
+  });
+
+  it("rejects an invalid photo filter value", async () => {
+    const response = await GET(
+      new Request("http://localhost/api/posts?withImage=yes"),
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("INVALID_IMAGE_FILTER");
+    expect(mocks.getPosts).not.toHaveBeenCalled();
   });
 
   it("rejects an unknown sort value", async () => {

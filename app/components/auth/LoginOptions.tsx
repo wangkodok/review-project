@@ -256,6 +256,13 @@ export default function LoginOptions({
           로그인 전에{" "}
           <Link
             className="font-semibold text-neutral-700 underline decoration-neutral-300 underline-offset-4 active:text-neutral-950"
+            href="/terms"
+          >
+            서비스 이용약관
+          </Link>
+          과{" "}
+          <Link
+            className="font-semibold text-neutral-700 underline decoration-neutral-300 underline-offset-4 active:text-neutral-950"
             href="/privacy"
           >
             개인정보처리방침

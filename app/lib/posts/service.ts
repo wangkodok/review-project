@@ -20,6 +20,7 @@ type GetPostsParams = {
   currentUserId?: string;
   categoryId?: string;
   regionId?: string;
+  withImage: boolean;
 };
 
 type GetMyPostsParams = {
@@ -293,20 +294,28 @@ export async function getPosts({
   currentUserId,
   categoryId,
   regionId,
+  withImage,
 }: GetPostsParams) {
   const supabase = createSupabaseServerClient();
   const from = (page - 1) * limit;
   const to = from + limit - 1;
   const normalizedSearch = search.trim();
+  const imageRelation = withImage
+    ? "image:review_images!review_images_post_id_fkey!inner(status,detail_object_key,thumbnail_object_key,width,height)"
+    : "image:review_images!review_images_post_id_fkey(status,detail_object_key,thumbnail_object_key,width,height)";
 
   let query = supabase
     .from("posts")
     .select(
-      "id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active),image:review_images!review_images_post_id_fkey(status,detail_object_key,thumbnail_object_key,width,height)",
+      `id,user_id,category_id,region_id,store_name,title,content,menu_name,good_points,bad_points,overall_review,view_count,like_count,created_at,updated_at,author:users!posts_user_id_fkey(anonymous_id),category:categories!posts_category_id_fkey(id,name,slug,is_active),region:regions!posts_region_id_fkey(id,name,slug,is_active),${imageRelation}`,
       {
       count: "exact",
       },
     );
+
+  if (withImage) {
+    query = query.eq("review_images.status", "attached");
+  }
 
   if (normalizedSearch) {
     query = query.or(buildPostSearchFilter(normalizedSearch));

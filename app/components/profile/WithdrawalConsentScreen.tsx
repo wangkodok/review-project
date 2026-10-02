@@ -4,13 +4,18 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useRef, useState } from "react";
 import WithdrawalPageHeader from "./WithdrawalPageHeader";
+import type { WithdrawalPageHref } from "./WithdrawalPageHeader";
 import {
   createWithdrawalSubmissionLock,
   requestWithdrawal,
   submitWithdrawal,
 } from "./withdrawalClient";
 
-export default function WithdrawalConsentScreen() {
+export default function WithdrawalConsentScreen({
+  backHref = "/my",
+}: {
+  backHref?: Extract<WithdrawalPageHref, "/community" | "/my">;
+}) {
   const router = useRouter();
   const submissionLock = useRef(createWithdrawalSubmissionLock());
   const [consent, setConsent] = useState(false);
@@ -45,7 +50,7 @@ export default function WithdrawalConsentScreen() {
   return (
     <section className="-mx-5 -mb-24 -mt-5 flex min-h-dvh flex-col bg-white">
       <WithdrawalPageHeader
-        backHref="/my"
+        backHref={backHref}
         disabled={isSubmitting}
         title="회원 탈퇴"
       />

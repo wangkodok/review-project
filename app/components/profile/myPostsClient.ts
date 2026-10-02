@@ -4,6 +4,12 @@ import type { PostsPage } from "@/app/types/post";
 export const MY_POSTS_QUERY_KEY = ["my-posts"] as const;
 const MY_POSTS_DELETE_NOTICE_KEY = "review-my-posts-delete-success";
 
+export function getMyPostsBackHref(search: string) {
+  return new URLSearchParams(search).get("from") === "community"
+    ? "/community"
+    : "/my";
+}
+
 export function markMyPostsDeleteSuccess() {
   window.sessionStorage.setItem(MY_POSTS_DELETE_NOTICE_KEY, "true");
 }

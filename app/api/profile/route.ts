@@ -1,7 +1,12 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/app/lib/auth/options";
-import { getProfile, isValidNickname, updateNickname } from "@/app/lib/profile/service";
+import {
+  getProfile,
+  getProfileSummary,
+  isValidNickname,
+  updateNickname,
+} from "@/app/lib/profile/service";
 
 const PRIVATE_NO_STORE_HEADERS = {
   "Cache-Control": "private, no-store",
@@ -19,7 +24,7 @@ function unauthorizedResponse() {
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -27,7 +32,23 @@ export async function GET() {
       return unauthorizedResponse();
     }
 
-    const user = await getProfile(session.user.id, session.user.authProvider);
+    const view = new URL(request.url).searchParams.get("view");
+    if (view !== null && view !== "menu") {
+      return NextResponse.json(
+        {
+          success: false,
+          data: null,
+          message: "선택할 수 없는 내 정보 보기 방식입니다.",
+          code: "INVALID_PROFILE_VIEW",
+        },
+        { headers: PRIVATE_NO_STORE_HEADERS, status: 400 },
+      );
+    }
+
+    const user =
+      view === "menu"
+        ? await getProfileSummary(session.user.id)
+        : await getProfile(session.user.id, session.user.authProvider);
 
     return NextResponse.json(
       {

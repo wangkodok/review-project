@@ -20,7 +20,8 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
   const { postId } = await params;
   const { from } = await searchParams;
   const session = await getServerSession(authOptions);
-  const returnSource = from === "my-posts" ? "my-posts" : undefined;
+  const returnSource =
+    from === "my-posts" || from === "community" ? from : undefined;
 
   if (!session?.user?.id) {
     return (

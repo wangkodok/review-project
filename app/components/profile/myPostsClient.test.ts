@@ -1,7 +1,7 @@
 import type { InfiniteData } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import type { CommunityPost, PostsPage } from "@/app/types/post";
-import { removePostFromMyPostsData } from "./myPostsClient";
+import { getMyPostsBackHref, removePostFromMyPostsData } from "./myPostsClient";
 
 function createPost(id: string): CommunityPost {
   return {
@@ -75,5 +75,16 @@ describe("removePostFromMyPostsData", () => {
     };
 
     expect(removePostFromMyPostsData(data, "missing-post")).toBe(data);
+  });
+});
+
+describe("getMyPostsBackHref", () => {
+  it("커뮤니티 메뉴에서 들어오면 리뷰 목록으로 돌아간다", () => {
+    expect(getMyPostsBackHref("?from=community")).toBe("/community");
+  });
+
+  it("내 정보 또는 직접 진입은 기존 내 정보 복귀를 유지한다", () => {
+    expect(getMyPostsBackHref("")).toBe("/my");
+    expect(getMyPostsBackHref("?from=unknown")).toBe("/my");
   });
 });

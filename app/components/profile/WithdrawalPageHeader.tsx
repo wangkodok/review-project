@@ -3,11 +3,13 @@
 import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+export type WithdrawalPageHref = "/" | "/community" | "/my";
+
 export function replaceWithdrawalLocation({
   href,
   replaceLocation,
 }: {
-  href: "/" | "/my";
+  href: WithdrawalPageHref;
   replaceLocation: (href: string) => void;
 }) {
   replaceLocation(href);
@@ -19,7 +21,7 @@ export default function WithdrawalPageHeader({
   disabled = false,
 }: {
   title: "회원 탈퇴" | "완료";
-  backHref: "/" | "/my";
+  backHref: WithdrawalPageHref;
   disabled?: boolean;
 }) {
   const router = useRouter();

@@ -8,7 +8,16 @@ import ReviewConfirmDialog from "@/app/components/community/ReviewConfirmDialog"
 const LOGOUT_DIALOG_TITLE = "로그아웃";
 const LOGOUT_DIALOG_DESCRIPTION = "로그아웃을 하시겠습니까?";
 
-export default function LogoutButton() {
+export function getLogoutOptions(callbackUrl = "/my") {
+  const safeCallbackUrl =
+    callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")
+      ? callbackUrl
+      : "/my";
+
+  return { callbackUrl: safeCallbackUrl };
+}
+
+export default function LogoutButton({ callbackUrl = "/my" }: { callbackUrl?: string }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -18,7 +27,7 @@ export default function LogoutButton() {
     }
 
     setIsSigningOut(true);
-    await signOut({ callbackUrl: "/my" });
+    await signOut(getLogoutOptions(callbackUrl));
   }
 
   return (

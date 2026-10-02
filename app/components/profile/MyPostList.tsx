@@ -13,6 +13,7 @@ import { PROFILE_QUERY_KEY, type ProfileUser } from "./profileClient";
 import {
   MY_POSTS_QUERY_KEY,
   consumeMyPostsDeleteSuccess,
+  getMyPostsBackHref,
   removePostFromMyPostsData,
 } from "./myPostsClient";
 
@@ -168,7 +169,7 @@ export default function MyPostList() {
 
   function handleBack() {
     clearMyPostsState();
-    router.replace("/my");
+    router.replace(getMyPostsBackHref(window.location.search));
   }
 
   function handleDeleteSuccess(postId: string) {

@@ -23,4 +23,15 @@ describe("replaceWithdrawalLocation", () => {
 
     expect(replaceLocation).toHaveBeenCalledWith("/");
   });
+
+  it("returns to the review list when withdrawal starts in the community menu", () => {
+    const replaceLocation = vi.fn();
+
+    replaceWithdrawalLocation({
+      href: "/community",
+      replaceLocation,
+    });
+
+    expect(replaceLocation).toHaveBeenCalledWith("/community");
+  });
 });

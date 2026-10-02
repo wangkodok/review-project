@@ -148,18 +148,16 @@ export default function ProfileInfo() {
         </Link>
         <LogoutButton />
         <WithdrawButton />
-        <button
-          aria-disabled="true"
-          className="flex h-14 w-full items-center justify-between border-b border-[#dbdbdb] px-4 text-left text-[#121212]"
-          disabled
-          type="button"
+        <Link
+          className="flex h-14 w-full items-center justify-between border-b border-[#dbdbdb] px-4 text-left text-[#121212] active:bg-[#f7f7f7]"
+          href="/terms"
         >
           <span className="flex min-w-0 items-center gap-[11px] text-base font-medium leading-6">
             <ScrollText aria-hidden="true" size={21} strokeWidth={1.7} />
             서비스 이용약관
           </span>
           <ChevronRight aria-hidden="true" size={19} strokeWidth={1.45} />
-        </button>
+        </Link>
         <Link
           className="flex h-14 items-center justify-between border-b border-[#dbdbdb] px-4 text-[#121212] active:bg-[#f7f7f7]"
           href="/privacy"

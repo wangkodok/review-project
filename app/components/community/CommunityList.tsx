@@ -234,6 +234,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
 
       {!postsQuery.isLoading && !postsQuery.isError && posts.length ? (
         <PostRows
+          getEditHref={(post) => `/community/${post.id}/edit?from=community`}
           isAuthenticated={isAuthenticated}
           onDeleteSuccess={handleDeleteSuccess}
           posts={posts}

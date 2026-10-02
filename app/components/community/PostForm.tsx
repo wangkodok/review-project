@@ -69,7 +69,7 @@ type PostFormProps = {
   initialUpdatedAt?: string;
   requiresCategorySelection?: boolean;
   requiresRegionSelection?: boolean;
-  returnSource?: "my-posts";
+  returnSource?: "community" | "my-posts";
   imageUploadEnabled?: boolean;
   initialImage?: PostImage | null;
 };
@@ -149,6 +149,24 @@ function getSaveErrorMessage(result: PostFormResponse, fallbackMessage: string) 
   }
 
   return result.message || fallbackMessage;
+}
+
+export function getPostFormLeaveNavigation({
+  detailHref,
+  isEditMode,
+  postId,
+  returnSource,
+}: {
+  detailHref: string;
+  isEditMode: boolean;
+  postId?: string;
+  returnSource?: PostFormProps["returnSource"];
+}): { type: "back" } | { type: "replace"; href: string } {
+  if (isEditMode && postId && !returnSource) {
+    return { type: "replace", href: detailHref };
+  }
+
+  return { type: "back" };
 }
 
 export default function PostForm({
@@ -449,9 +467,15 @@ export default function PostForm({
 
   function handleLeave() {
     setConfirmMode(null);
+    const navigation = getPostFormLeaveNavigation({
+      detailHref,
+      isEditMode,
+      postId,
+      returnSource,
+    });
 
-    if (isEditMode && postId) {
-      router.replace(detailHref);
+    if (navigation.type === "replace") {
+      router.replace(navigation.href);
       return;
     }
 
