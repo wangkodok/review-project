@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Info } from "lucide-react";
+import { UserRound } from "lucide-react";
 import { FormEvent, useState } from "react";
 import PageBackHeader from "../common/PageBackHeader";
 import {
@@ -12,16 +12,6 @@ import {
 } from "./profileClient";
 
 const NICKNAME_MAX_LENGTH = 6;
-const AUTH_PROVIDER_LABELS = {
-  google: "Google",
-  kakao: "Kakao",
-} satisfies Record<Exclude<ProfileUser["authProvider"], null>, string>;
-
-function getAuthProviderLabel(authProvider: ProfileUser["authProvider"]) {
-  return authProvider
-    ? AUTH_PROVIDER_LABELS[authProvider]
-    : "로그인 계정 정보를 확인할 수 없습니다.";
-}
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("ko-KR", {
@@ -33,25 +23,17 @@ function formatDateTime(value: string) {
 
 function ProfileSettingsSkeleton() {
   return (
-    <section className="space-y-8">
-      <PageBackHeader title="프로필 설정" right={<span className="text-base font-semibold text-neutral-300">저장</span>} />
-      <div className="space-y-7">
-        <div>
-          <div className="h-4 w-10 rounded bg-neutral-100" />
-          <div className="mt-3 h-5 w-44 rounded bg-neutral-100" />
-        </div>
-        <div>
-          <div className="h-4 w-16 rounded bg-neutral-100" />
-          <div className="mt-3 h-5 w-20 rounded bg-neutral-100" />
-        </div>
-        <div>
-          <div className="h-4 w-14 rounded bg-neutral-100" />
-          <div className="mt-3 h-5 w-28 rounded bg-neutral-100" />
-        </div>
-        <div>
-          <div className="h-4 w-16 rounded bg-neutral-100" />
-          <div className="mt-3 h-11 rounded bg-neutral-100" />
-          <div className="mt-2 h-4 w-48 rounded bg-neutral-100" />
+    <section>
+      <PageBackHeader title="프로필 설정" right={<span className="text-base font-medium text-neutral-300">저장</span>} />
+      <div className="pt-11">
+        <div className="mx-auto h-20 w-20 rounded-full bg-neutral-100" />
+        <div className="mt-7">
+          <div className="flex items-center justify-between">
+            <div className="h-5 w-14 bg-neutral-100" />
+            <div className="h-4 w-7 bg-neutral-100" />
+          </div>
+          <div className="mt-2 h-11 bg-neutral-100" />
+          <div className="mt-2 h-4 w-48 bg-neutral-100" />
         </div>
       </div>
     </section>
@@ -125,51 +107,46 @@ function ProfileSettingsForm({ user }: { user: ProfileUser }) {
   }
 
   return (
-    <section className="space-y-5">
+    <section>
       <PageBackHeader
         right={
           <button
-            className={`text-base font-semibold ${
+            className={`text-base ${
               isSaveDisabled ? "text-neutral-300" : "text-neutral-950 active:text-neutral-500"
             }`}
             disabled={isSaveDisabled}
             form="profile-settings-form"
             type="submit"
           >
-            저장
+            <span className="font-medium">저장</span>
           </button>
         }
         title="프로필 설정"
       />
 
-      <form className="space-y-8" id="profile-settings-form" onSubmit={handleSubmit}>
-        <div>
-          <p className="text-sm font-semibold text-neutral-400">이메일</p>
-          <p className="mt-2 break-all text-base font-bold text-neutral-950">
-            {user.email ?? "연동된 이메일 정보가 없습니다."}
-          </p>
+      <div className="pt-11">
+        <div
+          aria-label="기본 프로필 이미지"
+          className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#e5e5e5] bg-[#f0f0f0] text-[#777777]"
+          role="img"
+        >
+          <UserRound aria-hidden="true" size={34} strokeWidth={1.25} />
         </div>
 
-        <div>
-          <p className="text-sm font-semibold text-neutral-400">로그인 계정</p>
-          <p className="mt-2 text-base font-bold text-neutral-950">
-            {getAuthProviderLabel(user.authProvider)}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-sm font-semibold text-neutral-400">익명 ID</p>
-          <p className="mt-2 break-all text-base font-bold text-neutral-950">
-            {user.anonymousId}
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <label className="block text-sm font-semibold text-neutral-400" htmlFor="nickname">
-            닉네임(필수)
-          </label>
+        <form className="mt-7" id="profile-settings-form" onSubmit={handleSubmit}>
+          <div className="mb-2 flex items-center justify-between">
+            <label
+              className="text-base font-medium leading-5 text-[#121212]"
+              htmlFor="nickname"
+            >
+              닉네임
+            </label>
+            <span className="text-sm font-normal leading-5 text-[#a1a1a1]">
+              {nickname.length}/{NICKNAME_MAX_LENGTH}
+            </span>
+          </div>
           <input
-            className="h-11 w-full border border-neutral-950 bg-white px-3 text-base font-semibold text-neutral-950 outline-none placeholder:text-neutral-400 disabled:border-neutral-200 disabled:bg-neutral-50 disabled:text-neutral-400"
+            className="h-11 w-full border border-[#dbdbdb] bg-white px-3.5 text-base font-normal text-[#121212] outline-none placeholder:text-[#b0b0b0] disabled:bg-neutral-50 disabled:text-neutral-400"
             disabled={!user.canChangeNickname || isSubmitting}
             id="nickname"
             maxLength={NICKNAME_MAX_LENGTH}
@@ -177,42 +154,24 @@ function ProfileSettingsForm({ user }: { user: ProfileUser }) {
               setNickname(event.target.value);
               setMessage("");
             }}
+            placeholder="닉네임을 입력해 주세요."
             value={nickname}
           />
-          <p className="text-sm font-medium text-neutral-950">
+          <p className="mt-2 text-xs font-normal leading-5 text-[#121212]">
             한글 또는 영문 2~6자 입력해 주세요.
           </p>
           {!user.canChangeNickname && user.nextNicknameChangeAt ? (
-            <p className="rounded-lg bg-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-950">
+            <p className="mt-3 rounded-lg bg-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-950">
               닉네임은 {formatDateTime(user.nextNicknameChangeAt)} 이후 변경할 수 있습니다.
             </p>
           ) : null}
           {message ? (
-            <p className="rounded-lg bg-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-950">
+            <p className="mt-3 rounded-lg bg-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-950">
               {message}
             </p>
           ) : null}
-        </div>
-
-        <div className="space-y-3 pt-3 text-sm leading-6 text-neutral-500">
-          <div className="flex items-center gap-1.5">
-            <Info aria-hidden="true" size={15} />
-            <p className="font-semibold">확인해 주세요.</p>
-          </div>
-          <ul className="list-disc space-y-1 pl-5">
-            <li>
-              로그인을 통해 안전하게 연동된 이메일과 익명 ID는 시스템 보안 및 데이터
-              무결성을 위한 고유 식별 정보로 사용되며 로그인 후에는 변경할 수 없습니다.
-            </li>
-            <li>
-              정보 변경이 꼭 필요한 경우 기존 계정 탈퇴 후 새롭게 재가입해 주세요.
-            </li>
-            <li>
-              닉네임 수정 및 변경 시 30일 이후에 다시 변경을 하실 수 있습니다.
-            </li>
-          </ul>
-        </div>
-      </form>
+        </form>
+      </div>
     </section>
   );
 }

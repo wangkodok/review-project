@@ -20,7 +20,7 @@ import {
 
 function ProfileSkeleton() {
   return (
-    <div className="-mx-5 -mt-5 bg-white">
+    <div className="-mx-4 -mt-5 bg-white">
       <div className="review-list-skeleton px-4 pb-[18px] pt-3">
         <div className="flex min-h-[52px] items-center justify-between">
           <div className="flex items-center gap-3">
@@ -92,7 +92,7 @@ export default function ProfileInfo() {
   const user = query.data;
 
   return (
-    <section className="-mx-5 -mt-5 bg-white">
+    <section className="-mx-4 -mt-5 bg-white">
       <div className="px-4 pb-[18px] pt-3">
         <div className="flex min-h-[52px] items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">

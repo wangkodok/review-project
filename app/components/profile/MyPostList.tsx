@@ -195,18 +195,15 @@ export default function MyPostList() {
   return (
     <section className="bg-white">
       <PageBackHeader
-        backIconStrokeWidth={1.25}
-        fullHeightActions
         onBack={handleBack}
         sticky
         title="내가 작성한 리뷰"
-        titleClassName="text-[18px] font-bold leading-6 text-[#121212]"
       />
 
       {query.isLoading ? (
         <div
           aria-label="내가 작성한 리뷰를 불러오는 중"
-          className="-mx-5"
+          className="-mx-4"
           role="status"
         >
           <ReviewListSkeleton />
@@ -216,7 +213,7 @@ export default function MyPostList() {
       ) : null}
 
       {query.isError ? (
-        <div className="-mx-5 grid justify-items-center gap-4 px-5 py-20 text-center">
+        <div className="-mx-4 grid justify-items-center gap-4 px-4 py-20 text-center">
           <p className="text-[15px] leading-6 text-[#666666]">
             내가 작성한 리뷰를 불러오지 못했어요.
           </p>
@@ -231,7 +228,7 @@ export default function MyPostList() {
       ) : null}
 
       {!query.isLoading && !query.isError ? (
-        <div className="-mx-5">
+        <div className="-mx-4">
           <PostRows
             getDetailHref={(post) => `/community/${post.id}?from=my-posts`}
             getEditHref={(post) => `/community/${post.id}/edit?from=my-posts`}
@@ -243,7 +240,7 @@ export default function MyPostList() {
       ) : null}
 
       {hasNoPosts ? (
-        <div className="-mx-5 px-5 py-20 text-center">
+        <div className="-mx-4 px-4 py-20 text-center">
           <p className="text-[15px] leading-6 text-[#666666]">
             작성한 리뷰가 없어요.
           </p>
@@ -251,7 +248,7 @@ export default function MyPostList() {
       ) : null}
 
       {query.hasNextPage ? (
-        <div className="-mx-5 px-4 pb-6 pt-5">
+        <div className="-mx-4 px-4 pb-6 pt-5">
           <button
             className="flex h-11 w-full items-center justify-center gap-2 rounded border border-[#dbdbdb] bg-white text-sm text-[#121212] disabled:text-[#686868]"
             disabled={query.isFetchingNextPage}

@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
-import { ArrowLeft, UserRound, X } from "lucide-react";
+import { UserRound, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,7 @@ import {
 } from "@/app/components/profile/myPostsClient";
 import { PROFILE_QUERY_KEY, type ProfileUser } from "@/app/components/profile/profileClient";
 import type { CommunityPost, PostsPage } from "@/app/types/post";
+import PageBackHeader from "../common/PageBackHeader";
 import PostMoreMenu from "./PostMoreMenu";
 import PostActionSummary from "./PostActionSummary";
 import { buildReviewReportHref } from "./reviewReportClient";
@@ -149,44 +150,39 @@ export default function PostDetail({
   }
 
   return (
-    <section className="-mx-5 -mt-5 bg-white">
-      <header className="sticky top-0 z-20 grid h-14 grid-cols-[56px_minmax(0,1fr)_56px] items-center border-b border-[#dbdbdb] bg-white">
-        <button
-          aria-label="뒤로가기"
-          className="flex h-14 w-14 items-center justify-center text-[#121212] active:bg-neutral-100"
-          onClick={() => router.back()}
-          type="button"
-        >
-          <ArrowLeft aria-hidden="true" size={22} strokeWidth={1.8} />
-        </button>
-        <span aria-hidden="true" />
-        {query.data && isAuthenticated ? (
-          <PostMoreMenu
-            editHref={
-              source === "my-posts"
-                ? `/community/${query.data.id}/edit?from=my-posts`
-                : undefined
-            }
-            fullHeightAction
-            menuAlignEndOffset={16}
-            mode={query.data.isOwner ? "owner" : "report"}
-            onDeleteSuccess={source === "my-posts" ? handleDeleteSuccess : undefined}
-            postId={query.data.id}
-            reportHref={
-              query.data.isOwner
-                ? undefined
-                : buildReviewReportHref(query.data.id, "detail")
-            }
-          />
-        ) : (
-          <div className="h-14 w-14" />
-        )}
-      </header>
+    <section className="-mx-4 -mt-5 bg-white">
+      <PageBackHeader
+        flush
+        onBack={() => router.back()}
+        right={
+          query.data && isAuthenticated ? (
+            <PostMoreMenu
+              editHref={
+                source === "my-posts"
+                  ? `/community/${query.data.id}/edit?from=my-posts`
+                  : undefined
+              }
+              fullHeightAction
+              menuAlignEndOffset={16}
+              mode={query.data.isOwner ? "owner" : "report"}
+              onDeleteSuccess={source === "my-posts" ? handleDeleteSuccess : undefined}
+              postId={query.data.id}
+              reportHref={
+                query.data.isOwner
+                  ? undefined
+                  : buildReviewReportHref(query.data.id, "detail")
+              }
+            />
+          ) : null
+        }
+        sticky
+        title=""
+      />
 
       {query.isLoading ? <PostDetailSkeleton /> : null}
 
       {query.isError ? (
-        <div className="px-5 py-20 text-center">
+        <div className="px-4 py-20 text-center">
           <p className="text-sm font-bold text-[#121212]">
             {isNotFound
               ? "삭제되었거나 존재하지 않는 리뷰입니다."

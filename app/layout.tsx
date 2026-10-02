@@ -44,7 +44,7 @@ export default function RootLayout({
         <QueryProvider>
           <div className="app-shell mx-auto flex min-h-dvh w-full max-w-[var(--app-frame-max-width)] flex-col bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
             <Header />
-            <main className="flex flex-1 flex-col px-5 pb-24 pt-5">
+            <main className="flex flex-1 flex-col px-4 pb-24 pt-5">
               <div className="flex-1">{children}</div>
             </main>
             <BottomTab />

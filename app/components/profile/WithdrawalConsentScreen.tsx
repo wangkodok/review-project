@@ -48,7 +48,7 @@ export default function WithdrawalConsentScreen({
   }
 
   return (
-    <section className="-mx-5 -mb-24 -mt-5 flex min-h-dvh flex-col bg-white">
+    <section className="-mx-4 -mb-24 -mt-5 flex min-h-dvh flex-col bg-white">
       <WithdrawalPageHeader
         backHref={backHref}
         disabled={isSubmitting}
@@ -80,7 +80,7 @@ export default function WithdrawalConsentScreen({
           </ul>
         </div>
 
-        <label className="flex min-h-14 cursor-pointer items-center gap-3 border-b border-t border-[#dbdbdb] px-5 text-base font-medium text-[#303030] has-[:disabled]:cursor-default">
+        <label className="flex min-h-14 cursor-pointer items-center gap-3 border-b border-t border-[#dbdbdb] px-4 text-base font-medium text-[#303030] has-[:disabled]:cursor-default">
           <input
             checked={consent}
             className="sr-only"

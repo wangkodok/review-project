@@ -15,9 +15,9 @@ export default async function MyWithdrawPage({
 
   if (!session?.user?.id) {
     return (
-      <section className="-mx-5 -mb-24 -mt-5 min-h-dvh bg-white">
+      <section className="-mx-4 -mb-24 -mt-5 min-h-dvh bg-white">
         <WithdrawalPageHeader backHref={backHref} title="회원 탈퇴" />
-        <div className="border-b border-neutral-200 px-5 py-8 text-center">
+        <div className="border-b border-neutral-200 px-4 py-8 text-center">
           <p className="text-sm font-semibold text-neutral-950">
             로그인이 필요합니다.
           </p>
@@ -25,7 +25,7 @@ export default async function MyWithdrawPage({
             로그인 후 회원 탈퇴를 진행할 수 있습니다.
           </p>
         </div>
-        <div className="px-5 pt-5">
+        <div className="px-4 pt-5">
           <LoginOptions />
         </div>
       </section>
@@ -36,9 +36,9 @@ export default async function MyWithdrawPage({
 
   if (authProvider !== "google" && authProvider !== "kakao") {
     return (
-      <section className="-mx-5 -mb-24 -mt-5 min-h-dvh bg-white">
+      <section className="-mx-4 -mb-24 -mt-5 min-h-dvh bg-white">
         <WithdrawalPageHeader backHref={backHref} title="회원 탈퇴" />
-        <div className="px-5 py-8">
+        <div className="px-4 py-8">
           <p className="bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             로그인 세션을 확인할 수 없습니다. 다시 로그인해 주세요.
           </p>

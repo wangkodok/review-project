@@ -483,14 +483,11 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
     <section>
       <div className="sticky top-0 z-20 bg-white">
         <PageBackHeader
-          backIconStrokeWidth={1.25}
-          fullHeightActions
           onBack={handleBack}
           title="검색"
-          titleClassName="text-[18px] font-bold leading-7 text-[#121212]"
         />
 
-        <div className="-mx-5 bg-white px-4 py-4">
+        <div className="-mx-4 bg-white px-4 py-4">
           <form onSubmit={handleSubmit}>
             <label className="sr-only" htmlFor="community-search">
               리뷰 검색어
@@ -549,7 +546,7 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
           hasSearched ? (
             <section
               aria-label="검색 결과 정렬과 필터"
-              className="-mx-5 border-y border-[#dbdbdb] bg-white"
+              className="-mx-4 border-y border-[#dbdbdb] bg-white"
             >
               <ReviewListControls
                 categoryActive={Boolean(categorySlug)}
@@ -595,7 +592,7 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
       </div>
 
       {!hasSearched ? (
-        <section className="-mx-5 bg-white" aria-labelledby="recent-search-title">
+        <section className="-mx-4 bg-white" aria-labelledby="recent-search-title">
           <div className="flex h-14 items-center justify-between px-4">
             <h2 className="text-base font-bold leading-6 text-[#121212]" id="recent-search-title">
               최근 검색어
@@ -612,7 +609,7 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
           </div>
 
           {!isAuthenticated ? (
-            <p className="px-5 py-[72px] text-center text-[15px] leading-6 text-[#666666]">
+            <p className="px-4 py-[72px] text-center text-[15px] leading-6 text-[#666666]">
               로그인하면 최근 검색어를 저장할 수 있어요.
             </p>
           ) : null}
@@ -625,7 +622,7 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
           ) : null}
 
           {isAuthenticated && historiesQuery.isError ? (
-            <div className="grid justify-items-center gap-3 px-5 py-[72px] text-center">
+            <div className="grid justify-items-center gap-3 px-4 py-[72px] text-center">
               <p className="text-[15px] leading-6 text-[#666666]">
                 최근 검색어를 불러오지 못했어요.
               </p>
@@ -664,13 +661,13 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
           ) : null}
 
           {isAuthenticated && historiesQuery.isSuccess && !historiesQuery.data.length ? (
-            <p className="px-5 py-[72px] text-center text-[15px] leading-6 text-[#666666]">
+            <p className="px-4 py-[72px] text-center text-[15px] leading-6 text-[#666666]">
               최근 검색어가 없어요.
             </p>
           ) : null}
 
           {historyActionError ? (
-            <p className="px-5 pb-5 text-center text-sm text-[#e53545]" role="alert">
+            <p className="px-4 pb-5 text-center text-sm text-[#e53545]" role="alert">
               {historyActionError}
             </p>
           ) : null}
@@ -678,7 +675,7 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
       ) : null}
 
       {hasSearched && searchQuery.isLoading ? (
-        <div aria-label="검색 결과를 불러오는 중" className="-mx-5" role="status">
+        <div aria-label="검색 결과를 불러오는 중" className="-mx-4" role="status">
           <ReviewListSkeleton />
           <ReviewListSkeleton />
           <ReviewListSkeleton />
@@ -686,7 +683,7 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
       ) : null}
 
       {hasSearched && searchQuery.isError ? (
-        <div className="-mx-5 grid justify-items-center gap-4 px-5 py-20 text-center">
+        <div className="-mx-4 grid justify-items-center gap-4 px-4 py-20 text-center">
           <p className="text-[15px] leading-6 text-[#666666]">
             검색 결과를 불러오지 못했어요.
           </p>
@@ -701,7 +698,7 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
       ) : null}
 
       {hasSearched && !searchQuery.isLoading && !searchQuery.isError ? (
-        <div className="-mx-5">
+        <div className="-mx-4">
           {posts.length ? (
             <PostRows
               isAuthenticated={isAuthenticated}
@@ -710,7 +707,7 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
               reportSource="search"
             />
           ) : (
-            <div className="px-5 py-20 text-center">
+            <div className="px-4 py-20 text-center">
               <p className="text-[15px] leading-6 text-[#666666]">
                 {hasActiveFilters
                   ? "선택한 조건에 맞는 리뷰가 없어요."

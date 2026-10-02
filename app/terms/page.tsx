@@ -18,14 +18,9 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 export default function TermsPage() {
   return (
     <>
-      <PageBackHeader
-        backIconStrokeWidth={1.25}
-        fullHeightActions
-        title="서비스 이용약관"
-        titleClassName="text-base font-normal leading-6 text-[#121212]"
-      />
+      <PageBackHeader title="서비스 이용약관" />
 
-      <article className="-mx-1 -mb-24 pb-10 pt-[18px] text-base font-normal leading-8 text-[#303030]">
+      <article className="-mb-24 pb-10 pt-[18px] text-base font-normal leading-8 text-[#303030]">
         <header>
           <p>서비스 이용약관 (시행일 2026년 10월 2일)</p>
           <p className="mt-8">

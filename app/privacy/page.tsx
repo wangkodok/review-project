@@ -71,14 +71,9 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 export default function PrivacyPage() {
   return (
     <>
-      <PageBackHeader
-        backIconStrokeWidth={1.25}
-        fullHeightActions
-        title="개인정보 처리방침"
-        titleClassName="text-base font-normal leading-6 text-[#121212]"
-      />
+      <PageBackHeader title="개인정보 처리방침" />
 
-      <article className="-mx-1 -mb-24 pb-10 pt-[18px] text-base font-normal leading-8 text-[#303030]">
+      <article className="-mb-24 pb-10 pt-[18px] text-base font-normal leading-8 text-[#303030]">
       <header>
         <p>개인정보 처리방침 (시행일 2026년 09월 30일)</p>
         <p className="mt-8">

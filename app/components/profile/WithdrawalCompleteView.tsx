@@ -8,7 +8,7 @@ export default function WithdrawalCompleteView() {
   const router = useRouter();
 
   return (
-    <section className="-mx-5 -mb-24 -mt-5 flex min-h-dvh flex-col bg-white">
+    <section className="-mx-4 -mb-24 -mt-5 flex min-h-dvh flex-col bg-white">
       <WithdrawalPageHeader backHref="/" title="완료" />
 
       <div className="border-b border-[#dbdbdb] px-4 pb-12 pt-8 text-center">

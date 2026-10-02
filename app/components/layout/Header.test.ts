@@ -16,8 +16,10 @@ describe("Header", () => {
     const html = renderToStaticMarkup(createElement(Header));
 
     expect(html).toContain("<header");
+    expect(html).toContain("px-4");
     expect(html).toContain("리뷰");
     expect(html).toContain('aria-label="게시글 검색"');
+    expect(html).toContain("-mr-4");
   });
 
   it("hides the shared header on the service terms page", () => {

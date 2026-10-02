@@ -158,7 +158,7 @@ export default function ReviewReportForm({
 
   if (isComplete) {
     return (
-      <section className="-mx-5 -mb-24 -mt-5 min-h-dvh bg-white px-4 pt-[88px] text-center">
+      <section className="-mx-4 -mb-24 -mt-5 min-h-dvh bg-white px-4 pt-[88px] text-center">
         <span
           aria-hidden="true"
           className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[#121212] text-white"
@@ -187,14 +187,11 @@ export default function ReviewReportForm({
   return (
     <section className="-mb-24 min-h-[calc(100dvh-1.25rem)] bg-white">
       <PageBackHeader
-        backIconStrokeWidth={1.25}
-        fullHeightActions
         onBack={handleBack}
         title="신고하기"
-        titleClassName="text-[18px] font-bold leading-7 text-[#121212]"
       />
 
-      <div className="-mx-5">
+      <div className="-mx-4">
         <section
           aria-labelledby="report-reason-title"
           className="border-b border-[#dbdbdb] px-4 pb-[30px] pt-8 text-center"

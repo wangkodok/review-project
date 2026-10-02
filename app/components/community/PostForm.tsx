@@ -714,20 +714,18 @@ export default function PostForm({
   return (
     <form className="pb-8" onSubmit={handleSubmitRequest}>
       <PageBackHeader
-        fullHeightActions
         onBack={handleBack}
         right={
           <button
-            className="h-14 w-14 text-base text-neutral-950 disabled:font-normal disabled:text-neutral-400 enabled:font-bold"
+            className="h-14 w-14 text-base text-neutral-950 disabled:text-neutral-400"
             disabled={isSaveDisabled}
             type="submit"
           >
-            저장
+            <span className="font-medium">저장</span>
           </button>
         }
         sticky
         title={isEditMode ? "리뷰 수정" : "리뷰 작성"}
-        titleClassName="text-lg font-semibold text-neutral-950"
       />
 
       <div className="flex h-12 items-center justify-end text-base">
@@ -917,7 +915,7 @@ export default function PostForm({
         </p>
       ) : null}
 
-      <section className="-mx-5 -mb-8 border-t border-[#dbdbdb] px-5 pb-[34px] pt-[18px] text-neutral-500" aria-labelledby="review-notice-title">
+      <section className="-mx-4 -mb-8 border-t border-[#dbdbdb] px-4 pb-[34px] pt-[18px] text-neutral-500" aria-labelledby="review-notice-title">
         <h2 className="mb-2.5 text-base font-bold leading-[1.4] text-neutral-950" id="review-notice-title">
           반드시 확인해 주세요.
         </h2>

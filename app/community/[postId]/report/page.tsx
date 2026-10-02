@@ -23,10 +23,7 @@ export default async function ReviewReportPage({
     return (
       <section className="space-y-5">
         <PageBackHeader
-          backIconStrokeWidth={1.25}
-          fullHeightActions
           title="신고하기"
-          titleClassName="text-[18px] font-bold leading-7 text-[#121212]"
         />
         <div className="border border-neutral-200 bg-white p-6 text-center">
           <p className="text-sm font-semibold text-neutral-950">로그인이 필요합니다.</p>

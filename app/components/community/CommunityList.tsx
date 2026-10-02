@@ -174,7 +174,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
   const pickerTitle = pickerKind === "region" ? "지역 선택" : "카테고리 선택";
 
   return (
-    <section className="-mx-5 -mt-5">
+    <section className="-mx-4 -mt-5">
       <div className="sticky top-14 z-10 border-b border-[#dbdbdb] bg-white">
         {/* ReviewListControls 상단 필터 건수, 최신순, 지역, 카테고리, 전체 초기화 */}
         <ReviewListControls
@@ -243,7 +243,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
       ) : null}
 
       {!postsQuery.isLoading && !postsQuery.isError && !posts.length ? (
-        <div className="px-5 py-20 text-center">
+        <div className="px-4 py-20 text-center">
           <p className="text-[15px] leading-6 text-[#686868]">
             {hasActiveFilters
               ? "조건에 맞는 리뷰가 없습니다."

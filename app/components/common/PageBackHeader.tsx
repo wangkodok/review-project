@@ -8,45 +8,44 @@ export default function PageBackHeader({
   title,
   right,
   onBack,
-  fullHeightActions = false,
+  backDisabled = false,
+  flush = false,
   sticky = false,
-  titleClassName,
-  backIconStrokeWidth,
 }: {
   title: string;
   right?: ReactNode;
   onBack?: () => void;
-  fullHeightActions?: boolean;
+  backDisabled?: boolean;
+  flush?: boolean;
   sticky?: boolean;
-  titleClassName?: string;
-  backIconStrokeWidth?: number;
 }) {
   const router = useRouter();
 
   return (
     <header
-      className={`-mx-5 -mt-5 flex h-14 items-center justify-between border-b border-neutral-100 bg-white ${
-        fullHeightActions ? "px-0" : "px-3"
-      } ${sticky ? "sticky top-0 z-30" : ""}`}
+      className={`${
+        flush ? "" : "-mx-4 -mt-5"
+      } grid h-14 grid-cols-[56px_minmax(0,1fr)_56px] items-center border-b border-[#dbdbdb] bg-white ${
+        sticky ? "sticky top-0 z-30" : ""
+      }`}
     >
       <button
         aria-label="뒤로가기"
-        className={`flex items-center justify-center text-neutral-950 active:bg-neutral-100 ${
-          fullHeightActions ? "h-14 w-14" : "h-11 w-11 rounded-full"
-        }`}
+        className="flex h-14 w-14 items-center justify-center text-[#121212] active:bg-[#f7f7f7] disabled:text-[#bdbdbd]"
+        disabled={backDisabled}
         onClick={onBack ?? (() => router.back())}
         type="button"
       >
-        <ArrowLeft aria-hidden="true" size={22} strokeWidth={backIconStrokeWidth} />
+        <ArrowLeft aria-hidden="true" size={22} strokeWidth={1.25} />
       </button>
-      <h1 className={titleClassName ?? "text-base font-bold text-neutral-950"}>{title}</h1>
-      <div
-        className={`flex items-center justify-center ${
-          fullHeightActions ? "h-14 w-14" : "h-11 w-11"
-        }`}
-      >
-        {right}
-      </div>
+      {title ? (
+        <h1 className="truncate text-center text-[18px] font-medium leading-7 text-[#121212]">
+          {title}
+        </h1>
+      ) : (
+        <span aria-hidden="true" />
+      )}
+      <div className="flex h-14 w-14 items-center justify-center">{right}</div>
     </header>
   );
 }

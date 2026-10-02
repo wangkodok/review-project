@@ -16,6 +16,7 @@ describe("TermsPage", () => {
 
     expect(metadata.title).toBe("서비스 이용약관 | 쓸래");
     expect(html).toContain("서비스 이용약관");
+    expect(html).not.toContain("-mx-1");
     expect(html).toContain("시행일 2026년 10월 2일");
     expect(html).toContain("만 14세 미만");
     expect(html).toContain("작성한 리뷰의 저작권");
