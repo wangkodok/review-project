@@ -1,6 +1,8 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
 import {
   ClientReviewImageError,
+  detectReviewImageMimeType,
   getConstrainedImageDimensions,
   prepareReviewImageForUpload,
   validateReviewImageFile,
@@ -26,7 +28,7 @@ describe("review image client processing", () => {
     },
   );
 
-  it("rejects GIF, empty, and oversized files", () => {
+  it("rejects GIF and empty files without rejecting a large supported source", () => {
     expect(() => validateReviewImageFile({ size: 1_000, type: "image/gif" })).toThrow(
       "JPEG, PNG, WebP, HEIC, HEIF 사진만 올릴 수 있어요.",
     );
@@ -34,45 +36,83 @@ describe("review image client processing", () => {
       "사진 파일을 확인해 주세요.",
     );
     expect(() =>
-      validateReviewImageFile({ size: 10_000_001, type: "image/jpeg" }),
-    ).toThrow("10MB 이하의 사진을 선택해 주세요.");
+      validateReviewImageFile({ size: 42_906_510, type: "image/png" }),
+    ).not.toThrow();
   });
 
-  it.each(["image/heic", "image/heif", ""])(
-    "skips Canvas optimization for %s and keeps the original",
+  it.each(["image/heic", "image/heif"])(
+    "automatically optimizes a %s source before upload",
     async (type) => {
       const file = imageFile(2_000, type);
-      const optimizeImage = vi.fn();
+      const optimized = new Blob([new Uint8Array(1_000)], { type: "image/webp" });
+      const optimizeImage = vi.fn().mockResolvedValue(optimized);
 
       await expect(
         prepareReviewImageForUpload(file, { optimizeImage }),
       ).resolves.toEqual({
-        blob: file,
-        mimeType: type || "application/octet-stream",
-        optimized: false,
+        blob: optimized,
+        mimeType: "image/webp",
+        optimized: true,
       });
-      expect(optimizeImage).not.toHaveBeenCalled();
+      expect(optimizeImage).toHaveBeenCalledWith(file);
     },
   );
+
+  it("detects a MIME-less iPhone HEIC source before optimization", async () => {
+    const bytes = await readFile(
+      new URL("./__fixtures__/single-frame.heic", import.meta.url),
+    );
+    const file = Object.assign(new Blob([bytes]), {
+      name: "phone-photo",
+      lastModified: 0,
+    }) as File;
+    const optimized = new Blob([new Uint8Array(1_000)], { type: "image/webp" });
+    const optimizeImage = vi.fn().mockResolvedValue(optimized);
+
+    await expect(
+      prepareReviewImageForUpload(file, { optimizeImage }),
+    ).resolves.toEqual({
+      blob: optimized,
+      mimeType: "image/webp",
+      optimized: true,
+    });
+    expect(optimizeImage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "image/heic" }),
+    );
+  });
+
+  it("detects supported image signatures without trusting an empty MIME", async () => {
+    const png = Object.assign(
+      new Blob([
+        new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      ]),
+      { name: "photo", lastModified: 0 },
+    ) as File;
+    const unknown = Object.assign(new Blob([new Uint8Array([1, 2, 3, 4])]), {
+      name: "not-an-image",
+      lastModified: 0,
+    }) as File;
+
+    await expect(detectReviewImageMimeType(png)).resolves.toBe("image/png");
+    await expect(detectReviewImageMimeType(unknown)).rejects.toThrow(
+      "사진 파일 형식을 확인하지 못했습니다.",
+    );
+  });
 
   it.each([
     "createImageBitmap failed",
     "Canvas context failed",
     "WebP encoding failed",
-  ])("falls back to the JPEG original when %s", async (reason) => {
+  ])("does not upload the unprocessed original when %s", async (reason) => {
     const file = imageFile(2_000, "image/jpeg", "meal.jpg");
     const optimizeImage = vi.fn().mockRejectedValue(new Error(reason));
 
     await expect(
       prepareReviewImageForUpload(file, { optimizeImage }),
-    ).resolves.toEqual({
-      blob: file,
-      mimeType: "image/jpeg",
-      optimized: false,
-    });
+    ).rejects.toThrow("사진을 자동으로 처리하지 못했습니다.");
   });
 
-  it("keeps the original when WebP optimization is larger", async () => {
+  it("uses a valid WebP optimization even when the encoded file is slightly larger", async () => {
     const file = imageFile(2_000, "image/png", "meal.png");
     const largerWebp = new Blob([new Uint8Array(2_001)], { type: "image/webp" });
 
@@ -81,10 +121,23 @@ describe("review image client processing", () => {
         optimizeImage: vi.fn().mockResolvedValue(largerWebp),
       }),
     ).resolves.toEqual({
-      blob: file,
-      mimeType: "image/png",
-      optimized: false,
+      blob: largerWebp,
+      mimeType: "image/webp",
+      optimized: true,
     });
+  });
+
+  it("rejects a processed result that still exceeds the upload budget", async () => {
+    const file = imageFile(42_906_510, "image/png", "phone-photo.png");
+    const oversizedWebp = new Blob([new Uint8Array(2_000_001)], {
+      type: "image/webp",
+    });
+
+    await expect(
+      prepareReviewImageForUpload(file, {
+        optimizeImage: vi.fn().mockResolvedValue(oversizedWebp),
+      }),
+    ).rejects.toThrow("사진을 자동으로 처리하지 못했습니다.");
   });
 
   it("uses a smaller WebP optimization", async () => {
