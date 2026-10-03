@@ -18,6 +18,10 @@ const ALLOWED_IMAGE_TYPES = new Set([
 ]);
 const OUTPUT_QUALITIES = [0.86, 0.78, 0.7, 0.62, 0.54];
 const OUTPUT_EDGE_SCALES = [1, 0.9, 0.8, 0.7, 0.6];
+const NORMALIZED_OUTPUT_IMAGE_TYPES = new Set<DeclaredReviewImageMime>([
+  "image/webp",
+  "image/jpeg",
+]);
 const HEIC_BRANDS = new Set(["heic", "heix", "hevc", "hevx"]);
 const HEIF_BRANDS = new Set(["mif1", "msf1"]);
 
@@ -140,17 +144,39 @@ export function getConstrainedImageDimensions(
   };
 }
 
-function canvasToWebp(canvas: HTMLCanvasElement, quality: number) {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob || blob.type !== "image/webp") {
-        reject(new ClientReviewImageError("사진을 처리하지 못했습니다. 다른 사진을 선택해 주세요."));
-        return;
-      }
+type CanvasBlobEncoder = Pick<HTMLCanvasElement, "toBlob">;
 
-      resolve(blob);
-    }, "image/webp", quality);
+function tryCanvasToBlob(
+  canvas: CanvasBlobEncoder,
+  mimeType: "image/webp" | "image/jpeg",
+  quality: number,
+) {
+  return new Promise<Blob | null>((resolve) => {
+    try {
+      canvas.toBlob(resolve, mimeType, quality);
+    } catch {
+      resolve(null);
+    }
   });
+}
+
+export async function encodeReviewImageCanvas(
+  canvas: CanvasBlobEncoder,
+  quality: number,
+) {
+  const webp = await tryCanvasToBlob(canvas, "image/webp", quality);
+  if (webp?.type.toLowerCase() === "image/webp") {
+    return webp;
+  }
+
+  const jpeg = await tryCanvasToBlob(canvas, "image/jpeg", quality);
+  if (jpeg?.type.toLowerCase() === "image/jpeg") {
+    return jpeg;
+  }
+
+  throw new ClientReviewImageError(
+    "사진을 처리하지 못했습니다. 다른 사진을 선택해 주세요.",
+  );
 }
 
 function toImageDataPixels(
@@ -268,7 +294,7 @@ async function optimizeReviewImageWithCanvas(file: File): Promise<Blob> {
       context.drawImage(loaded.source, 0, 0, dimensions.width, dimensions.height);
 
       for (const quality of OUTPUT_QUALITIES) {
-        const blob = await canvasToWebp(canvas, quality);
+        const blob = await encodeReviewImageCanvas(canvas, quality);
 
         if (!smallestBlob || blob.size < smallestBlob.size) {
           smallestBlob = blob;
@@ -313,15 +339,18 @@ export async function prepareReviewImageForUpload(
     );
   }
 
+  const optimizedMimeType =
+    optimized.type.trim().toLowerCase() as DeclaredReviewImageMime;
+
   if (
     optimized.size <= 0 ||
     optimized.size > MAX_REVIEW_IMAGE_UPLOAD_BYTES ||
-    optimized.type.toLowerCase() !== "image/webp"
+    !NORMALIZED_OUTPUT_IMAGE_TYPES.has(optimizedMimeType)
   ) {
     throw new ClientReviewImageError(
       "사진을 자동으로 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     );
   }
 
-  return { blob: optimized, mimeType: "image/webp", optimized: true };
+  return { blob: optimized, mimeType: optimizedMimeType, optimized: true };
 }

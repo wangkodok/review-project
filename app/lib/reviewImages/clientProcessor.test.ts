@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ClientReviewImageError,
   detectReviewImageMimeType,
+  encodeReviewImageCanvas,
   getConstrainedImageDimensions,
   prepareReviewImageForUpload,
   validateReviewImageFile,
@@ -110,6 +111,41 @@ describe("review image client processing", () => {
     await expect(
       prepareReviewImageForUpload(file, { optimizeImage }),
     ).rejects.toThrow("사진을 자동으로 처리하지 못했습니다.");
+  });
+
+  it("falls back to JPEG when Safari cannot encode WebP", async () => {
+    const requestedTypes: string[] = [];
+    const canvas = {
+      toBlob(callback: BlobCallback, type?: string) {
+        requestedTypes.push(type ?? "");
+        callback(
+          type === "image/webp"
+            ? new Blob([new Uint8Array(1_100)], { type: "image/png" })
+            : new Blob([new Uint8Array(900)], { type: "image/jpeg" }),
+        );
+      },
+    } as Pick<HTMLCanvasElement, "toBlob">;
+
+    const result = await encodeReviewImageCanvas(canvas, 0.86);
+
+    expect(result.type).toBe("image/jpeg");
+    expect(result.size).toBe(900);
+    expect(requestedTypes).toEqual(["image/webp", "image/jpeg"]);
+  });
+
+  it("uploads the JPEG fallback produced for Safari", async () => {
+    const file = imageFile(4_000, "image/heic", "phone-photo.heic");
+    const jpeg = new Blob([new Uint8Array(1_000)], { type: "image/jpeg" });
+
+    await expect(
+      prepareReviewImageForUpload(file, {
+        optimizeImage: vi.fn().mockResolvedValue(jpeg),
+      }),
+    ).resolves.toEqual({
+      blob: jpeg,
+      mimeType: "image/jpeg",
+      optimized: true,
+    });
   });
 
   it("uses a valid WebP optimization even when the encoded file is slightly larger", async () => {
