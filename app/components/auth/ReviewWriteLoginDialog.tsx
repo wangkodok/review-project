@@ -5,11 +5,13 @@ import { useEffect, useId, useRef } from "react";
 import LoginOptions from "./LoginOptions";
 
 type ReviewWriteLoginDialogProps = {
+  callbackUrl?: string;
   isOpen: boolean;
   onClose: () => void;
 };
 
 export default function ReviewWriteLoginDialog({
+  callbackUrl = "/community",
   isOpen,
   onClose,
 }: ReviewWriteLoginDialogProps) {
@@ -78,7 +80,7 @@ export default function ReviewWriteLoginDialog({
         </p>
 
         <LoginOptions
-          callbackUrl="/community"
+          callbackUrl={callbackUrl}
           className="mt-[17px]"
           variant="review-write-dialog"
         />

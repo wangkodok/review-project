@@ -4,11 +4,13 @@ import LikeButton from "./LikeButton";
 const countFormatter = new Intl.NumberFormat("ko-KR");
 
 export default function PostActionSummary({
+  isAuthenticated,
   isLiked = false,
   likeCount,
   postId,
   viewCount,
 }: {
+  isAuthenticated: boolean;
   isLiked?: boolean;
   likeCount: number;
   postId?: string;
@@ -17,7 +19,12 @@ export default function PostActionSummary({
   return (
     <div className="flex min-h-12 flex-wrap items-center gap-x-3.5 text-sm font-normal text-[#777777]">
       {postId ? (
-        <LikeButton initialLiked={isLiked} initialLikeCount={likeCount} postId={postId} />
+        <LikeButton
+          initialLiked={isLiked}
+          initialLikeCount={likeCount}
+          isAuthenticated={isAuthenticated}
+          postId={postId}
+        />
       ) : null}
       <span className="inline-flex items-center gap-1 whitespace-nowrap">
         <Eye aria-hidden="true" size={18} strokeWidth={1.8} />

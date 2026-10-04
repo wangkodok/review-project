@@ -54,6 +54,19 @@ vi.mock("@tanstack/react-query", () => ({
 import PostDetail from "./PostDetail";
 
 describe("PostDetail", () => {
+  it("renders the guest like action as a login dialog trigger", () => {
+    const html = renderToStaticMarkup(
+      createElement(PostDetail, {
+        isAuthenticated: false,
+        postId: post.id,
+      }),
+    );
+
+    expect(html).toContain('aria-haspopup="dialog"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain("로그인이 필요합니다.");
+  });
+
   it("shows the representative image before the review identity text", () => {
     const html = renderToStaticMarkup(
       createElement(PostDetail, {

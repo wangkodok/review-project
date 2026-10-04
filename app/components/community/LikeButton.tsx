@@ -1,7 +1,8 @@
 "use client";
 
 import { ThumbsUp } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import ReviewWriteLoginDialog from "@/app/components/auth/ReviewWriteLoginDialog";
 
 type LikeResponse = {
   success: boolean;
@@ -14,10 +15,12 @@ type LikeResponse = {
 };
 
 export default function LikeButton({
+  isAuthenticated,
   postId,
   initialLiked,
   initialLikeCount,
 }: {
+  isAuthenticated: boolean;
   postId: string;
   initialLiked: boolean;
   initialLikeCount: number;
@@ -26,9 +29,24 @@ export default function LikeButton({
   const [likeCount, setLikeCount] = useState(initialLikeCount);
   const [isPending, setIsPending] = useState(false);
   const [message, setMessage] = useState("");
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
+  const likeButtonRef = useRef<HTMLButtonElement>(null);
+
+  const closeLoginDialog = useCallback(() => {
+    setIsLoginDialogOpen(false);
+    window.requestAnimationFrame(() => {
+      likeButtonRef.current?.focus({ preventScroll: true });
+    });
+  }, []);
 
   async function handleClick() {
     if (isPending) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setMessage("");
+      setIsLoginDialogOpen(true);
       return;
     }
 
@@ -58,12 +76,15 @@ export default function LikeButton({
   return (
     <div className="contents">
       <button
+        aria-expanded={isAuthenticated ? undefined : isLoginDialogOpen}
+        aria-haspopup={isAuthenticated ? undefined : "dialog"}
         aria-pressed={isLiked}
         className={`inline-flex min-h-11 items-center gap-1 whitespace-nowrap text-sm font-normal disabled:opacity-60 ${
           isLiked ? "text-[#3399ff]" : "text-[#777777]"
         }`}
         disabled={isPending}
         onClick={handleClick}
+        ref={likeButtonRef}
         type="button"
       >
         <ThumbsUp
@@ -77,6 +98,11 @@ export default function LikeButton({
       {message ? (
         <p className="w-full pb-3 text-sm font-normal text-[#686868]">{message}</p>
       ) : null}
+      <ReviewWriteLoginDialog
+        callbackUrl={`/community/${postId}`}
+        isOpen={isLoginDialogOpen}
+        onClose={closeLoginDialog}
+      />
     </div>
   );
 }

@@ -311,6 +311,7 @@ export default function PostDetail({
 
             <div className="border-t border-[#aaaaaa]">
               <PostActionSummary
+                isAuthenticated={isAuthenticated}
                 isLiked={query.data.isLiked}
                 likeCount={query.data.likeCount}
                 postId={query.data.id}
