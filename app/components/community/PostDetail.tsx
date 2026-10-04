@@ -230,6 +230,24 @@ export default function PostDetail({
           </div>
 
           <div className="px-4 pt-5">
+            {query.data.image ? (
+              <button
+                aria-label="대표 사진 크게 보기"
+                className="relative mb-7 block aspect-[4/3] w-full overflow-hidden bg-[#f3f3f3]"
+                onClick={() => setIsImageViewerOpen(true)}
+                type="button"
+              >
+                <Image
+                  alt={`${displayStoreName} 대표 사진`}
+                  className="object-cover"
+                  fill
+                  sizes="(max-width: 480px) calc(100vw - 32px), 448px"
+                  src={query.data.image.detailUrl}
+                  unoptimized
+                />
+              </button>
+            ) : null}
+
             {hasTaxonomy ? (
               <p className="mb-2 text-sm font-normal leading-5 text-[#777777]">
                 {query.data.region?.name}
@@ -250,24 +268,6 @@ export default function PostDetail({
               <p className="mb-7 whitespace-pre-wrap break-words text-[17px] font-normal leading-[1.55] text-[#121212]">
                 {query.data.menuName}
               </p>
-            ) : null}
-
-            {query.data.image ? (
-              <button
-                aria-label="대표 사진 크게 보기"
-                className="relative mb-7 block aspect-[4/3] w-full overflow-hidden bg-[#f3f3f3]"
-                onClick={() => setIsImageViewerOpen(true)}
-                type="button"
-              >
-                <Image
-                  alt={`${displayStoreName} 대표 사진`}
-                  className="object-cover"
-                  fill
-                  sizes="(max-width: 480px) calc(100vw - 32px), 448px"
-                  src={query.data.image.detailUrl}
-                  unoptimized
-                />
-              </button>
             ) : null}
 
             {goodPointLabels.length ? (

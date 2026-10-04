@@ -16,14 +16,14 @@ export const GOOD_REVIEW_OPTIONS = [
 ] as const;
 
 export const BAD_REVIEW_OPTIONS = [
-  { key: "crowded_store", label: "사람이 많아요" },
+  { key: "crowded_store", label: "방문 당시 사람이 많았어요" },
   { key: "small_portion_feeling", label: "양이 적게 느껴졌어요" },
-  { key: "long_wait_time", label: "대기 시간" },
-  { key: "ordinary_taste", label: "평범한 맛" },
-  { key: "no_parking", label: "주차 불가" },
-  { key: "mixed_preference", label: "호불호" },
-  { key: "restroom_issue", label: "화장실" },
-  { key: "narrow_seat", label: "좌석 협소" },
+  { key: "long_wait_time", label: "기다리는 시간이 있었어요" },
+  { key: "ordinary_taste", label: "맛이 평범하게 느껴졌어요" },
+  { key: "no_parking", label: "방문 당시 주차가 어려웠어요" },
+  { key: "mixed_preference", label: "제 취향과는 조금 달랐어요" },
+  { key: "restroom_issue", label: "화장실 이용이 불편했어요" },
+  { key: "narrow_seat", label: "좌석이 좁게 느껴졌어요" },
 ] as const;
 
 export type GoodReviewOptionKey = (typeof GOOD_REVIEW_OPTIONS)[number]["key"];

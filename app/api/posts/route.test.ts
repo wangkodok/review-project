@@ -127,7 +127,7 @@ describe("POST /api/posts", () => {
       storeName: "냉면과고기집",
       regionId: REGION_ID,
       title: "물냉면",
-      content: "좋았던 점: 맛있어요\n아쉬웠던 점: 대기 시간",
+      content: "좋았던 점: 맛있어요\n아쉬웠던 점: 기다리는 시간이 있었어요",
       categoryId: CATEGORY_ID,
       menuName: "물냉면",
       goodPoints: ["tasty"],

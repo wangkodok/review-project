@@ -78,13 +78,28 @@ describe("review option labels", () => {
 
   it("looks up labels and validates keys by review group", () => {
     expect(getGoodPointLabel("tasty")).toBe("맛있어요");
-    expect(getBadPointLabel("no_parking")).toBe("주차 불가");
-    expect(getReviewPointLabel("mixed_preference")).toBe("호불호");
+    expect(getBadPointLabel("no_parking")).toBe("방문 당시 주차가 어려웠어요");
+    expect(getReviewPointLabel("mixed_preference")).toBe(
+      "제 취향과는 조금 달랐어요",
+    );
     expect(getReviewPointLabel("unknown")).toBeNull();
     expect(isValidGoodPointKey("tasty")).toBe(true);
     expect(isValidGoodPointKey("no_parking")).toBe(false);
     expect(isValidBadPointKey("no_parking")).toBe(true);
     expect(isValidBadPointKey("tasty")).toBe(false);
+  });
+
+  it("presents every bad point as a personal visit experience", () => {
+    expect(BAD_REVIEW_OPTIONS).toEqual([
+      { key: "crowded_store", label: "방문 당시 사람이 많았어요" },
+      { key: "small_portion_feeling", label: "양이 적게 느껴졌어요" },
+      { key: "long_wait_time", label: "기다리는 시간이 있었어요" },
+      { key: "ordinary_taste", label: "맛이 평범하게 느껴졌어요" },
+      { key: "no_parking", label: "방문 당시 주차가 어려웠어요" },
+      { key: "mixed_preference", label: "제 취향과는 조금 달랐어요" },
+      { key: "restroom_issue", label: "화장실 이용이 불편했어요" },
+      { key: "narrow_seat", label: "좌석이 좁게 느껴졌어요" },
+    ]);
   });
 });
 
@@ -116,7 +131,7 @@ describe("buildStructuredReviewContent", () => {
         badPoints: ["no_parking"],
       }),
     ).toBe(
-      "좋았던 점: 맛있어요, 가성비 왕\n아쉬웠던 점: 주차 불가",
+      "좋았던 점: 맛있어요, 가성비 왕\n아쉬웠던 점: 방문 당시 주차가 어려웠어요",
     );
   });
 });
