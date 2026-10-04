@@ -15,7 +15,7 @@ const shouldStartFilterRailDrag = (
 ).shouldStartFilterRailDrag;
 
 describe("ReviewListControls", () => {
-  it("shows only the previous region and category filters", () => {
+  it("shows the photo-only filter after category and includes it in reset", () => {
     const html = renderToStaticMarkup(
       createElement(ReviewListControls, {
         categoryActive: false,
@@ -27,6 +27,10 @@ describe("ReviewListControls", () => {
         onClearFilters: vi.fn(),
         onRegionClick: vi.fn(),
         onSortChange: vi.fn(),
+        photoFilter: {
+          active: false,
+          onToggle: vi.fn(),
+        },
         regionActive: false,
         regionDisabled: false,
         regionLabel: "지역",
@@ -36,7 +40,10 @@ describe("ReviewListControls", () => {
 
     expect(html).toContain("지역");
     expect(html).toContain("카테고리");
-    expect(html).not.toContain("사진 있는 리뷰");
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).toContain("사진 있는 리뷰");
+    expect(html.indexOf("카테고리")).toBeLessThan(html.indexOf("사진 있는 리뷰"));
+    expect(html).toContain("전체 초기화: 지역, 카테고리, 사진 조건 해제");
     expect(html).toContain("전체 초기화");
   });
 

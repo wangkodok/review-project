@@ -183,6 +183,7 @@ export default function ReviewListControls({
   onClearFilters,
   onRegionClick,
   onSortChange,
+  photoFilter,
   regionActive,
   regionDisabled,
   regionLabel,
@@ -198,6 +199,10 @@ export default function ReviewListControls({
   onClearFilters: () => void;
   onRegionClick: () => void;
   onSortChange: (value: ReviewSortValue) => void;
+  photoFilter?: {
+    active: boolean;
+    onToggle: () => void;
+  };
   regionActive: boolean;
   regionDisabled: boolean;
   regionLabel: string;
@@ -275,9 +280,27 @@ export default function ReviewListControls({
             label={categoryLabel}
             onClick={onCategoryClick}
           />
+          {photoFilter ? (
+            <button
+              aria-pressed={photoFilter.active}
+              className={`flex h-[33px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border px-[15px] text-base leading-[23px] ${
+                photoFilter.active
+                  ? "border-[#3399ff] bg-white text-[#3399ff]"
+                  : "border-[#dbdbdb] bg-white text-[#121212]"
+              }`}
+              onClick={photoFilter.onToggle}
+              type="button"
+            >
+              사진 있는 리뷰
+            </button>
+          ) : null}
         </FilterRail>
         <button
-          aria-label="전체 초기화: 지역과 카테고리 조건 해제"
+          aria-label={
+            photoFilter
+              ? "전체 초기화: 지역, 카테고리, 사진 조건 해제"
+              : "전체 초기화: 지역과 카테고리 조건 해제"
+          }
           className="flex h-10 shrink-0 items-center justify-center gap-1 whitespace-nowrap text-sm text-[#121212]"
           disabled={!filtersActive}
           onClick={onClearFilters}

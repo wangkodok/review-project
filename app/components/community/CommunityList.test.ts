@@ -37,7 +37,7 @@ vi.mock("@/app/components/auth/ReviewWriteLoginDialog", () => ({
   default: () => null,
 }));
 
-import CommunityList from "./CommunityList";
+import CommunityList, { buildPostsRequestUrl } from "./CommunityList";
 
 describe("CommunityList", () => {
   it("uses the shared page chrome and keeps the compact review write action", () => {
@@ -56,5 +56,33 @@ describe("CommunityList", () => {
     );
 
     expect(html).toContain("edit:/community/post-id/edit?from=community");
+  });
+
+  it("adds the photo query only while the photo-only filter is enabled", () => {
+    const enabledUrl = new URL(
+      buildPostsRequestUrl({
+        pageParam: 1,
+        sort: "latest",
+        categorySlug: "korean",
+        regionSlug: "seoul",
+        withImage: true,
+      }),
+      "http://localhost",
+    );
+    const disabledUrl = new URL(
+      buildPostsRequestUrl({
+        pageParam: 1,
+        sort: "latest",
+        categorySlug: "",
+        regionSlug: "",
+        withImage: false,
+      }),
+      "http://localhost",
+    );
+
+    expect(enabledUrl.searchParams.get("withImage")).toBe("true");
+    expect(enabledUrl.searchParams.get("category")).toBe("korean");
+    expect(enabledUrl.searchParams.get("region")).toBe("seoul");
+    expect(disabledUrl.searchParams.has("withImage")).toBe(false);
   });
 });

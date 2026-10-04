@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReviewWriteLoginDialog from "@/app/components/auth/ReviewWriteLoginDialog";
 import type { PostCategory, PostRegion, PostsPage } from "@/app/types/post";
+import CommunityIntroDialog from "./CommunityIntroDialog";
 import PostRows from "./PostRows";
 import ReviewListControls, {
   ReviewListSkeleton,
@@ -55,16 +56,18 @@ async function fetchRegions() {
   return result.data.regions;
 }
 
-async function fetchPosts({
+export function buildPostsRequestUrl({
   pageParam,
   sort,
   categorySlug,
   regionSlug,
+  withImage,
 }: {
   pageParam: number;
   sort: ReviewSortValue;
   categorySlug: string;
   regionSlug: string;
+  withImage: boolean;
 }) {
   const params = new URLSearchParams({
     page: String(pageParam),
@@ -80,7 +83,35 @@ async function fetchPosts({
     params.set("region", regionSlug);
   }
 
-  const response = await fetch(`/api/posts?${params.toString()}`);
+  if (withImage) {
+    params.set("withImage", "true");
+  }
+
+  return `/api/posts?${params.toString()}`;
+}
+
+async function fetchPosts({
+  pageParam,
+  sort,
+  categorySlug,
+  regionSlug,
+  withImage,
+}: {
+  pageParam: number;
+  sort: ReviewSortValue;
+  categorySlug: string;
+  regionSlug: string;
+  withImage: boolean;
+}) {
+  const requestUrl = buildPostsRequestUrl({
+    pageParam,
+    sort,
+    categorySlug,
+    regionSlug,
+    withImage,
+  });
+
+  const response = await fetch(requestUrl);
   const result = (await response.json()) as PostsResponse;
 
   if (!response.ok || !result.success || !result.data) {
@@ -94,6 +125,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
   const [sort, setSort] = useState<ReviewSortValue>("latest");
   const [categorySlug, setCategorySlug] = useState("");
   const [regionSlug, setRegionSlug] = useState("");
+  const [withImage, setWithImage] = useState(false);
   const [pickerKind, setPickerKind] = useState<PickerKind>(null);
   const [deletedPostIds, setDeletedPostIds] = useState<Set<string>>(() => new Set());
   const [successMessage, setSuccessMessage] = useState("");
@@ -108,9 +140,9 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
     queryFn: fetchRegions,
   });
   const postsQuery = useInfiniteQuery({
-    queryKey: ["posts", sort, regionSlug, categorySlug],
+    queryKey: ["posts", sort, regionSlug, categorySlug, withImage],
     queryFn: ({ pageParam }) =>
-      fetchPosts({ pageParam, sort, categorySlug, regionSlug }),
+      fetchPosts({ pageParam, sort, categorySlug, regionSlug, withImage }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
   });
@@ -131,7 +163,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
   const selectedCategory = categoriesQuery.data?.find(
     (category) => category.slug === categorySlug,
   );
-  const hasActiveFilters = Boolean(regionSlug || categorySlug);
+  const hasActiveFilters = Boolean(regionSlug || categorySlug || withImage);
   const hasReferenceDataError = regionsQuery.isError || categoriesQuery.isError;
 
   useEffect(() => {
@@ -155,6 +187,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
   function clearFilters() {
     setRegionSlug("");
     setCategorySlug("");
+    setWithImage(false);
   }
 
   const closeLoginDialog = useCallback(() => {
@@ -187,6 +220,10 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
           onClearFilters={clearFilters}
           onRegionClick={() => setPickerKind("region")}
           onSortChange={setSort}
+          photoFilter={{
+            active: withImage,
+            onToggle: () => setWithImage((current) => !current),
+          }}
           regionActive={Boolean(regionSlug)}
           regionDisabled={!regionsQuery.data}
           regionLabel={selectedRegion?.name ?? "지역"}
@@ -328,6 +365,8 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
         isOpen={isLoginDialogOpen}
         onClose={closeLoginDialog}
       />
+
+      <CommunityIntroDialog />
     </section>
   );
 }
