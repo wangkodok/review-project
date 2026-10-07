@@ -12,7 +12,7 @@ type ReviewOption = {
 
 export const MENU_NAME_MIN_LENGTH = 1;
 export const MENU_NAME_MAX_LENGTH = 30;
-export const OVERALL_REVIEW_MAX_LENGTH = 300;
+export const OVERALL_REVIEW_MAX_LENGTH = 30;
 export const REVIEW_POINT_MIN_COUNT = 1;
 export const REVIEW_POINT_MAX_COUNT = 3;
 

@@ -10,7 +10,6 @@ import {
   isValidGoodPointKey,
 } from "@/app/constants/reviewOptions";
 import {
-  OVERALL_REVIEW_MAX_LENGTH,
   buildStructuredReviewContent,
   getReviewOptionKeysByLabelSearch,
   normalizeOverallReview,
@@ -52,13 +51,9 @@ describe("normalizeOverallReview", () => {
     );
   });
 
-  it("accepts exactly 300 characters and rejects 301 characters", () => {
-    expect(normalizeOverallReview("가".repeat(OVERALL_REVIEW_MAX_LENGTH))).toBe(
-      "가".repeat(OVERALL_REVIEW_MAX_LENGTH),
-    );
-    expect(
-      normalizeOverallReview("가".repeat(OVERALL_REVIEW_MAX_LENGTH + 1)),
-    ).toBe(false);
+  it("accepts exactly 30 characters and rejects 31 characters", () => {
+    expect(normalizeOverallReview("가".repeat(30))).toBe("가".repeat(30));
+    expect(normalizeOverallReview("가".repeat(31))).toBe(false);
   });
 
   it("rejects a non-string value", () => {

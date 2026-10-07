@@ -2,6 +2,7 @@ import { BAD_REVIEW_OPTIONS, GOOD_REVIEW_OPTIONS } from "@/app/constants/reviewO
 import {
   MENU_NAME_MAX_LENGTH,
   MENU_NAME_MIN_LENGTH,
+  OVERALL_REVIEW_MAX_LENGTH,
   normalizeOverallReview,
   parseReviewPointKeys,
 } from "./structuredReview";
@@ -117,13 +118,19 @@ export function parseReviewWriteInput(
   }
 
   if (!Object.prototype.hasOwnProperty.call(body, "overallReview")) {
-    return error("INVALID_OVERALL_REVIEW", "남기고 싶은 한마디는 300자 이하여야 합니다.");
+    return error(
+      "INVALID_OVERALL_REVIEW",
+      `남기고 싶은 한마디는 ${OVERALL_REVIEW_MAX_LENGTH}자 이하여야 합니다.`,
+    );
   }
 
   const overallReview = normalizeOverallReview(body.overallReview);
 
   if (overallReview === false || overallReview === undefined) {
-    return error("INVALID_OVERALL_REVIEW", "남기고 싶은 한마디는 300자 이하여야 합니다.");
+    return error(
+      "INVALID_OVERALL_REVIEW",
+      `남기고 싶은 한마디는 ${OVERALL_REVIEW_MAX_LENGTH}자 이하여야 합니다.`,
+    );
   }
 
   let expectedUpdatedAt: string | undefined;

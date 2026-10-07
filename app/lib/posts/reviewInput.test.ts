@@ -64,7 +64,7 @@ describe("parseReviewWriteInput", () => {
     ],
     [
       "long overall review",
-      validInput({ overallReview: "가".repeat(301) }),
+      validInput({ overallReview: "가".repeat(31) }),
       "INVALID_OVERALL_REVIEW",
     ],
   ])("rejects %s", (_name, value, expectedCode) => {
@@ -85,6 +85,24 @@ describe("parseReviewWriteInput", () => {
         validInput({ storeName: "가".repeat(30), menuName: "나".repeat(30) }),
       ).success,
     ).toBe(true);
+  });
+
+  it("accepts an overall review at the 30-character boundary", () => {
+    expect(
+      parseReviewWriteInput(validInput({ overallReview: "가".repeat(30) })).success,
+    ).toBe(true);
+  });
+
+  it("explains the 30-character limit when the overall review is too long", () => {
+    const result = parseReviewWriteInput(validInput({ overallReview: "가".repeat(31) }));
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toEqual({
+        code: "INVALID_OVERALL_REVIEW",
+        message: "남기고 싶은 한마디는 30자 이하여야 합니다.",
+      });
+    }
   });
 
   it("requires an explicit optional-review field", () => {
