@@ -17,14 +17,16 @@ export default function GuestLoginScreen() {
 
       <div className="pt-[18px]">
         <h1 className="text-[28px] font-bold leading-9 text-[#121212]">
-          오늘 먹었던 메뉴
+          오늘의 한 끼, 
           <br />
-          어땠나요?
+          좋은 선택이 될 수 있어요.
         </h1>
         <p className="mt-5 text-[17px] leading-[25px] text-[#121212]">
-          버튼으로 고르고,
+          다른 소비자에게 
           <br />
-          내가 먹었던 메뉴를 공유해 보세요.
+          내가 느낀 좋았던 점과 아쉬웠던 점을 
+          <br />
+          익명으로 편하게 남겨보세요.
         </p>
         <LoginOptions className="mt-9" variant="my-guest" />
       </div>

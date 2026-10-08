@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import GoogleLoginButton from "./GoogleLoginButton";
 
 describe("GoogleLoginButton", () => {
-  it("renders the Google label with the four-color brand icon", () => {
+  it("renders the current Google label with the four-color brand icon", () => {
     const html = renderToStaticMarkup(
       createElement(GoogleLoginButton, {
         disabled: false,
@@ -16,7 +16,7 @@ describe("GoogleLoginButton", () => {
     );
 
     expect(html).toContain('aria-label="구글 로그인"');
-    expect(html).toContain(">Google<");
+    expect(html).toContain(">구글 로그인<");
     expect(html).toContain('viewBox="0 0 48 48"');
     expect(html).toContain('fill="#EA4335"');
     expect(html).toContain('fill="#4285F4"');
@@ -54,7 +54,7 @@ describe("GoogleLoginButton", () => {
     );
 
     expect(html).toContain("로그인 중");
-    expect(html).not.toContain(">Google<");
+    expect(html).not.toContain(">구글 로그인<");
     expect(html).toContain("aspect-[20/3]");
     expect(html).toContain("disabled");
   });

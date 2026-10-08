@@ -27,9 +27,9 @@ export default function KakaoLoginButton({
     >
       <svg
         aria-hidden="true"
-        className="absolute left-4 w-[22px] h-[21px]"
-        width="22"
-        height="21"
+        className="absolute left-4 h-6 w-6"
+        width="24"
+        height="24"
         viewBox="13 14 22 21"
         preserveAspectRatio="none"
         xmlns="http://www.w3.org/2000/svg"
@@ -40,7 +40,7 @@ export default function KakaoLoginButton({
         />
       </svg>
       <span className="font-medium">
-        {isLoading ? "로그인 중" : "카카오"}
+        {isLoading ? "로그인 중" : "카카오 로그인"}
       </span>
     </button>
   );

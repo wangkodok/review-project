@@ -16,8 +16,12 @@ describe("KakaoLoginButton", () => {
     );
 
     expect(html).toContain('aria-label="카카오 로그인"');
-    expect(html).toContain("카카오");
+    expect(html).toContain(">카카오 로그인<");
+    expect(html).toContain('class="absolute left-4 h-6 w-6"');
+    expect(html).toContain('width="24"');
+    expect(html).toContain('height="24"');
     expect(html).toContain('viewBox="13 14 22 21"');
+    expect(html).toContain('preserveAspectRatio="none"');
     expect(html).toContain(
       "M24.0014 14C17.9241 14 13 18.0219 13 22.9825",
     );
