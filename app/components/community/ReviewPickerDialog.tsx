@@ -282,7 +282,7 @@ function ReviewPickerDialogContent({
           </h2>
           <button
             aria-label={`${title} 창 닫기`}
-            className="col-start-3 flex h-11 w-11 items-center justify-center text-neutral-950 active:bg-neutral-100"
+            className="col-start-3 flex h-11 w-11 items-center justify-center text-neutral-950 rounded-full active:bg-neutral-100"
             onClick={onClose}
             type="button"
           >

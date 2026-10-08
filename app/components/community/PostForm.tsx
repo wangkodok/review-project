@@ -606,10 +606,10 @@ export default function PostForm({
     return (
       <section className="mb-[30px]">
         <div className="mb-2.5 flex items-baseline justify-between gap-3">
-          <p className="text-[17px] font-bold leading-6 text-neutral-950">
+          <p className="text-[16px] font-bold leading-6 text-neutral-950">
             {label} <span className="text-[#ff4d5e]">*</span>
           </p>
-          <p className="text-[13px] font-normal text-neutral-400">
+          <p className="text-[14px] font-normal text-neutral-400">
             {values.length}/{REVIEW_OPTION_LIMITS.max}
           </p>
         </div>
@@ -655,7 +655,7 @@ export default function PostForm({
   }) {
     return (
       <section className="mb-[30px]">
-        <p className="mb-2.5 text-[17px] font-bold leading-6 text-neutral-950">
+        <p className="mb-2.5 text-[16px] font-bold leading-6 text-neutral-950">
           {label} <span className="text-[#ff4d5e]">*</span>
         </p>
         <button
@@ -734,15 +734,15 @@ export default function PostForm({
 
       {imageUploadEnabled || initialImage ? (
         <section className="mb-[30px]">
-          <p className="mb-2.5 text-[17px] font-bold leading-6 text-neutral-950">
+          <p className="flex gap-1 mb-2.5 text-[16px] font-bold leading-6 text-neutral-950">
             대표 사진 첨부{" "}
-            <span className="text-[13px] font-normal text-neutral-400">(선택 사항)</span>
+            <span className="text-[14px] font-normal text-neutral-400">(선택 사항)</span>
           </p>
           <div className="flex min-h-12 items-center gap-2">
             {imageUploadEnabled ? (
               <button
                 aria-label={visibleImageUrl ? "대표 사진 변경" : "대표 사진 선택"}
-                className="grid h-12 w-12 shrink-0 place-items-center border border-[#dbdbdb] bg-neutral-100 text-neutral-500 disabled:text-neutral-300"
+                className="grid h-14 w-14 shrink-0 place-items-center border border-[#dbdbdb] bg-neutral-100 text-neutral-500 disabled:text-neutral-300"
                 disabled={isSubmitting || isImageProcessing}
                 onClick={() => imageInputRef.current?.click()}
                 type="button"
@@ -751,9 +751,9 @@ export default function PostForm({
                   {isImageProcessing ? (
                     <LoaderCircle aria-hidden="true" className="animate-spin" size={19} strokeWidth={1.4} />
                   ) : (
-                    <Camera aria-hidden="true" size={20} strokeWidth={1.4} />
+                    <Camera aria-hidden="true" size={24} strokeWidth={1.4} />
                   )}
-                  <span className="-mt-0.5 text-[10px] leading-none">
+                  <span className="text-[16px] leading-none">
                     {visibleImageUrl ? "1/1" : "0/1"}
                   </span>
                 </span>
@@ -799,7 +799,7 @@ export default function PostForm({
                 : imageProgressStage === "reserving"
                   ? "사진 업로드를 준비하는 중입니다."
                   : imageProgressStage === "uploading"
-                    ? "사진을 올리는 중입니다."
+                    ? "사진을 업로드 하는 중입니다."
                     : "사진을 안전하게 처리하는 중입니다."}
             </p>
           ) : null}
@@ -813,10 +813,10 @@ export default function PostForm({
 
       <section className="mb-[30px]">
         <div className="mb-2.5 flex items-baseline justify-between gap-3">
-          <label className="text-[17px] font-bold leading-6 text-neutral-950" htmlFor="review-store-name">
+          <label className="text-[16px] font-bold leading-6 text-neutral-950" htmlFor="review-store-name">
             어느 음식점인가요? <span className="text-[#ff4d5e]">*</span>
           </label>
-          <span className="text-[13px] font-normal text-neutral-400">
+          <span className="text-[14px] font-normal text-neutral-400">
             {storeName.length}/{STORE_NAME_MAX_LENGTH}
           </span>
         </div>
@@ -826,7 +826,7 @@ export default function PostForm({
           id="review-store-name"
           maxLength={STORE_NAME_MAX_LENGTH}
           onChange={(event) => setStoreName(event.target.value)}
-          placeholder="예시) 네네치킨, 피자스쿨 ... 등"
+          placeholder="예) 피자스쿨, 가마로강정"
           required
           type="text"
           value={storeName}
@@ -835,10 +835,10 @@ export default function PostForm({
 
       <section className="mb-[30px]">
         <div className="mb-2.5 flex items-baseline justify-between gap-3">
-          <label className="text-[17px] font-bold leading-6 text-neutral-950" htmlFor="review-menu-name">
+          <label className="text-[16px] font-bold leading-6 text-neutral-950" htmlFor="review-menu-name">
             어떤 메뉴예요? <span className="text-[#ff4d5e]">*</span>
           </label>
-          <span className="text-[13px] font-normal text-neutral-400">
+          <span className="text-[14px] font-normal text-neutral-400">
             {menuName.length}/{MENU_NAME_MAX_LENGTH}
           </span>
         </div>
@@ -848,7 +848,7 @@ export default function PostForm({
           id="review-menu-name"
           maxLength={MENU_NAME_MAX_LENGTH}
           onChange={(event) => setMenuName(event.target.value)}
-          placeholder="예시) 고구마피자, 닭강정 ... 등"
+          placeholder="예) 피자, 닭강정"
           required
           type="text"
           value={menuName}
@@ -867,7 +867,7 @@ export default function PostForm({
       {renderReferenceField({
         kind: "category",
         label: "카테고리",
-        placeholder: "음식 카테고리를 선택해 주세요.",
+        placeholder: "카테고리를 선택해 주세요.",
         value: selectedCategoryName,
         query: categoryQuery,
         requiresSelection: requiresCategorySelection,
@@ -888,15 +888,15 @@ export default function PostForm({
       })}
 
       <section className="mb-[30px]">
-        <div className="mb-2.5 flex items-baseline justify-between gap-3">
-          <label className="text-[17px] font-bold leading-6 text-neutral-950" htmlFor="review-overall-review">
-            남기고 싶은 나의 한마디 <span className="text-[13px] font-normal text-neutral-400">(선택 사항)</span>
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <label className="flex gap-1 text-[16px] font-bold leading-6 text-neutral-950" htmlFor="review-overall-review">
+            남기고 싶은 나의 한마디 <span className="text-[14px] font-normal text-neutral-400">(선택 사항)</span>
           </label>
-          <span className="shrink-0 text-[13px] font-normal text-neutral-400">
+          <span className="shrink-0 text-[14px] font-normal text-neutral-400">
             {overallReview.length}/{OVERALL_REVIEW_MAX_LENGTH}
           </span>
         </div>
-        <p className="-mt-1 mb-2.5 text-xs leading-[1.5] text-neutral-500">
+        <p className="mb-4 text-[14px] leading-[1.5] text-neutral-500">
           솔직하고 예쁜 말 한마디가 건강한 리뷰를 만들어요.
         </p>
         <textarea
@@ -904,7 +904,7 @@ export default function PostForm({
           id="review-overall-review"
           maxLength={OVERALL_REVIEW_MAX_LENGTH}
           onChange={(event) => setOverallReview(event.target.value)}
-          placeholder="예시) 맛있게 먹었는데 아쉽게도 가격에 비해 양이 조금 적은 편이에요."
+          placeholder="예) 맛있게 먹었는데 아쉽게도 양이 조금 적은 편이었어요."
           value={overallReview}
         />
       </section>
