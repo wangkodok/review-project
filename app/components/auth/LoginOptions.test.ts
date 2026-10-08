@@ -7,7 +7,12 @@ vi.mock("next-auth/react", () => ({
   signIn: vi.fn(),
 }));
 
-import LoginOptions from "./LoginOptions";
+import LoginOptions, * as loginOptionsModule from "./LoginOptions";
+
+type RegisterLoginPageShowReset = (
+  target: EventTarget,
+  reset: () => void,
+) => () => void;
 
 describe("LoginOptions", () => {
   it("links both public policies before login", () => {
@@ -17,5 +22,28 @@ describe("LoginOptions", () => {
     expect(html).toContain("서비스 이용약관");
     expect(html).toContain('href="/privacy"');
     expect(html).toContain("개인정보처리방침");
+  });
+
+  it("clears pending login state when the browser shows the page again", () => {
+    const registerLoginPageShowReset = (
+      loginOptionsModule as typeof loginOptionsModule & {
+        registerLoginPageShowReset?: RegisterLoginPageShowReset;
+      }
+    ).registerLoginPageShowReset;
+    const target = new EventTarget();
+    let activeProvider: "kakao" | null = "kakao";
+    const cleanup = registerLoginPageShowReset?.(target, () => {
+      activeProvider = null;
+    });
+
+    target.dispatchEvent(new Event("pageshow"));
+
+    expect(activeProvider).toBeNull();
+
+    cleanup?.();
+    activeProvider = "kakao";
+    target.dispatchEvent(new Event("pageshow"));
+
+    expect(activeProvider).toBe("kakao");
   });
 });

@@ -1,10 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { LoaderCircle, MessageCircle, RotateCcw } from "lucide-react";
+import { LoaderCircle, RotateCcw } from "lucide-react";
 import { getProviders, signIn } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
+
+import GoogleLoginButton from "./GoogleLoginButton";
+import KakaoLoginButton from "./KakaoLoginButton";
 
 const LOGIN_PROVIDER_ORDER = ["google", "kakao"] as const;
 const PROVIDER_LOAD_ERROR_MESSAGE =
@@ -26,6 +28,17 @@ function getSafeCallbackUrl(callbackUrl: string) {
   }
 
   return callbackUrl;
+}
+
+export function registerLoginPageShowReset(
+  target: EventTarget,
+  reset: () => void,
+) {
+  target.addEventListener("pageshow", reset);
+
+  return () => {
+    target.removeEventListener("pageshow", reset);
+  };
 }
 
 export default function LoginOptions({
@@ -82,6 +95,14 @@ export default function LoginOptions({
     };
   }, [requestVersion]);
 
+  useEffect(
+    () =>
+      registerLoginPageShowReset(window, () => {
+        setActiveProvider(null);
+      }),
+    [],
+  );
+
   async function handleSignIn(providerId: LoginProviderId) {
     if (activeProvider) {
       return;
@@ -105,87 +126,21 @@ export default function LoginOptions({
   }
 
   const googleLoginButton = availableProviders?.includes("google") ? (
-    <button
-      aria-label={isKoreanVariant ? "구글 로그인" : "Google로 로그인"}
-      className={
-        isKoreanVariant
-          ? `relative flex w-full items-center justify-center border border-[#dbdbdb] bg-white px-12 text-base font-medium leading-6 text-[#121212] active:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 ${
-              isReviewWriteDialogVariant
-                ? "h-14 rounded-[8px]"
-                : "h-[52px] rounded-[4px]"
-            }`
-          : "relative flex aspect-[20/3] w-full items-center justify-center rounded-xl border border-[#747775] bg-white px-12 text-sm font-semibold text-[#1f1f1f] active:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
-      }
+    <GoogleLoginButton
       disabled={activeProvider !== null}
+      isLoading={activeProvider === "google"}
       onClick={() => void handleSignIn("google")}
-      type="button"
-    >
-      <Image
-        alt=""
-        className={`absolute ${
-          isReviewWriteDialogVariant
-            ? "left-4 h-[18px] w-[18px]"
-            : `h-5 w-5 ${isKoreanVariant ? "left-4" : "left-3"}`
-        }`}
-        height={20}
-        src="/auth/google-g-logo.png"
-        width={20}
-      />
-      <span>
-        {activeProvider === "google"
-          ? "로그인 중"
-          : isKoreanVariant
-            ? "구글 로그인"
-            : "Google로 로그인"}
-      </span>
-    </button>
+      variant={variant}
+    />
   ) : null;
 
   const kakaoLoginButton = availableProviders?.includes("kakao") ? (
-    <button
-      aria-label="카카오 로그인"
-      className={
-        isReviewWriteDialogVariant
-          ? "relative flex h-14 w-full items-center justify-center rounded-[8px] bg-[#fee500] px-12 text-base font-medium leading-6 text-[#121212] active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
-          : isKoreanVariant
-            ? "relative h-[52px] w-full overflow-hidden rounded-[4px] active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
-          : "relative aspect-[20/3] w-full overflow-hidden rounded-xl active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
-      }
+    <KakaoLoginButton
       disabled={activeProvider !== null}
+      isLoading={activeProvider === "kakao"}
       onClick={() => void handleSignIn("kakao")}
-      type="button"
-    >
-      {isReviewWriteDialogVariant ? (
-        <>
-          <MessageCircle
-            aria-hidden="true"
-            className="absolute left-4 h-[21px] w-[21px] fill-current"
-            strokeWidth={2}
-          />
-          <span>
-            {activeProvider === "kakao" ? "로그인 중" : "카카오 로그인"}
-          </span>
-        </>
-      ) : (
-        <>
-          <Image
-            alt=""
-            className="object-cover"
-            fill
-            priority
-            sizes={
-              isKoreanVariant
-                ? "(max-width: 480px) calc(100vw - 32px), 448px"
-                : "(max-width: 430px) calc(100vw - 40px), 335px"
-            }
-            src="/auth/kakao-login-large-wide.png"
-          />
-          <span className="sr-only">
-            {activeProvider === "kakao" ? "로그인 중" : "카카오 로그인"}
-          </span>
-        </>
-      )}
-    </button>
+      variant={variant}
+    />
   ) : null;
 
   return (
