@@ -361,6 +361,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
         value={pickerValue}
       />
 
+      {/* 리뷰 쓰기 클릭 시 팝업 창 */}
       <ReviewWriteLoginDialog
         isOpen={isLoginDialogOpen}
         onClose={closeLoginDialog}

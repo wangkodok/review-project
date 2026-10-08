@@ -53,7 +53,7 @@ export default function ReviewWriteLoginDialog({
       className="fixed inset-y-0 left-1/2 z-[60] flex w-full max-w-[var(--app-frame-max-width)] -translate-x-1/2 items-center justify-center bg-black/30 px-8"
       role="dialog"
     >
-      <div className="relative w-full max-w-[360px] -translate-y-2 rounded-[22px] bg-white px-4 pb-4 pt-[15px] shadow-xl">
+      <div className="relative w-full max-w-[360px] -translate-y-2 rounded-[22px] bg-white px-4 py-4 shadow-xl">
         <button
           aria-label="로그인 창 닫기"
           className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-full text-[#121212] active:bg-neutral-100"
@@ -65,12 +65,10 @@ export default function ReviewWriteLoginDialog({
         </button>
 
         <h2
-          className="pr-10 text-[22px] font-bold leading-[30px] text-[#121212]"
+          className="text-[20px] font-bold leading-[30px] text-[#121212]"
           id={titleId}
         >
-          로그인하고 공유된
-          <br />
-          내용을 읽을 수 있어요.
+          리뷰, 길게 쓰지 않아도 돼요. 
         </h2>
         <p
           className="mt-2 text-base leading-6 text-[#888888]"
@@ -81,7 +79,7 @@ export default function ReviewWriteLoginDialog({
 
         <LoginOptions
           callbackUrl={callbackUrl}
-          className="mt-[17px]"
+          className="mt-[16px]"
           variant="review-write-dialog"
         />
       </div>
