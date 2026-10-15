@@ -45,6 +45,7 @@ export default function PostRows({
   getDetailHref,
   getEditHref,
   reportSource,
+  taxonomyDisplay = "badges",
 }: {
   posts: CommunityPost[];
   isAuthenticated: boolean;
@@ -52,6 +53,7 @@ export default function PostRows({
   getDetailHref?: (post: CommunityPost) => string;
   getEditHref?: (post: CommunityPost) => string;
   reportSource?: Extract<ReviewReportSource, "community" | "search">;
+  taxonomyDisplay?: "badges" | "text";
 }) {
   const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null);
 
@@ -73,10 +75,18 @@ export default function PostRows({
                 className="flex min-w-0 flex-1 gap-[5px]"
                 href={detailHref}
               >
-                {post.region ? <ReviewBadge tone="region">{post.region.name}</ReviewBadge> : null}
-                {post.category ? (
-                  <ReviewBadge tone="category">{post.category.name}</ReviewBadge>
-                ) : null}
+                {taxonomyDisplay === "text" ? (
+                  <span className="truncate text-xs font-normal leading-[18px] text-[#565656]">
+                    {[post.region?.name, post.category?.name].filter(Boolean).join(" · ")}
+                  </span>
+                ) : (
+                  <>
+                    {post.region ? <ReviewBadge tone="region">{post.region.name}</ReviewBadge> : null}
+                    {post.category ? (
+                      <ReviewBadge tone="category">{post.category.name}</ReviewBadge>
+                    ) : null}
+                  </>
+                )}
               </Link>
               {showMenu ? (
                 <PostMoreMenu

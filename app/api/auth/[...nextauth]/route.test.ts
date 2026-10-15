@@ -107,4 +107,69 @@ describe("NextAuth route", () => {
     expect(response).toBe(rateLimited);
     expect(mocks.handler).not.toHaveBeenCalled();
   });
+
+  it("refuses an expiry-only logout when a newer valid login is present", async () => {
+    mocks.getToken.mockResolvedValue({ userId: "synthetic-user", authProvider: "kakao", authenticatedAt: Date.now() });
+    const request = new NextRequest("http://localhost/api/auth/signout", { method: "POST",
+      body: new URLSearchParams({ expireOnly: "true", csrfToken: "synthetic-csrf", json: "true" }) });
+    const response = await POST(request, context);
+    expect(response.status).toBe(409);
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(mocks.handler).not.toHaveBeenCalled();
+  });
+
+  it.each([{ authenticatedAt: Date.now() - 43_200_001 }, { authSessionExpired: true }, null])(
+    "delegates an expired or already absent session to existing NextAuth CSRF validation: %s", async (token) => {
+      mocks.getToken.mockResolvedValue(token);
+      const request = new NextRequest("http://localhost/api/auth/signout", { method: "POST",
+        body: new URLSearchParams({ expireOnly: "true", csrfToken: "synthetic-csrf", json: "true" }) });
+      const response = await POST(request, context);
+      expect(response.status).toBe(204);
+      expect(mocks.handler).toHaveBeenCalledWith(request, context);
+      expect(mocks.getToken).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("keeps an ordinary user-requested logout unchanged", async () => {
+    mocks.handler.mockResolvedValue(new Response(null, { status: 204, headers: { "set-cookie": "next-auth.session-token=; Max-Age=0; Path=/" } }));
+    const request = new NextRequest("http://localhost/api/auth/signout", { method: "POST",
+      body: new URLSearchParams({ csrfToken: "synthetic-csrf", json: "true" }) });
+    const response = await POST(request, context);
+    expect(response.status).toBe(204);
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(mocks.getToken).not.toHaveBeenCalled();
+  });
+
+  it("makes lifecycle session reads unable to overwrite a newer OAuth cookie", async () => {
+    let finish!: (response: Response) => void;
+    mocks.handler.mockImplementationOnce(() => new Promise<Response>((resolve) => { finish = resolve; }));
+    const request = new NextRequest("http://localhost/api/auth/session?readOnly=true");
+    const pending = GET(request, context);
+    let cookieJar = "synthetic-new-oauth-login";
+    finish(new Response(JSON.stringify({ sessionExpired: true }), {
+      headers: { "set-cookie": "next-auth.session-token=synthetic-expired; Path=/", "content-type": "application/json" },
+    }));
+    const response = await pending;
+    if (response.headers.get("set-cookie")) cookieJar = "synthetic-expired";
+    expect(cookieJar).toBe("synthetic-new-oauth-login");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(await response.json()).toEqual({ sessionExpired: true });
+  });
+
+  it("keeps ordinary NextAuth session-cookie renewal unchanged", async () => {
+    mocks.handler.mockResolvedValue(new Response("{}", { headers: { "set-cookie": "next-auth.session-token=synthetic-active; Path=/" } }));
+    const response = await GET(new NextRequest("http://localhost/api/auth/session"), context);
+    expect(response.headers.get("set-cookie")).toContain("synthetic-active");
+  });
+
+  it("prevents a delayed expiry logout response from deleting a newer OAuth cookie", async () => {
+    mocks.getToken.mockResolvedValue({ authSessionExpired: true });
+    mocks.handler.mockResolvedValue(new Response(JSON.stringify({ url: "http://localhost/my" }), {
+      headers: { "set-cookie": "next-auth.session-token=; Max-Age=0; Path=/" },
+    }));
+    const request = new NextRequest("http://localhost/api/auth/signout", { method: "POST",
+      body: new URLSearchParams({ expireOnly: "true", csrfToken: "synthetic-csrf", json: "true" }) });
+    const response = await POST(request, context);
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
 });

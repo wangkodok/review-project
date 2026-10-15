@@ -98,12 +98,30 @@ export async function hasActiveExternalAuthAccount({
   return Boolean(account);
 }
 
+export async function getKakaoEmailConsentRequired(userId: string) {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("auth_accounts")
+    .select("user_id")
+    .eq("user_id", userId)
+    .eq("provider", "kakao")
+    .is("provider_email", null)
+    .maybeSingle<{ user_id: string }>();
+
+  if (error) {
+    throw new Error("AUTH_ACCOUNT_LOOKUP_FAILED");
+  }
+
+  return Boolean(data);
+}
+
 export function invalidateAuthToken(token: JWT) {
   delete token.userId;
   delete token.nickname;
   delete token.anonymousId;
   delete token.authenticatedAt;
   delete token.authProvider;
+  delete token.kakaoEmailConsentRequired;
   delete token.name;
   delete token.email;
   delete token.picture;

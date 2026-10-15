@@ -1,7 +1,9 @@
 import NextAuth from "next-auth";
+import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "@/app/lib/auth/options";
 import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
+import { isAuthSessionExpired } from "@/app/lib/auth/sessionPolicy";
 
 const handler = NextAuth(authOptions);
 const LEGACY_WITHDRAWAL_FLOW_COOKIE_NAMES = [
@@ -59,10 +61,19 @@ function handleAuthRequest(
   return handler(request, context);
 }
 
+function withoutAuthCookieUpdates(response: Response) {
+  const headers = new Headers(response.headers);
+  headers.delete("set-cookie");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export async function GET(
   request: NextRequest,
   context: AuthRouteContext,
 ) {
+  if (request.nextUrl.pathname.endsWith("/api/auth/session") && request.nextUrl.searchParams.get("readOnly") === "true") {
+    return withoutAuthCookieUpdates(await handleAuthRequest(request, context));
+  }
   return handleAuthRequest(request, context);
 }
 
@@ -70,6 +81,18 @@ export async function POST(
   request: NextRequest,
   context: AuthRouteContext,
 ) {
+  let isExpiryLogout = false;
+  if (request.nextUrl.pathname.endsWith("/api/auth/signout")) {
+    const body = new URLSearchParams(await request.clone().text());
+    if (body.get("expireOnly") === "true") {
+      isExpiryLogout = true;
+      const token = await getToken({ req: request, secret: authOptions.secret, decode: authOptions.jwt?.decode });
+      // Only expiry logout is conditional; ordinary user-requested logout is unchanged.
+      if (token && !token.authSessionExpired && !isAuthSessionExpired(token.authenticatedAt)) {
+        return NextResponse.json({ success: false, code: "AUTH_SESSION_CHANGED" }, { status: 409 });
+      }
+    }
+  }
   if (request.nextUrl.pathname.includes("/api/auth/signin")) {
     const rateLimitResponse = await enforceRateLimit({
       identifier: getRequestIp(request),
@@ -81,5 +104,9 @@ export async function POST(
     }
   }
 
-  return handleAuthRequest(request, context);
+  // Automatic expiry must not overwrite an OAuth cookie arriving in another tab.
+  // Authorization is already denied by the absolute server deadline.
+  return isExpiryLogout
+    ? withoutAuthCookieUpdates(await handleAuthRequest(request, context))
+    : handleAuthRequest(request, context);
 }

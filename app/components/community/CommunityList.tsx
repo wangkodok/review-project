@@ -276,6 +276,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
           onDeleteSuccess={handleDeleteSuccess}
           posts={posts}
           reportSource="community"
+          taxonomyDisplay="text"
         />
       ) : null}
 

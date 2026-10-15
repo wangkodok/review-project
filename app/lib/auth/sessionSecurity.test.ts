@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   eqUser: vi.fn(),
   eqProvider: vi.fn(),
+  is: vi.fn(),
   maybeSingle: vi.fn(),
 }));
 
@@ -16,6 +17,8 @@ vi.mock("@/app/lib/supabase/server", () => ({
 import {
   getActiveExternalAuthAccount,
   getWithdrawalExternalAuthAccount,
+  getKakaoEmailConsentRequired,
+  invalidateAuthToken,
 } from "./sessionSecurity";
 
 const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -26,7 +29,29 @@ describe("getActiveExternalAuthAccount", () => {
     mocks.from.mockReturnValue({ select: mocks.select });
     mocks.select.mockReturnValue({ eq: mocks.eqUser });
     mocks.eqUser.mockReturnValue({ eq: mocks.eqProvider });
-    mocks.eqProvider.mockReturnValue({ maybeSingle: mocks.maybeSingle });
+    mocks.eqProvider.mockReturnValue({ maybeSingle: mocks.maybeSingle, is: mocks.is });
+    mocks.is.mockReturnValue({ maybeSingle: mocks.maybeSingle });
+  });
+
+  it.each([true, false])("checks missing Kakao email without selecting its value: %s", async (missing) => {
+    mocks.maybeSingle.mockResolvedValue({ data: missing ? { user_id: USER_ID } : null, error: null });
+    await expect(getKakaoEmailConsentRequired(USER_ID)).resolves.toBe(missing);
+    expect(mocks.select).toHaveBeenCalledWith("user_id");
+    expect(mocks.eqUser).toHaveBeenCalledWith("user_id", USER_ID);
+    expect(mocks.eqProvider).toHaveBeenCalledWith("provider", "kakao");
+    expect(mocks.is).toHaveBeenCalledWith("provider_email", null);
+  });
+
+  it("does not mistake a failed email lookup for completed consent", async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: null, error: { message: "private detail" } });
+    await expect(getKakaoEmailConsentRequired(USER_ID)).rejects.toThrow("AUTH_ACCOUNT_LOOKUP_FAILED");
+  });
+
+  it("scrubs identity and email notice claims while retaining the expiration marker", () => {
+    const token = { userId: USER_ID, authProvider: "kakao" as const, authenticatedAt: 1,
+      kakaoEmailConsentRequired: true, authSessionExpired: true, email: "private@example.com", sub: "identity" };
+    invalidateAuthToken(token);
+    expect(token).toEqual({ authSessionExpired: true, authSessionInvalidated: true });
   });
 
   it("keeps routine session validation limited to non-email fields", async () => {

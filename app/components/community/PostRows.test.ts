@@ -1,8 +1,21 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { CommunityPost } from "@/app/types/post";
+import CommunityList from "./CommunityList";
 import PostRows from "./PostRows";
+
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: () => ({ data: [], isError: false }),
+  useInfiniteQuery: () => ({
+    data: {
+      pages: [{ posts: [post], page: 1, limit: 10, totalCount: 1, hasMore: false }],
+    },
+    hasNextPage: false,
+    isError: false,
+    isLoading: false,
+  }),
+}));
 
 const post: CommunityPost = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -42,5 +55,35 @@ describe("PostRows", () => {
     expect(html).toContain("bg-[#e7f8ed]");
     expect(html).toContain("bg-[#ddf3ff]");
     expect(html).not.toContain("서울 · 한식");
+  });
+
+  it("renders plain taxonomy only when the community list requests it", () => {
+    const html = renderToStaticMarkup(
+      createElement(CommunityList, { isAuthenticated: false }),
+    );
+
+    expect(html).toContain("서울 · 한식");
+    expect(html).toContain("text-[#565656]");
+    expect(html).not.toContain("bg-[#e7f8ed]");
+    expect(html).not.toContain("bg-[#ddf3ff]");
+    expect(html).toContain(`/community/${post.id}`);
+  });
+
+  it.each([
+    { region: post.region, category: null, label: "서울" },
+    { region: null, category: post.category, label: "한식" },
+    { region: null, category: null, label: "" },
+  ])("omits the separator for incomplete plain taxonomy: $label", ({ region, category, label }) => {
+    const html = renderToStaticMarkup(
+      createElement(PostRows, {
+        posts: [{ ...post, region, category, author: { anonymousId: "guest" } }],
+        isAuthenticated: false,
+        taxonomyDisplay: "text",
+      }),
+    );
+
+    const taxonomy = html.match(/<span class="[^"]*text-\[#565656\][^"]*">([^<]*)<\/span>/)?.[1];
+    expect(taxonomy).toBe(label);
+    expect(taxonomy).not.toContain(" · ");
   });
 });

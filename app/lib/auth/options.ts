@@ -2,11 +2,13 @@ import type { NextAuthOptions } from "next-auth";
 import GoogleProvider, { type GoogleProfile } from "next-auth/providers/google";
 import KakaoProvider, { type KakaoProfile } from "next-auth/providers/kakao";
 import { resolveOrCreateUserByExternalIdentity } from "./externalIdentity";
+import { AUTH_SESSION_MAX_AGE_SECONDS, getAuthSessionDeadline, isAuthSessionExpired } from "./sessionPolicy";
+import { decodeAuthSessionToken } from "./sessionToken";
 import {
   hasActiveExternalAuthAccount,
+  getKakaoEmailConsentRequired,
   invalidateAuthToken,
 } from "./sessionSecurity";
-const AUTH_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 function requireEnv(name: string) {
   const value = process.env[name];
@@ -69,6 +71,7 @@ export function createAuthOptions(): NextAuthOptions {
       KakaoProvider({
         clientId: requireEnv("AUTH_KAKAO_ID"),
         clientSecret: requireEnv("AUTH_KAKAO_SECRET"),
+        authorization: { params: { scope: "account_email" } },
       }),
     );
   }
@@ -81,6 +84,7 @@ export function createAuthOptions(): NextAuthOptions {
     },
     jwt: {
       maxAge: AUTH_SESSION_MAX_AGE_SECONDS,
+      decode: decodeAuthSessionToken,
     },
     providers,
     callbacks: {
@@ -128,8 +132,14 @@ export function createAuthOptions(): NextAuthOptions {
           token.anonymousId = appUser.anonymousId;
           token.authProvider = appUser.authProvider;
           token.authenticatedAt = appUser.authenticatedAt;
+          token.kakaoEmailConsentRequired =
+            account.provider === "kakao" && !providerEmail;
           delete token.authValidationUnavailable;
           delete token.authSessionInvalidated;
+          delete token.authSessionExpired;
+        } else if (token.userId && token.authProvider && isAuthSessionExpired(token.authenticatedAt)) {
+          token.authSessionExpired = true;
+          invalidateAuthToken(token);
         } else if (token.userId && token.authProvider) {
           try {
             const isActive = await hasActiveExternalAuthAccount({
@@ -138,6 +148,9 @@ export function createAuthOptions(): NextAuthOptions {
             });
 
             if (isActive) {
+              if (token.authProvider === "kakao" && token.kakaoEmailConsentRequired !== false) {
+                token.kakaoEmailConsentRequired = await getKakaoEmailConsentRequired(token.userId);
+              }
               delete token.authValidationUnavailable;
               delete token.authSessionInvalidated;
             } else {
@@ -155,7 +168,11 @@ export function createAuthOptions(): NextAuthOptions {
         return token;
       },
       async session({ session, token }) {
-        if (token.authSessionInvalidated) {
+        session.serverTime = Date.now();
+        session.sessionExpired = token.authSessionExpired === true;
+        session.authValidationUnavailable = token.authValidationUnavailable === true;
+        if (token.authSessionInvalidated || (token.userId && isAuthSessionExpired(token.authenticatedAt))) {
+          session.sessionExpired = token.authSessionExpired === true || Boolean(token.userId);
           delete session.user;
           return session;
         }
@@ -167,11 +184,13 @@ export function createAuthOptions(): NextAuthOptions {
         ) {
           delete session.user;
         } else {
+          session.expires = new Date(getAuthSessionDeadline(token.authenticatedAt)!).toISOString();
           session.user = {
             id: token.userId,
             nickname: token.nickname,
             anonymousId: token.anonymousId,
             authProvider: token.authProvider,
+            kakaoEmailConsentRequired: token.kakaoEmailConsentRequired === true,
           };
         }
 
