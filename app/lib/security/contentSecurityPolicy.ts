@@ -1,7 +1,8 @@
-import { ANALYTICS_APP_ORIGIN, getAnalyticsConfig, type AnalyticsConfig } from "../analytics/config";
+import { ANALYTICS_API_ORIGIN, ANALYTICS_APP_ORIGIN, getAnalyticsConfig, type AnalyticsConfig } from "../analytics/config";
 
 type ContentSecurityPolicyEnvironment = {
   analyticsConfig?: AnalyticsConfig | null;
+  operatorQaEnabled?: boolean;
   nodeEnv?: string;
   reviewImagePublicBaseUrl?: string;
   r2AccountId?: string;
@@ -75,11 +76,11 @@ export function buildContentSecurityPolicy(
   );
   const r2UploadOrigin = getR2UploadOrigin(environment);
   const analytics = environment.analyticsConfig;
-  const analyticsOrigin = analytics && getAnalyticsConfig({
+  const analyticsOrigin = (environment.nodeEnv === "development" && environment.operatorQaEnabled ? ANALYTICS_API_ORIGIN : null) || (analytics && getAnalyticsConfig({
     nodeEnv: environment.nodeEnv, deploymentEnv: "production", appOrigin: ANALYTICS_APP_ORIGIN,
     analyticsFlag: analytics.analytics === true ? "true" : "false", replayFlag: analytics.replay ? "true" : "false",
     projectToken: analytics.projectToken, host: analytics.apiHost,
-  })?.apiHost;
+  })?.apiHost);
 
   return [
     "default-src 'self'",

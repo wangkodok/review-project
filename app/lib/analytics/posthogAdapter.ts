@@ -58,6 +58,8 @@ export function buildPostHogOptions(config: AnalyticsConfig, isActive: () => boo
         if (!clean || typeof id !== "string" || !UUID.test(id)) return null;
         const properties: Record<string, unknown> = {
           ...clean.properties, token: config.projectToken, distinct_id: id, $process_person_profile: false,
+          // GeoIP enrichment happens on the server, after client-side redaction.
+          $geoip_disable: true,
         };
         for (const key of ["$session_id", "$window_id"] as const) {
           const value: unknown = input.properties[key];

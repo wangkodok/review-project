@@ -4,7 +4,7 @@ import { analytics } from "./runtime";
 // Next Link prevents the native click even for accepted SPA navigations.
 export function recordAnalyticsNavigation(action: AnalyticsAction) {
   try {
-    const screen = normalizeAnalyticsLocation(window.location.href);
+    const screen = normalizeAnalyticsLocation(new URL(window.location.href).pathname);
     if (screen && resolveAnalyticsAction(action, false, false)) analytics.track({ event: "ui_action", properties: { screen, action } });
   } catch { /* Navigation remains independent of analytics. */ }
 }

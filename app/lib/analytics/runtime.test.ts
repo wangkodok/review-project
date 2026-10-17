@@ -62,4 +62,18 @@ describe("analytics runtime", () => {
     runtime.stop(); runtime.updateLocation("/my"); await runtime.start();
     expect(sdk.capture).toHaveBeenCalledTimes(2);
   });
+  it("uses_the_explicit_QA_driver_without_loading_the_normal_driver", async () => {
+    vi.resetModules();
+    const { analytics } = await import("./runtime");
+    const { loadAnalyticsDriver } = await import("./posthogAdapter");
+    vi.mocked(loadAnalyticsDriver).mockClear();
+    const sdk = driver();
+    analytics.configure(config, async () => sdk);
+    analytics.updateLocation("/community");
+    await analytics.start();
+    expect(sdk.capture).toHaveBeenCalledExactlyOnceWith({ event: "$pageview", properties: { screen: "/community" } });
+    expect(loadAnalyticsDriver).not.toHaveBeenCalled();
+    analytics.stop(); analytics.track(event);
+    expect(sdk.capture).toHaveBeenCalledTimes(1);
+  });
 });

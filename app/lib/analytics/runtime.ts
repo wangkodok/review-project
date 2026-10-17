@@ -72,12 +72,12 @@ let configured = false;
 let initialConfig: string | undefined;
 let facadeEpoch = 0;
 let runtime: AnalyticsRuntime | undefined;
-export const analytics: AnalyticsRuntime & { configure(config: AnalyticsConfig | null): void } = {
-  configure(config) {
+export const analytics: AnalyticsRuntime & { configure(config: AnalyticsConfig | null, driverLoader?: typeof loadAnalyticsDriver): void } = {
+  configure(config, driverLoader = loadAnalyticsDriver) {
     const signature = JSON.stringify(config);
     if (configured) { if (signature !== initialConfig) analytics.stop(); return; }
     configured = true; initialConfig = signature; facadeEpoch++;
-    runtime = createAnalyticsRuntime(config, (active) => config ? loadAnalyticsDriver(config, active) : Promise.reject());
+    runtime = createAnalyticsRuntime(config, (active) => config ? driverLoader(config, active) : Promise.reject());
   },
   start: () => runtime?.start() ?? Promise.resolve(),
   updateLocation: (url) => runtime?.updateLocation(url),

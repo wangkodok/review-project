@@ -20,6 +20,14 @@ describe("analytics clicks", () => {
     expect(resolveAnalyticsAction("like_click", true, false)).toBeNull();
     expect(resolveAnalyticsAction("like_click", false, true)).toBeNull();
   });
+  it("normalizes_the_current_document_path_for_accepted_local_QA_navigation", () => {
+    tracking.track.mockClear();
+    vi.stubGlobal("window", { location: { href: "http://localhost:3001/community?private=query" } });
+    try {
+      interactions.recordAnalyticsNavigation("review_write");
+      expect(tracking.track).toHaveBeenCalledExactlyOnceWith({ event: "ui_action", properties: { screen: "/community", action: "review_write" } });
+    } finally { vi.unstubAllGlobals(); }
+  });
   it("observes_bubble_click_once_and_removes_the_listener", () => {
     const target = new EventTarget(); const capture = vi.fn();
     const button = { getAttribute: (name: string) => name === "data-analytics-action" ? "like_click" : null, hasAttribute: () => false, closest: () => null };

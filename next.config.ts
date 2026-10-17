@@ -1,14 +1,18 @@
 import type { NextConfig } from "next";
 import { ANALYTICS_APP_ORIGIN, getAnalyticsConfig } from "./app/lib/analytics/config";
+import { isOperatorQaEnabled } from "./app/lib/analytics/operatorQa";
 import {
   buildContentSecurityPolicy,
   getReviewImagePublicBaseUrl,
 } from "./app/lib/security/contentSecurityPolicy";
 
+const operatorQaEnabled = isOperatorQaEnabled({ nodeEnv: process.env.NODE_ENV,
+  deploymentEnv: process.env.VERCEL_ENV, flag: process.env.POSTHOG_OPERATOR_QA_ENABLED });
 const reviewImageBaseUrl = getReviewImagePublicBaseUrl(
   process.env.REVIEW_IMAGE_PUBLIC_BASE_URL,
 );
 const contentSecurityPolicy = buildContentSecurityPolicy({
+  operatorQaEnabled,
   analyticsConfig: getAnalyticsConfig({
     appOrigin: ANALYTICS_APP_ORIGIN,
     deploymentEnv: process.env.VERCEL_ENV,
@@ -25,6 +29,7 @@ const contentSecurityPolicy = buildContentSecurityPolicy({
 });
 
 const nextConfig: NextConfig = {
+  ...(operatorQaEnabled ? { distDir: ".next-operator-qa" } : {}),
   poweredByHeader: false,
   images: reviewImageBaseUrl
     ? {

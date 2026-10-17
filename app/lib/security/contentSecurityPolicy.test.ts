@@ -8,6 +8,11 @@ const ACCOUNT_ID = "0123456789abcdef0123456789abcdef";
 const R2_ORIGIN = `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
 describe("content security policy", () => {
+  it("allows_QA_ingestion_only_in_an_explicit_local_development_process", () => {
+    expect(buildContentSecurityPolicy({ nodeEnv: "development", operatorQaEnabled: true })).toContain("connect-src 'self' ws: wss: https://us.i.posthog.com");
+    expect(buildContentSecurityPolicy({ nodeEnv: "production", operatorQaEnabled: true })).not.toContain("posthog.com");
+    expect(buildContentSecurityPolicy({ nodeEnv: "development", operatorQaEnabled: false })).not.toContain("posthog.com");
+  });
   it("allows_only_the_US_ingestion_origin_for_valid_analytics", () => {
     const config = { analytics: true, replay: false, projectToken: "phc_synthetic", apiHost: "https://us.i.posthog.com" } as const;
     const policy = buildContentSecurityPolicy({ nodeEnv: "production", analyticsConfig: config });

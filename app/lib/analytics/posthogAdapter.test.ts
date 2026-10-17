@@ -40,6 +40,17 @@ describe("PostHog boundary", () => {
     expect(beforeSend({ event: "$snapshot", properties: { distinct_id: uuid } })).toBeNull();
     expect(beforeSend({ event: "$pageview", properties: { screen: "/community", distinct_id: "synthetic@example.test" } })).toBeNull();
   });
+  it.each([undefined, false, true])("forces_GeoIP_off_at_the_final_capture_boundary_for_input_%s", (inputFlag) => {
+    const beforeSend = buildPostHogOptions(config, () => true).before_send as (input: unknown) => unknown;
+    const clean = beforeSend({ event: "ui_action", uuid,
+      properties: { distinct_id: uuid, screen: "/community", action: "review_write",
+        $geoip_disable: inputFlag, $geoip_city_name: "synthetic-private", $geoip_latitude: 0,
+        $geoip_longitude: 0, $geoip_postal_code: "synthetic-private", $ip: "192.0.2.1" } });
+    expect(clean).toEqual({ event: "ui_action", uuid, properties: {
+      screen: "/community", action: "review_write", token: config.projectToken, distinct_id: uuid,
+      $process_person_profile: false, $geoip_disable: true,
+    } });
+  });
   it("stops_new_capture_and_resets_without_account_data", async () => {
     const driver = await loadAnalyticsDriver(config, () => true);
     driver.capture({ event: "$pageview", properties: { screen: "/community" } });
@@ -84,18 +95,18 @@ describe("PostHog boundary", () => {
       nextDocument.init(config.projectToken, { ...buildPostHogOptions(config, () => true), opt_out_useragent_filter: true });
       expect(nextDocument.get_distinct_id()).not.toBe(previousId);
       await nextDocument.shutdown();
-      client.capture("ui_action", { screen: "/community/synthetic?email=private", action: "like_click", email: "private", $set: { nickname: "private" } });
+      client.capture("ui_action", { screen: "/community/synthetic?email=private", action: "like_click", email: "private", $set: { nickname: "private" }, $geoip_disable: false });
       expect(boundary).toHaveBeenCalledTimes(1);
       expect(boundary.mock.results[0].value).not.toBeNull();
       expect(send).toHaveBeenCalledTimes(1);
       const payload = send.mock.calls[0][0].data;
-      expect(payload).toMatchObject({ event: "ui_action", properties: { token: config.projectToken, distinct_id: previousId } });
+      expect(payload).toMatchObject({ event: "ui_action", properties: { token: config.projectToken, distinct_id: previousId, $geoip_disable: true } });
       expect(JSON.stringify(payload)).not.toMatch(/private|nickname|email|\$set|current_url|referrer/);
       client.reset(true);
       expect(client.get_distinct_id()).not.toBe(previousId);
       client.capture("ui_action", { screen: "/community", action: "like_click" });
       expect(send.mock.calls[0][0].data).toMatchObject({ properties: { distinct_id: previousId } });
-      expect(send.mock.calls[1][0].data).toMatchObject({ properties: { distinct_id: client.get_distinct_id() } });
+      expect(send.mock.calls[1][0].data).toMatchObject({ properties: { distinct_id: client.get_distinct_id(), $geoip_disable: true } });
       client.capture("$snapshot", { screen: "/community" });
       expect(send).toHaveBeenCalledTimes(2);
     } finally {

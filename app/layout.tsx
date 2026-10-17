@@ -5,6 +5,8 @@ import Header from "./components/layout/Header";
 import BottomTab from "./components/layout/BottomTab";
 import QueryProvider from "./components/providers/QueryProvider";
 import AnalyticsObserver from "./components/analytics/AnalyticsObserver";
+import OperatorQaObserver from "./components/analytics/OperatorQaObserver";
+import { isOperatorQaEnabled } from "./lib/analytics/operatorQa";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.sseullae.com"),
@@ -39,17 +41,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const operatorQaEnabled = isOperatorQaEnabled({ nodeEnv: process.env.NODE_ENV,
+    deploymentEnv: process.env.VERCEL_ENV, flag: process.env.POSTHOG_OPERATOR_QA_ENABLED });
   return (
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full">
-        <AnalyticsObserver
+        {operatorQaEnabled ? <OperatorQaObserver /> : <AnalyticsObserver
           projectToken={process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN}
           host={process.env.NEXT_PUBLIC_POSTHOG_HOST}
           analyticsFlag={process.env.NEXT_PUBLIC_POSTHOG_ANALYTICS_ENABLED}
           replayFlag={process.env.NEXT_PUBLIC_POSTHOG_REPLAY_ENABLED}
           deploymentEnv={process.env.VERCEL_ENV}
           nodeEnv={process.env.NODE_ENV}
-        />
+        />}
         <QueryProvider>
           <div className="app-shell mx-auto flex min-h-dvh w-full max-w-[var(--app-frame-max-width)] flex-col bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.04)]">
             <Header />
