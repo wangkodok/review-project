@@ -131,11 +131,13 @@ function FilterRail({ children }: { children: ReactNode }) {
 }
 
 function FilterButton({
+  analyticsAction,
   active,
   disabled,
   label,
   onClick,
 }: {
+  analyticsAction: "region_open" | "category_open";
   active: boolean;
   disabled: boolean;
   label: string;
@@ -143,6 +145,7 @@ function FilterButton({
 }) {
   return (
     <button
+      data-analytics-action={analyticsAction}
       aria-haspopup="dialog"
       className={`flex h-[33px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border px-[15px] text-base leading-[23px] disabled:text-neutral-300 ${
         active
@@ -229,6 +232,7 @@ export default function ReviewListControls({
         {/* 최신순 */}
         <div className="relative">
           <button
+            data-analytics-action="sort_change"
             aria-expanded={isSortMenuOpen}
             aria-haspopup="menu"
             className={`flex h-10 items-center gap-[5px] whitespace-nowrap text-base text-[#121212] ${
@@ -269,12 +273,14 @@ export default function ReviewListControls({
       <div className="flex min-h-[55px] items-center gap-2 px-4 pb-2">
         <FilterRail>
           <FilterButton
+            analyticsAction="region_open"
             active={regionActive}
             disabled={regionDisabled}
             label={regionLabel}
             onClick={onRegionClick}
           />
           <FilterButton
+            analyticsAction="category_open"
             active={categoryActive}
             disabled={categoryDisabled}
             label={categoryLabel}
@@ -282,6 +288,7 @@ export default function ReviewListControls({
           />
           {photoFilter ? (
             <button
+              data-analytics-action="photo_filter_toggle"
               aria-pressed={photoFilter.active}
               className={`flex h-[33px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border px-[15px] text-base leading-[23px] ${
                 photoFilter.active

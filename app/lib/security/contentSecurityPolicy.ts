@@ -1,4 +1,7 @@
+import { ANALYTICS_APP_ORIGIN, getAnalyticsConfig, type AnalyticsConfig } from "../analytics/config";
+
 type ContentSecurityPolicyEnvironment = {
+  analyticsConfig?: AnalyticsConfig | null;
   nodeEnv?: string;
   reviewImagePublicBaseUrl?: string;
   r2AccountId?: string;
@@ -71,6 +74,12 @@ export function buildContentSecurityPolicy(
     environment.reviewImagePublicBaseUrl,
   );
   const r2UploadOrigin = getR2UploadOrigin(environment);
+  const analytics = environment.analyticsConfig;
+  const analyticsOrigin = analytics && getAnalyticsConfig({
+    nodeEnv: environment.nodeEnv, deploymentEnv: "production", appOrigin: ANALYTICS_APP_ORIGIN,
+    analyticsFlag: analytics.analytics === true ? "true" : "false", replayFlag: analytics.replay ? "true" : "false",
+    projectToken: analytics.projectToken, host: analytics.apiHost,
+  })?.apiHost;
 
   return [
     "default-src 'self'",
@@ -78,7 +87,7 @@ export function buildContentSecurityPolicy(
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${reviewImageBaseUrl ? ` ${reviewImageBaseUrl.origin}` : ""}`,
     "font-src 'self' data:",
-    `connect-src 'self'${isDevelopment ? " ws: wss:" : ""}${r2UploadOrigin ? ` ${r2UploadOrigin}` : ""}`,
+    `connect-src 'self'${isDevelopment ? " ws: wss:" : ""}${r2UploadOrigin ? ` ${r2UploadOrigin}` : ""}${analyticsOrigin ? ` ${analyticsOrigin}` : ""}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

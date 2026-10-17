@@ -1,4 +1,5 @@
 "use client";
+import { recordAnalyticsNavigation } from "@/app/lib/analytics/interactions";
 
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -114,6 +115,7 @@ export default function ProfileInfo() {
           </div>
 
           <Link
+            onNavigate={() => recordAnalyticsNavigation("profile_open")}
             className="inline-flex min-h-12 shrink-0 items-center justify-end gap-1 pl-2.5 text-[15px] font-semibold leading-[22px] text-[#121212] active:text-[#777777]"
             href="/my/profile"
           >
@@ -137,6 +139,7 @@ export default function ProfileInfo() {
 
       <div aria-label="내 정보 메뉴" className="border-t border-[#dbdbdb]">
         <Link
+          onNavigate={() => recordAnalyticsNavigation("my_posts_open")}
           className="flex h-14 items-center justify-between border-b border-[#dbdbdb] px-4 text-[#121212] active:bg-[#f7f7f7]"
           href="/my/posts"
         >

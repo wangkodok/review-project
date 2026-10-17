@@ -45,6 +45,9 @@ describe("ReviewListControls", () => {
     expect(html.indexOf("카테고리")).toBeLessThan(html.indexOf("사진 있는 리뷰"));
     expect(html).toContain("전체 초기화: 지역, 카테고리, 사진 조건 해제");
     expect(html).toContain("전체 초기화");
+    for (const action of ["region_open", "category_open", "sort_change", "photo_filter_toggle"]) {
+      expect(html).toContain(`data-analytics-action="${action}"`);
+    }
   });
 
   it("allows native horizontal touch scrolling on mobile", () => {

@@ -1,4 +1,5 @@
 "use client";
+import { recordAnalyticsNavigation } from "@/app/lib/analytics/interactions";
 
 import { Search } from "lucide-react";
 import Link from "next/link";
@@ -57,6 +58,7 @@ export default function Header() {
       </h1>
       {pathname === "/community" ? (
         <Link
+          onNavigate={() => recordAnalyticsNavigation("search_open")}
           aria-label="게시글 검색"
           className="-mr-4 flex h-14 w-14 items-center justify-center text-neutral-950 active:bg-neutral-100"
           href="/community/search"

@@ -9,6 +9,13 @@ vi.mock("@/app/components/common/PageBackHeader", () => ({
 import PrivacyPage from "./page";
 
 describe("PrivacyPage", () => {
+  it("discloses_analytics_preparation_without_collection_or_consent_UI", () => {
+    const html = renderToStaticMarkup(createElement(PrivacyPage));
+    expect(html).toContain("현재 이용 통계와 화면 이용 기록(세션 리플레이)을 수집하지 않습니다.");
+    expect(html).toContain("PostHog");
+    expect(html).toContain("검색어");
+    expect(html).not.toContain('type="checkbox"');
+  });
   it("describes the current Google withdrawal policy", () => {
     const html = renderToStaticMarkup(createElement(PrivacyPage));
 

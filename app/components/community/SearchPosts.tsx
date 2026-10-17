@@ -1,4 +1,5 @@
 "use client";
+import { analytics } from "@/app/lib/analytics/runtime";
 
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ChevronDown, Search, X } from "lucide-react";
@@ -407,6 +408,7 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
     setInputError("");
     setInputValue(trimmedKeyword);
     setSubmittedKeyword(trimmedKeyword);
+    analytics.track({ event: "search_submitted", properties: { screen: "/community/search" } });
     setSearchVersion((previous) => previous + 1);
   }
 
@@ -560,7 +562,10 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
                 onCategoryClick={() => setPickerKind("category")}
                 onClearFilters={clearFilters}
                 onRegionClick={() => setPickerKind("region")}
-                onSortChange={setSort}
+                onSortChange={(value) => {
+                  setSort(value);
+                  analytics.track({ event: "filter_changed", properties: { screen: "/community/search", filter: "sort", enabled: value !== "latest" } });
+                }}
                 regionActive={Boolean(regionSlug)}
                 regionDisabled={!regionsQuery.data}
                 regionLabel={selectedRegion?.name ?? "지역"}
@@ -754,6 +759,7 @@ export default function SearchPosts({ isAuthenticated }: { isAuthenticated: bool
         }}
         onClose={() => setPickerKind(null)}
         onConfirm={(value) => {
+          analytics.track({ event: "filter_changed", properties: { screen: "/community/search", filter: pickerKind === "region" ? "region" : "category", enabled: Boolean(value) } });
           if (pickerKind === "region") {
             setRegionSlug(value);
           } else {

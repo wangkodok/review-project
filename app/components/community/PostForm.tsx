@@ -1,4 +1,6 @@
 "use client";
+import { analytics } from "@/app/lib/analytics/runtime";
+import { createAnalyticsOperation } from "@/app/lib/analytics/results";
 
 import { useQuery } from "@tanstack/react-query";
 import { Camera, ChevronDown, LoaderCircle, X } from "lucide-react";
@@ -347,6 +349,9 @@ export default function PostForm({
 
     const selectionVersion = imageSelectionVersionRef.current + 1;
     imageSelectionVersionRef.current = selectionVersion;
+    const record = createAnalyticsOperation(analytics, () => selectionVersion === imageSelectionVersionRef.current);
+    const screen = isEditMode ? "/community/[postId]/edit" : "/community/write";
+    let analyticsStage: "optimizing" | "uploading" = "optimizing";
     setIsImageProcessing(true);
     imageProgressStageRef.current = "optimizing";
     setImageProgressStage("optimizing");
@@ -360,6 +365,8 @@ export default function PostForm({
       }
 
       const previousPreparedId = preparedImageIdRef.current;
+      record({ event: "review_image_result", properties: { screen, stage: "optimizing", result: "success" } });
+      analyticsStage = "uploading";
 
       if (previousPreparedId) {
         const canceled = await cancelReviewImageUpload(previousPreparedId);
@@ -397,10 +404,12 @@ export default function PostForm({
       }
 
       setPreparedImage(readyImage.imageId);
+      record({ event: "review_image_result", properties: { screen, stage: "uploading", result: "success" } });
       replaceSelectedImage(readyImage);
       setErrorMessage("");
     } catch (error) {
       if (selectionVersion === imageSelectionVersionRef.current) {
+        record({ event: "review_image_result", properties: { screen, stage: analyticsStage, result: "failed", error: "image" } });
         const reservedImageId = preparedImageIdRef.current;
         const shouldCancelReservation =
           !(
@@ -533,6 +542,10 @@ export default function PostForm({
       return;
     }
 
+    const record = createAnalyticsOperation(analytics);
+    const analyticsContext = { screen: isEditMode ? "/community/[postId]/edit" : "/community/write", mode: isEditMode ? "edit" as const : "create" as const,
+      hasImage: Boolean(selectedImage || (initialImage && !isInitialImageRemoved)) };
+    record({ event: "review_save_started", properties: analyticsContext });
     setIsSubmitting(true);
     setErrorMessage("");
     setImageErrorMessage("");
@@ -563,6 +576,8 @@ export default function PostForm({
       const result = (await response.json()) as PostFormResponse;
 
       if (!response.ok || !result.success || !result.data) {
+        record({ event: "review_save_failed", properties: { ...analyticsContext,
+          error: response.status === 401 ? "auth" : response.status === 409 ? "conflict" : response.status === 429 ? "rate_limit" : response.status >= 500 ? "server" : "validation" } });
         if (result.code === "IMAGE_EXPIRED" || result.code === "INVALID_REVIEW_IMAGE") {
           setPreparedImage(null);
           replaceSelectedImage(null);
@@ -574,6 +589,7 @@ export default function PostForm({
       }
 
       preparedImageIdRef.current = null;
+      record({ event: "review_save_succeeded", properties: analyticsContext });
       selectedImageRef.current = null;
       router.replace(
         `/community/${result.data.post.id}${
@@ -582,6 +598,7 @@ export default function PostForm({
       );
     } catch (error) {
       setConfirmMode(null);
+      record({ event: "review_save_failed", properties: { ...analyticsContext, error: "network" } });
       setErrorMessage(
         error instanceof ClientReviewImageError
           ? error.message
@@ -741,6 +758,7 @@ export default function PostForm({
           <div className="flex min-h-12 items-center gap-2">
             {imageUploadEnabled ? (
               <button
+                data-analytics-action="image_pick"
                 aria-label={visibleImageUrl ? "대표 사진 변경" : "대표 사진 선택"}
                 className="grid h-14 w-14 shrink-0 place-items-center border border-[#dbdbdb] bg-neutral-100 text-neutral-500 disabled:text-neutral-300"
                 disabled={isSubmitting || isImageProcessing}

@@ -3,6 +3,8 @@
 import { ThumbsUp } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import ReviewWriteLoginDialog from "@/app/components/auth/ReviewWriteLoginDialog";
+import { analytics } from "@/app/lib/analytics/runtime";
+import { createAnalyticsOperation } from "@/app/lib/analytics/results";
 
 type LikeResponse = {
   success: boolean;
@@ -44,7 +46,10 @@ export default function LikeButton({
       return;
     }
 
+    const record = createAnalyticsOperation(analytics);
+    const screen = "/community/[postId]";
     if (!isAuthenticated) {
+      record({ event: "like_result", properties: { screen, result: "login_required" } });
       setMessage("");
       setIsLoginDialogOpen(true);
       return;
@@ -60,13 +65,16 @@ export default function LikeButton({
       const result = (await response.json()) as LikeResponse;
 
       if (!response.ok || !result.success || !result.data) {
+        record({ event: "like_result", properties: { screen, result: "failed" } });
         setMessage(result.message || "좋아요 처리에 실패했습니다.");
         return;
       }
 
       setIsLiked(result.data.liked);
       setLikeCount(result.data.likeCount);
+      record({ event: "like_result", properties: { screen, result: result.data.liked ? "added" : "removed" } });
     } catch {
+      record({ event: "like_result", properties: { screen, result: "failed" } });
       setMessage("좋아요 처리에 실패했습니다.");
     } finally {
       setIsPending(false);
@@ -76,6 +84,7 @@ export default function LikeButton({
   return (
     <div className="contents">
       <button
+        data-analytics-action="like_click"
         aria-expanded={isAuthenticated ? undefined : isLoginDialogOpen}
         aria-haspopup={isAuthenticated ? undefined : "dialog"}
         aria-pressed={isLiked}

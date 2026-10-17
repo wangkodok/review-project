@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { ANALYTICS_APP_ORIGIN, getAnalyticsConfig } from "./app/lib/analytics/config";
 import {
   buildContentSecurityPolicy,
   getReviewImagePublicBaseUrl,
@@ -8,6 +9,15 @@ const reviewImageBaseUrl = getReviewImagePublicBaseUrl(
   process.env.REVIEW_IMAGE_PUBLIC_BASE_URL,
 );
 const contentSecurityPolicy = buildContentSecurityPolicy({
+  analyticsConfig: getAnalyticsConfig({
+    appOrigin: ANALYTICS_APP_ORIGIN,
+    deploymentEnv: process.env.VERCEL_ENV,
+    nodeEnv: process.env.NODE_ENV,
+    projectToken: process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
+    host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+    analyticsFlag: process.env.NEXT_PUBLIC_POSTHOG_ANALYTICS_ENABLED,
+    replayFlag: process.env.NEXT_PUBLIC_POSTHOG_REPLAY_ENABLED,
+  }),
   nodeEnv: process.env.NODE_ENV,
   reviewImagePublicBaseUrl: process.env.REVIEW_IMAGE_PUBLIC_BASE_URL,
   r2AccountId: process.env.R2_ACCOUNT_ID,

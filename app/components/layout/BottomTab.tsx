@@ -1,4 +1,5 @@
 "use client";
+import { recordAnalyticsNavigation } from "@/app/lib/analytics/interactions";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -52,6 +53,7 @@ export default function BottomTab() {
 
         return (
           <Link
+            onNavigate={tab.href === "/my" ? () => recordAnalyticsNavigation("my_open") : undefined}
             aria-current={isActive ? "page" : undefined}
             // className="flex flex-col items-center justify-center gap-1 text-xs font-semibold"
             className={`flex h-[55px] min-w-0 flex-col items-center justify-center gap-[3px] text-xs leading-[17px] ${

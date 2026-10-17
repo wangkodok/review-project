@@ -1,4 +1,6 @@
 "use client";
+import { analytics } from "@/app/lib/analytics/runtime";
+import { recordAnalyticsNavigation } from "@/app/lib/analytics/interactions";
 
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ChevronDown, PenLine } from "lucide-react";
@@ -219,10 +221,16 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
           onCategoryClick={() => setPickerKind("category")}
           onClearFilters={clearFilters}
           onRegionClick={() => setPickerKind("region")}
-          onSortChange={setSort}
+          onSortChange={(value) => {
+            setSort(value);
+            analytics.track({ event: "filter_changed", properties: { screen: "/community", filter: "sort", enabled: value !== "latest" } });
+          }}
           photoFilter={{
             active: withImage,
-            onToggle: () => setWithImage((current) => !current),
+            onToggle: () => {
+              setWithImage(!withImage);
+              analytics.track({ event: "filter_changed", properties: { screen: "/community", filter: "photo", enabled: !withImage } });
+            },
           }}
           regionActive={Boolean(regionSlug)}
           regionDisabled={!regionsQuery.data}
@@ -307,6 +315,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
       <div className="pointer-events-none fixed bottom-20 left-1/2 z-20 flex w-full max-w-[var(--app-frame-max-width)] -translate-x-1/2 justify-end px-4">
         {isAuthenticated ? (
           <Link
+            onNavigate={() => recordAnalyticsNavigation("review_write")}
             aria-label="리뷰쓰기"
             className="pointer-events-auto inline-flex h-[34px] items-center justify-center gap-1 rounded-full bg-[#3399ff] px-[13px] text-sm leading-5 text-white shadow-sm active:bg-[#2186e8]"
             href="/community/write"
@@ -316,6 +325,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
           </Link>
         ) : (
           <button
+            data-analytics-action="review_write"
             aria-label="리뷰쓰기"
             className="pointer-events-auto inline-flex h-[34px] items-center justify-center gap-1 rounded-full bg-[#3399ff] px-[13px] text-sm leading-5 text-white shadow-sm active:bg-[#2186e8]"
             onClick={() => setIsLoginDialogOpen(true)}
@@ -350,6 +360,7 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
         }}
         onClose={() => setPickerKind(null)}
         onConfirm={(value) => {
+          analytics.track({ event: "filter_changed", properties: { screen: "/community", filter: pickerKind === "region" ? "region" : "category", enabled: Boolean(value) } });
           if (pickerKind === "region") {
             setRegionSlug(value);
           } else {

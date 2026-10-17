@@ -1,4 +1,5 @@
 "use client";
+import { recordAnalyticsNavigation } from "@/app/lib/analytics/interactions";
 
 import { Eye, ThumbsUp } from "lucide-react";
 import Image from "next/image";
@@ -71,6 +72,7 @@ export default function PostRows({
           <article className="border-b border-[#dbdbdb] px-4 py-4" key={post.id}>
             <div className="mb-4 flex h-7 items-center justify-between gap-3">
               <Link
+                onNavigate={() => recordAnalyticsNavigation("post_open")}
                 aria-label={`${displayStoreName} 리뷰 상세 보기`}
                 className="flex min-w-0 flex-1 gap-[5px]"
                 href={detailHref}
@@ -108,7 +110,7 @@ export default function PostRows({
               ) : null}
             </div>
 
-            <Link className="block active:bg-neutral-50" href={detailHref}>
+            <Link onNavigate={() => recordAnalyticsNavigation("post_open")} className="block active:bg-neutral-50" href={detailHref}>
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <h2 className="line-clamp-2 break-words text-xl font-bold leading-7 text-[#121212]">
