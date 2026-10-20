@@ -9,12 +9,17 @@ vi.mock("@/app/components/common/PageBackHeader", () => ({
 import PrivacyPage from "./page";
 
 describe("PrivacyPage", () => {
-  it("discloses_analytics_preparation_without_collection_or_consent_UI", () => {
+  it("discloses_disabled_by_default_cookieless_analytics_without_legal_exemptions_or_consent_UI", () => {
     const html = renderToStaticMarkup(createElement(PrivacyPage));
-    expect(html).toContain("현재 이용 통계와 화면 이용 기록(세션 리플레이)을 수집하지 않습니다.");
+    expect(html).toContain("분석 수집은 기본 설정에서 꺼져 있습니다.");
     expect(html).toContain("PostHog");
+    for (const fact of ["쿠키리스", "화면 조회", "리뷰 작성 진입", "저장 시도", "저장 성공", "저장 실패",
+      "IP 주소", "브라우저 정보", "국외 처리", "보유기간", "localStorage", "화면 녹화는 사용하지 않습니다."]) {
+      expect(html).toContain(fact);
+    }
     expect(html).toContain("검색어");
     expect(html).not.toContain('type="checkbox"');
+    expect(html).not.toMatch(/IP가 전혀 전달되지|법적 의무가 없|동의가 필요 없|행동 분석 SDK는 사용하지 않습니다/);
   });
   it("describes the current Google withdrawal policy", () => {
     const html = renderToStaticMarkup(createElement(PrivacyPage));

@@ -1,5 +1,12 @@
 import { ANALYTICS_APP_ORIGIN, type AnalyticsMode } from "./config";
 
+export const ANALYTICS_ENVIRONMENTS = ["production", "test"] as const;
+export type AnalyticsEnvironment = typeof ANALYTICS_ENVIRONMENTS[number];
+export const ANALYTICS_EVENTS = [
+  "$pageview", "review_write_opened", "review_save_started", "review_save_succeeded", "review_save_failed",
+] as const;
+
+// Legacy inputs remain type-compatible with existing UI; the sender rejects them.
 export const ANALYTICS_ACTIONS = ["review_write", "search_open", "region_open", "category_open",
   "photo_filter_toggle", "sort_change", "post_open", "like_click", "image_pick", "my_open",
   "profile_open", "my_posts_open", "share"] as const;
@@ -49,63 +56,27 @@ function member<T extends string>(value: unknown, allowed: readonly T[]): value 
 
 export function sanitizeAnalyticsEvent(input: unknown, mode: AnalyticsMode): AnalyticsEnvelope | null {
   try {
-    if (!mode.analytics || !isRecord(input)) return null;
+    const environment = mode.environment;
+    if (!mode.analytics || mode.replay || !member(environment, ANALYTICS_ENVIRONMENTS) || !isRecord(input)) return null;
     const event = input.event;
+    if (!member(event, ANALYTICS_EVENTS)) return null;
     const p = input.properties;
     if (!isRecord(p)) return null;
     const location = p.screen;
     const screen = typeof location === "string" ? normalizeAnalyticsLocation(location) : null;
     if (!screen) return null;
-    const properties: Record<string, unknown> = { screen };
-    switch (event) {
-      case "$pageview": case "review_write_opened": case "search_submitted": break;
-      case "ui_action": {
-        const action = p.action;
-        if (!member(action, ANALYTICS_ACTIONS)) return null;
-        properties.action = action;
-        break;
-      }
-      case "review_save_started": case "review_save_succeeded": case "review_save_failed": {
-        const saveMode = p.mode;
-        const hasImage = p.hasImage;
-        if (!member(saveMode, ["create", "edit"]) || typeof hasImage !== "boolean") return null;
-        properties.mode = saveMode;
-        properties.hasImage = hasImage;
-        if (event === "review_save_failed") {
-          const error = p.error;
-          if (!member(error, errors)) return null;
-          properties.error = error;
-        }
-        break;
-      }
-      case "review_image_result": {
-        const stage = p.stage;
-        const result = p.result;
+    const properties: Record<string, unknown> = { screen, environment };
+    if (event === "review_save_started" || event === "review_save_succeeded" || event === "review_save_failed") {
+      const saveMode = p.mode;
+      const hasImage = p.hasImage;
+      if (!member(saveMode, ["create", "edit"]) || typeof hasImage !== "boolean") return null;
+      properties.mode = saveMode;
+      properties.hasImage = hasImage;
+      if (event === "review_save_failed") {
         const error = p.error;
-        if (!member(stage, ["optimizing", "uploading"]) || !member(result, ["success", "failed"])) return null;
-        properties.stage = stage;
-        properties.result = result;
-        if (error !== undefined) {
-          if (!member(error, errors)) return null;
-          properties.error = error;
-        }
-        break;
+        if (!member(error, errors)) return null;
+        properties.error = error;
       }
-      case "like_result": {
-        const result = p.result;
-        if (!member(result, ["login_required", "added", "removed", "failed"])) return null;
-        properties.result = result;
-        break;
-      }
-      case "filter_changed": {
-        const filter = p.filter;
-        const enabled = p.enabled;
-        if (!member(filter, ["region", "category", "photo", "sort"]) || typeof enabled !== "boolean") return null;
-        properties.filter = filter;
-        properties.enabled = enabled;
-        break;
-      }
-      default: return null;
     }
     return { event, properties };
   } catch {

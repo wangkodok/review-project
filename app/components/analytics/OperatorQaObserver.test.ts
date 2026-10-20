@@ -52,6 +52,7 @@ it("keeps_StrictMode_pre_start_cleanup_safe_and_stops_a_pending_import_on_unmoun
   const pending = form.props.onSubmit({ preventDefault() {} });
   await form.props.onSubmit({ preventDefault() {} });
   expect(state.load).toHaveBeenCalledTimes(1);
+  expect(state.load.mock.calls[0][0]).toMatchObject({ environment: "test" });
   if (cleanup) cleanup();
   expect(state.status).toHaveBeenLastCalledWith("stopped");
   expect(state.load.mock.calls[0][1]()).toBe(false);

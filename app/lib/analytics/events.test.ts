@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { normalizeAnalyticsLocation, sanitizeAnalyticsEvent } from "./events";
 
-const on = { analytics: true, replay: false };
+const on = { analytics: true, replay: false, environment: "production" as const };
+const names = ["$pageview", "review_write_opened", "review_save_started", "review_save_succeeded", "review_save_failed"];
+const save = { screen: "/community/write", mode: "create", hasImage: false };
+
 describe("analytics location privacy", () => {
   it("normalizes_ids_and_removes_query_hash", () => {
     for (const suffix of ["", "/edit", "/report"]) {
-      expect(normalizeAnalyticsLocation(`/community/synthetic-post${suffix}?email=synthetic#secret`))
-        .toBe(`/community/[postId]${suffix}`);
+      expect(normalizeAnalyticsLocation("/community/synthetic-post" + suffix + "?email=synthetic#secret"))
+        .toBe("/community/[postId]" + suffix);
     }
     for (const path of ["/community", "/community/write", "/community/search", "/my", "/my/posts",
       "/my/profile", "/my/withdraw", "/my/withdraw/complete", "/terms", "/privacy"]) {
-      expect(normalizeAnalyticsLocation(`https://www.sseullae.com${path}?code=synthetic#fragment`)).toBe(path);
+      expect(normalizeAnalyticsLocation("https://www.sseullae.com" + path + "?code=synthetic#fragment")).toBe(path);
     }
   });
   it("rejects_api_external_unknown_and_encoded_paths", () => {
@@ -21,83 +24,67 @@ describe("analytics location privacy", () => {
   });
 });
 
-describe("analytics event allowlist", () => {
-  it("does_not_revive_analytics_in_replay_only_mode", () => {
-    expect(sanitizeAnalyticsEvent({ event: "$pageview", properties: { screen: "/community" } },
-      { analytics: false, replay: true })).toBeNull();
+describe("five_event_allowlist", () => {
+  it.each(names)("sanitizes_%s_without_identifiers_or_unapproved_properties", (event) => {
+    const properties = { ...save, screen: "/community/private-post?email=private#private", error: "network",
+      environment: "test", email: "private@example.test", userId: "private-member", nickname: "private-name",
+      review: "private-review", text: "private-text", image: "private-image", photo: "private-photo",
+      postId: "private-post", $set: { email: "private" }, $current_url: "private", nested: { value: "private" } };
+    const clean = sanitizeAnalyticsEvent({ event, userId: "private", properties }, on);
+    const expected = { screen: "/community/[postId]", environment: "production",
+      ...(event.startsWith("review_save_") ? { mode: "create", hasImage: false } : {}),
+      ...(event === "review_save_failed" ? { error: "network" } : {}) };
+    expect(clean).toEqual({ event, properties: expected });
+    expect(JSON.stringify(clean)).not.toMatch(/private|userId|nickname|review":|photo|image":|\$set|current_url/);
   });
-  it("removes_unapproved_properties_and_raw_identifiers", () => {
-    const clean = sanitizeAnalyticsEvent({ event: "ui_action", userId: "synthetic", properties: {
-      screen: "/community/synthetic?secret=private", action: "like_click", email: "synthetic@example.test",
-      $set: { email: "synthetic" }, $current_url: "private", $initial_referrer: "private",
-      postId: "synthetic", nested: { raw: "private" }, text: "private",
-    } }, on);
-    expect(clean).toEqual({ event: "ui_action", properties: { screen: "/community/[postId]", action: "like_click" } });
-    expect(JSON.stringify(clean)).not.toMatch(/synthetic|private|email|postId":/);
+  it.each(["production", "test"])("derives_environment_%s_from_configuration_only", (environment) => {
+    expect(sanitizeAnalyticsEvent({ event: "$pageview", properties: { screen: "/community", environment: "forged" } },
+      { ...on, environment })).toEqual({ event: "$pageview", properties: { screen: "/community", environment } });
   });
-  it("accepts_only_known_actions_and_events", () => {
-    for (const action of ["review_write", "search_open", "region_open", "category_open", "photo_filter_toggle",
-      "sort_change", "post_open", "like_click", "image_pick", "my_open", "profile_open", "my_posts_open", "share"]) {
-      expect(sanitizeAnalyticsEvent({ event: "ui_action", properties: { screen: "/community", action } }, on)?.properties.action).toBe(action);
+  it("rejects_missing_or_unknown_environment_and_disabled_modes", () => {
+    const event = { event: "$pageview", properties: { screen: "/community" } };
+    for (const environment of [undefined, null, "", "preview", "Production", " test "]) {
+      expect(sanitizeAnalyticsEvent(event, { ...on, environment } as typeof on)).toBeNull();
     }
-    for (const input of [null, {}, { event: "$snapshot", properties: { screen: "/community" } },
-      { event: "ui_action", properties: { screen: "/community", action: "private" } },
-      { event: "$pageview", properties: { screen: "/api/auth" } }]) {
+    expect(sanitizeAnalyticsEvent(event, { ...on, analytics: false })).toBeNull();
+    expect(sanitizeAnalyticsEvent(event, { ...on, replay: true })).toBeNull();
+  });
+  it("drops_all_legacy_or_automatic_events_in_both_environments", () => {
+    for (const environment of ["production", "test"]) {
+      for (const event of ["ui_action", "search_submitted", "filter_changed", "like_result", "review_image_result",
+        "$identify", "$snapshot", "$autocapture", "qa_pageview", "qa_ui_action", "unknown"]) {
+        expect(sanitizeAnalyticsEvent({ event, properties: { ...save, action: "review_write", filter: "photo", enabled: true } },
+          { ...on, environment })).toBeNull();
+      }
+    }
+  });
+  it("validates_save_fields_without_coercion_and_only_fixed_error_types", () => {
+    for (const event of names.filter((name) => name.startsWith("review_save_"))) {
+      const properties = { ...save, error: "network" };
+      expect(sanitizeAnalyticsEvent({ event, properties: { ...properties, hasImage: "false" } }, on)).toBeNull();
+      expect(sanitizeAnalyticsEvent({ event, properties: { ...properties, mode: "private" } }, on)).toBeNull();
+    }
+    for (const error of ["auth", "network", "validation", "image", "conflict", "rate_limit", "server", "unknown"]) {
+      expect(sanitizeAnalyticsEvent({ event: "review_save_failed", properties: { ...save, error } }, on)?.properties.error).toBe(error);
+    }
+    expect(sanitizeAnalyticsEvent({ event: "review_save_failed", properties: { ...save, error: "private response" } }, on)).toBeNull();
+    expect(sanitizeAnalyticsEvent({ event: "review_save_failed", properties: save }, on)).toBeNull();
+  });
+  it("rejects_malformed_events_and_throwing_accessors", () => {
+    for (const input of [null, {}, [], { event: "$pageview", properties: [] },
+      { event: "$pageview", properties: { screen: "/api/auth" } }, { get event() { throw new Error("private"); } }]) {
       expect(sanitizeAnalyticsEvent(input, on)).toBeNull();
     }
   });
-  it("validates_result_shapes_without_coercion", () => {
-    const screen = "/community/write";
-    for (const event of ["$pageview", "review_write_opened", "search_submitted"]) {
-      expect(sanitizeAnalyticsEvent({ event, properties: { screen } }, on)).toEqual({ event, properties: { screen } });
-    }
-    for (const event of ["review_save_started", "review_save_succeeded", "review_save_failed"]) {
-      const properties = { screen, mode: "create", hasImage: false, ...(event.endsWith("failed") ? { error: "network" } : {}) };
-      expect(sanitizeAnalyticsEvent({ event, properties }, on)).toEqual({ event, properties });
-      expect(sanitizeAnalyticsEvent({ event, properties: { ...properties, hasImage: "false" } }, on)).toBeNull();
-    }
-    for (const error of ["auth", "network", "validation", "image", "conflict", "rate_limit", "server", "unknown"]) {
-      expect(sanitizeAnalyticsEvent({ event: "review_image_result", properties: { screen, stage: "uploading", result: "failed", error } }, on)?.properties.error).toBe(error);
-    }
-    for (const result of ["login_required", "added", "removed", "failed"]) {
-      expect(sanitizeAnalyticsEvent({ event: "like_result", properties: { screen, result } }, on)?.properties.result).toBe(result);
-    }
-    for (const filter of ["region", "category", "photo", "sort"]) {
-      expect(sanitizeAnalyticsEvent({ event: "filter_changed", properties: { screen, filter, enabled: true } }, on)?.properties.filter).toBe(filter);
-    }
-    expect(sanitizeAnalyticsEvent({ event: "review_image_result", properties: { screen, stage: "raw", result: "failed" } }, on)).toBeNull();
-    expect(sanitizeAnalyticsEvent({ event: "review_save_failed", properties: { screen, mode: "edit", hasImage: true, error: "raw response" } }, on)).toBeNull();
-  });
-  it("fails_closed_when_accessors_throw", () => {
-    expect(sanitizeAnalyticsEvent({ get event() { throw new Error("synthetic"); } }, on)).toBeNull();
-  });
-  it("validates_and_returns_the_same_snapshot_of_each_field", () => {
-    const cases = [
-      { event: "ui_action", values: { action: "like_click" }, field: "action" },
-      { event: "review_save_failed", values: { mode: "edit", hasImage: false, error: "auth" }, field: "mode" },
-      { event: "review_save_started", values: { mode: "create", hasImage: true }, field: "hasImage" },
-      { event: "review_save_failed", values: { mode: "create", hasImage: false, error: "server" }, field: "error" },
-      { event: "review_image_result", values: { stage: "uploading", result: "success" }, field: "stage" },
-      { event: "like_result", values: { result: "added" }, field: "result" },
-      { event: "filter_changed", values: { filter: "photo", enabled: true }, field: "filter" },
-      { event: "filter_changed", values: { filter: "photo", enabled: true }, field: "enabled" },
-      { event: "$pageview", values: { screen: "/community" }, field: "screen" },
-    ];
-    for (const { event, values, field } of cases) {
-      const expected: Record<string, unknown> = { screen: "/community", ...values };
+  it("validates_and_returns_the_same_snapshot_of_each_allowed_field", () => {
+    for (const field of ["screen", "mode", "hasImage", "error"]) {
+      const expected: Record<string, unknown> = { ...save, error: "auth" };
       let reads = 0;
-      const properties = { ...expected, get [field]() { return ++reads === 1 ? expected[field] : { email: "synthetic-private" }; } };
-      expect(sanitizeAnalyticsEvent({ event, properties }, on)).toEqual({ event, properties: expected });
+      const properties = { ...expected, get [field]() { return ++reads === 1 ? expected[field] : { email: "private" }; } };
+      expect(sanitizeAnalyticsEvent({ event: "review_save_failed", properties }, on)).toEqual({
+        event: "review_save_failed", properties: { ...expected, environment: "production" },
+      });
       expect(reads).toBe(1);
     }
-    let eventReads = 0;
-    let propertyReads = 0;
-    const input = {
-      get event() { return ++eventReads === 1 ? "$pageview" : "synthetic-private"; },
-      get properties() { return ++propertyReads === 1 ? { screen: "/community" } : { screen: "/api/private" }; },
-    };
-    expect(sanitizeAnalyticsEvent(input, on)).toEqual({ event: "$pageview", properties: { screen: "/community" } });
-    expect(eventReads).toBe(1);
-    expect(propertyReads).toBe(1);
   });
 });

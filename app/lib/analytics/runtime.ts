@@ -23,11 +23,16 @@ export function createAnalyticsRuntime(config: AnalyticsConfig | null,
   let location: { key: string; screen: string } | null = null;
   let lastPage: string | null = null;
   const active = () => !!config && !stopped;
+  const capture = (event: AnalyticsEvent) => {
+    if (!active() || !driver || !config) return;
+    const clean = sanitizeAnalyticsEvent(event, config);
+    if (clean) safely(() => driver?.capture(clean));
+  };
   const pageview = () => {
     if (!active() || !driver || !location || lastPage === location.key) return;
     lastPage = location.key;
-    safely(() => driver?.capture({ event: "$pageview", properties: { screen: location!.screen } }));
-    if (location.screen === "/community/write") safely(() => driver?.capture({ event: "review_write_opened", properties: { screen: "/community/write" } }));
+    capture({ event: "$pageview", properties: { screen: location.screen } });
+    if (location.screen === "/community/write") capture({ event: "review_write_opened", properties: { screen: "/community/write" } });
   };
   return {
     start() {
@@ -51,8 +56,7 @@ export function createAnalyticsRuntime(config: AnalyticsConfig | null,
     },
     track(event, epoch = generation) {
       if (!active() || !driver || epoch !== generation || !config) return;
-      const clean = sanitizeAnalyticsEvent(event, config);
-      if (clean) safely(() => driver?.capture(clean));
+      capture(event);
     },
     epoch: () => generation,
     resetIdentity() {

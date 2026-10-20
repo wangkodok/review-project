@@ -1,10 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { createAnalyticsRuntime } from "./runtime";
 vi.mock("./posthogAdapter", () => ({ loadAnalyticsDriver: vi.fn() }));
-const config = { analytics: true, replay: false, projectToken: "phc_synthetic", apiHost: "https://us.i.posthog.com" } as const;
-const event = { event: "search_submitted", properties: { screen: "/community/search" } } as const;
+const config = { analytics: true, replay: false, environment: "production", projectToken: "phc_synthetic", apiHost: "https://us.i.posthog.com" } as const;
+const event = { event: "review_write_opened", properties: { screen: "/community/search" } } as const;
 const driver = () => ({ capture: vi.fn(), resetIdentity: vi.fn(), stop: vi.fn() });
 describe("analytics runtime", () => {
+  it("injects_environment_for_navigation_and_rejects_legacy_events", async () => {
+    const sdk = driver();
+    const runtime = createAnalyticsRuntime({ ...config, environment: "test" }, async () => sdk);
+    runtime.updateLocation("/community/write");
+    await runtime.start();
+    runtime.track({ event: "ui_action", properties: { screen: "/community", action: "review_write" } });
+    expect(sdk.capture.mock.calls.map(([e]) => e)).toEqual([
+      { event: "$pageview", properties: { screen: "/community/write", environment: "test" } },
+      { event: "review_write_opened", properties: { screen: "/community/write", environment: "test" } },
+    ]);
+  });
   it("never_loads_when_off", async () => {
     const load = vi.fn(); const runtime = createAnalyticsRuntime(null, load);
     runtime.updateLocation("/community"); await runtime.start(); runtime.track(event);
@@ -71,7 +82,7 @@ describe("analytics runtime", () => {
     analytics.configure(config, async () => sdk);
     analytics.updateLocation("/community");
     await analytics.start();
-    expect(sdk.capture).toHaveBeenCalledExactlyOnceWith({ event: "$pageview", properties: { screen: "/community" } });
+    expect(sdk.capture).toHaveBeenCalledExactlyOnceWith({ event: "$pageview", properties: { screen: "/community", environment: "production" } });
     expect(loadAnalyticsDriver).not.toHaveBeenCalled();
     analytics.stop(); analytics.track(event);
     expect(sdk.capture).toHaveBeenCalledTimes(1);
