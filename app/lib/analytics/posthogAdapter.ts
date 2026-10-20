@@ -1,5 +1,5 @@
 import type { CaptureResult, PostHogConfig } from "posthog-js";
-import { ANALYTICS_API_ORIGIN, isAnalyticsPrivacyBlocked, type AnalyticsConfig } from "./config";
+import { ANALYTICS_API_ORIGIN, ANALYTICS_APP_ORIGIN, isAnalyticsPrivacyBlocked, type AnalyticsConfig } from "./config";
 import { ANALYTICS_ENVIRONMENTS, sanitizeAnalyticsEvent, type AnalyticsEnvelope } from "./events";
 
 export type AnalyticsDriver = {
@@ -56,9 +56,21 @@ export function buildPostHogOptions(config: AnalyticsConfig, isActive: () => boo
         const clean = sanitizeAnalyticsEvent(input, config);
         const id: unknown = input.properties.distinct_id;
         if (!clean || id !== "$posthog_cookieless" || input.properties.$cookieless_mode !== true) return null;
+        // Cookieless hashing needs browser metadata, never event-supplied copies.
+        const userAgent: unknown = globalThis.navigator?.userAgent;
+        const origin: unknown = globalThis.location?.origin;
+        if (typeof userAgent !== "string" || !userAgent.trim() || typeof origin !== "string" ||
+          Array.from(userAgent).some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) return null;
+        const location = new URL(origin);
+        if (location.origin !== origin || (config.environment === "production"
+          ? origin !== ANALYTICS_APP_ORIGIN
+          : config.environment !== "test" || location.protocol !== "http:" ||
+            !["localhost", "127.0.0.1", "[::1]"].includes(location.hostname))) return null;
         const properties: Record<string, unknown> = {
           ...clean.properties, token: config.projectToken, distinct_id: id, $process_person_profile: false,
           $cookieless_mode: true,
+          $raw_user_agent: userAgent.length > 1000 ? userAgent.substring(0, 997) + "..." : userAgent,
+          $host: location.host,
           // GeoIP enrichment happens on the server, after client-side redaction.
           $geoip_disable: true,
         };

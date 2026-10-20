@@ -9,11 +9,14 @@ vi.mock("posthog-js", () => ({ PostHog: class { constructor() { return sdk; } } 
 const config = { analytics: true, replay: false, environment: "production", projectToken: "phc_synthetic_qa_only", apiHost: "https://us.i.posthog.com" } as const;
 const uuid = "019a0000-0000-7000-8000-000000000001";
 const sentinel = "$posthog_cookieless";
+const userAgent = "Mozilla/5.0 Chrome/140.0.0.0";
 const sdkEvent = () => ({ uuid, event: "$pageview", properties: {
   screen: "/community/private-post?code=private", distinct_id: sentinel, $cookieless_mode: true,
 } });
 beforeEach(() => {
   vi.clearAllMocks(); sdk.init.mockReturnValue(sdk); sdk.shutdown.mockResolvedValue(undefined);
+  vi.stubGlobal("navigator", { userAgent });
+  vi.stubGlobal("location", new URL("https://www.sseullae.com/community?code=not-sent"));
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
@@ -62,18 +65,57 @@ describe("cookieless_PostHog_boundary", () => {
     driver.stop();
   });
   it.each(["production", "test"] as const)("emits_only_exact_cookieless_markers_and_allowed_properties_for_%s", (environment) => {
+    if (environment === "test") vi.stubGlobal("location", new URL("http://localhost:3001/community"));
     const beforeSend = buildPostHogOptions({ ...config, environment }, () => true).before_send as (input: unknown) => unknown;
     const clean = beforeSend({ ...sdkEvent(), timestamp: new Date("2026-10-20T00:00:00Z"), raw: "private", properties: {
       ...sdkEvent().properties, environment: "forged", $session_id: uuid, $window_id: uuid,
       email: "private", userId: "private", memberId: "private", nickname: "private", review: "private", photo: "private",
       $set: { email: "private" }, $set_once: { userId: "private" }, $current_url: "private", $host: "private",
-      $user_agent: "private", $device_id: "private", $ip: "192.0.2.1", $geoip_city_name: "private", nested: { private: true },
+      $raw_user_agent: "private", $user_agent: "private", $device_id: "private", $ip: "192.0.2.1", $geoip_city_name: "private", nested: { private: true },
     } });
     expect(clean).toEqual({ uuid, event: "$pageview", timestamp: new Date("2026-10-20T00:00:00Z"), properties: {
       screen: "/community/[postId]", environment, token: config.projectToken, distinct_id: sentinel,
       $cookieless_mode: true, $process_person_profile: false, $geoip_disable: true,
+      $raw_user_agent: userAgent, $host: environment === "production" ? "www.sseullae.com" : "localhost:3001",
     } });
-    expect(JSON.stringify(clean)).not.toMatch(/private|forged|192\.0\.2|\$set|\$host|\$device_id|\$session_id|\$window_id/);
+    expect(JSON.stringify(clean)).not.toMatch(/private|forged|192\.0\.2|\$set|\$device_id|\$session_id|\$window_id/);
+  });
+  it.each(["", "   ", "Mozilla\nInjected", "Mozilla\u0000Injected", undefined, null, 123])(
+    "drops_cookieless_events_without_a_valid_browser_user_agent_%j", (invalidUserAgent) => {
+      vi.stubGlobal("navigator", { userAgent: invalidUserAgent });
+      const beforeSend = buildPostHogOptions(config, () => true).before_send as (input: unknown) => unknown;
+      expect(beforeSend({ ...sdkEvent(), properties: { ...sdkEvent().properties, $raw_user_agent: userAgent } })).toBeNull();
+    },
+  );
+  it("bounds_the_browser_user_agent_to_the_SDK_limit", () => {
+    vi.stubGlobal("navigator", { userAgent: "a".repeat(1001) });
+    const beforeSend = buildPostHogOptions(config, () => true).before_send as (input: unknown) => unknown;
+    expect(beforeSend(sdkEvent())).toMatchObject({ properties: { $raw_user_agent: "a".repeat(997) + "..." } });
+  });
+  it.each([
+    ["production", "https://sseullae.com"], ["production", "https://www.sseullae.com.evil.test"],
+    ["production", "http://localhost:3001"], ["production", "https://preview.vercel.app"],
+    ["test", "https://www.sseullae.com"], ["test", "http://192.168.1.2:3001"],
+    ["test", "http://localhost.evil.test:3001"], ["test", "https://localhost:3001"],
+  ] as const)("rejects_unapproved_%s_origin_%s_even_when_event_host_is_forged", (environment, origin) => {
+    vi.stubGlobal("location", new URL(origin));
+    const beforeSend = buildPostHogOptions({ ...config, environment }, () => true).before_send as (input: unknown) => unknown;
+    expect(beforeSend({ ...sdkEvent(), properties: { ...sdkEvent().properties, $host: "www.sseullae.com" } })).toBeNull();
+  });
+  it.each(["http://localhost:3001", "http://127.0.0.1:3001", "http://[::1]:3001"])(
+    "uses_only_the_validated_QA_host_from_%s", (origin) => {
+      vi.stubGlobal("location", new URL(origin + "/community?email=private#private"));
+      const beforeSend = buildPostHogOptions({ ...config, environment: "test" }, () => true).before_send as (input: unknown) => unknown;
+      const output = beforeSend(sdkEvent());
+      expect(output).toMatchObject({ properties: { $host: new URL(origin).host, $raw_user_agent: userAgent, environment: "test" } });
+      expect(JSON.stringify(output)).not.toMatch(/private|email|current_url/);
+    },
+  );
+  it.each([undefined, { origin: "null" }, { origin: "https://user@www.sseullae.com" },
+    { origin: "https://www.sseullae.com/private" }])("drops_events_without_a_valid_browser_origin_%j", (location) => {
+    vi.stubGlobal("location", location);
+    const beforeSend = buildPostHogOptions(config, () => true).before_send as (input: unknown) => unknown;
+    expect(beforeSend(sdkEvent())).toBeNull();
   });
   it("rejects_forged_or_missing_protocol_markers_and_non_funnel_events", () => {
     const beforeSend = buildPostHogOptions(config, () => true).before_send as (input: unknown) => unknown;
@@ -133,7 +175,8 @@ describe("cookieless_PostHog_boundary", () => {
       }
       expect(send.mock.calls.map(([request]) => (request.data as { event: string }).event)).toEqual(sequence);
       for (const [request] of send.mock.calls) {
-        expect(request.data).toMatchObject({ properties: { distinct_id: sentinel, $cookieless_mode: true, environment: "production" } });
+        expect(request.data).toMatchObject({ properties: { distinct_id: sentinel, $cookieless_mode: true, environment: "production",
+          $raw_user_agent: userAgent, $host: "www.sseullae.com" } });
         expect(JSON.stringify(request.data)).not.toMatch(/private|email|memberId|photo|review":|current_url|referrer|\$set/);
       }
       client.reset(true);
@@ -176,10 +219,12 @@ describe("cookieless_PostHog_boundary", () => {
     client.init(config.projectToken, { ...buildPostHogOptions(config, () => true), request_batching: false, disable_compression: true });
     try {
       expect(client.capture("$pageview", { screen: "/community" })).toMatchObject({
-        event: "$pageview", properties: { environment: "production", $cookieless_mode: true },
+        event: "$pageview", properties: { environment: "production", $cookieless_mode: true,
+          $raw_user_agent: userAgent, $host: "www.sseullae.com" },
       });
       expect(client.capture("review_save_succeeded", { screen: "/community/write", mode: "create", hasImage: false })).toMatchObject({
-        event: "review_save_succeeded", properties: { environment: "production", $cookieless_mode: true },
+        event: "review_save_succeeded", properties: { environment: "production", $cookieless_mode: true,
+          $raw_user_agent: userAgent, $host: "www.sseullae.com" },
       });
       client.reset(true);
       expect(client.get_distinct_id()).toBe(sentinel);
