@@ -1,4 +1,6 @@
-export type AnalyticsMode = { analytics: boolean; replay: boolean };
+import type { AnalyticsEnvironment } from "./events";
+
+export type AnalyticsMode = { analytics: boolean; replay: boolean; environment?: unknown };
 export type AnalyticsConfigInput = {
   deploymentEnv?: string;
   nodeEnv?: string;
@@ -8,10 +10,26 @@ export type AnalyticsConfigInput = {
   analyticsFlag?: string;
   replayFlag?: string;
 };
-export type AnalyticsConfig = { analytics: true; replay: false; projectToken: string; apiHost: string };
+export type AnalyticsConfig = {
+  analytics: true; replay: false; environment: AnalyticsEnvironment; projectToken: string; apiHost: string;
+};
 
 export const ANALYTICS_APP_ORIGIN = "https://www.sseullae.com";
 export const ANALYTICS_API_ORIGIN = "https://us.i.posthog.com";
+
+export function isAnalyticsPrivacyBlocked(): boolean {
+  try {
+    const browser = typeof navigator === "undefined" ? undefined : navigator as Navigator & {
+      msDoNotTrack?: unknown; globalPrivacyControl?: unknown;
+    };
+    const legacyWindow = typeof window === "undefined" ? undefined : window as Window & { doNotTrack?: unknown };
+    // The SDK's always mode bypasses its own consent/DNT check.
+    return [browser?.doNotTrack, browser?.msDoNotTrack, browser?.globalPrivacyControl, legacyWindow?.doNotTrack]
+      .some((value) => value === true || value === "true" || value === 1 || value === "1" || value === "yes");
+  } catch {
+    return true;
+  }
+}
 
 export function getAnalyticsConfig(input: AnalyticsConfigInput): AnalyticsConfig | null {
   const analytics = input.analyticsFlag === "true";
@@ -25,7 +43,7 @@ export function getAnalyticsConfig(input: AnalyticsConfigInput): AnalyticsConfig
     if (host.origin !== ANALYTICS_API_ORIGIN || host.username || host.password ||
       host.pathname !== "/" || host.search || host.hash ||
       (input.host !== ANALYTICS_API_ORIGIN && input.host !== `${ANALYTICS_API_ORIGIN}/`)) return null;
-    return { analytics, replay, projectToken: input.projectToken, apiHost: host.origin };
+    return { analytics, replay, environment: "production", projectToken: input.projectToken, apiHost: host.origin };
   } catch {
     return null;
   }

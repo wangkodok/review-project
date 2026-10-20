@@ -15,7 +15,7 @@ describe("analytics configuration", () => {
   });
   it("allows_analytics_only_and_blocks_replay", () => {
     expect(getAnalyticsConfig({ ...valid, analyticsFlag: "true", replayFlag: "false" }))
-      .toEqual({ analytics: true, replay: false, projectToken: valid.projectToken, apiHost: valid.host });
+      .toEqual({ analytics: true, replay: false, environment: "production", projectToken: valid.projectToken, apiHost: valid.host });
     for (const analyticsFlag of ["false", "true"]) {
       expect(getAnalyticsConfig({ ...valid, analyticsFlag, replayFlag: "true" })).toBeNull();
     }

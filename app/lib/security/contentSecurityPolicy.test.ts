@@ -14,7 +14,7 @@ describe("content security policy", () => {
     expect(buildContentSecurityPolicy({ nodeEnv: "development", operatorQaEnabled: false })).not.toContain("posthog.com");
   });
   it("allows_only_the_US_ingestion_origin_for_valid_analytics", () => {
-    const config = { analytics: true, replay: false, projectToken: "phc_synthetic", apiHost: "https://us.i.posthog.com" } as const;
+    const config = { analytics: true, replay: false, environment: "production", projectToken: "phc_synthetic", apiHost: "https://us.i.posthog.com" } as const;
     const policy = buildContentSecurityPolicy({ nodeEnv: "production", analyticsConfig: config });
     expect(policy).toContain("connect-src 'self' https://us.i.posthog.com");
     expect(policy).not.toContain("us-assets.i.posthog.com");

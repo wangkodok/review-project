@@ -16,7 +16,7 @@ export function getOperatorQaConfig(input: QaEnvironment & {
     const url = new URL(input.appOrigin);
     if (url.origin !== input.appOrigin || url.protocol !== "http:" ||
       !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) return null;
-    return { analytics: true, replay: false, projectToken: input.projectToken, apiHost: ANALYTICS_API_ORIGIN };
+    return { analytics: true, replay: false, environment: "test", projectToken: input.projectToken, apiHost: ANALYTICS_API_ORIGIN };
   } catch { return null; }
 }
 
@@ -29,10 +29,9 @@ export function buildOperatorQaOptions(config: AnalyticsConfig, isActive: () => 
     request_batching: false,
     on_request_error: onError,
     before_send(input) {
-      if (typeof sanitize !== "function") return null;
+      if (config.environment !== "test" || typeof sanitize !== "function") return null;
       const clean = sanitize(input);
-      if (!clean || !["$pageview", "ui_action", "filter_changed", "review_write_opened"].includes(clean.event)) return null;
-      clean.event = `qa_${clean.event === "$pageview" ? "pageview" : clean.event}`;
+      if (!clean) return null;
       onEvent(clean.event);
       return clean;
     },
