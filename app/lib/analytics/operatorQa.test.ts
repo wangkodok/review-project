@@ -1,13 +1,20 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ANALYTICS_EVENTS } from "./events";
 import { buildOperatorQaOptions, getOperatorQaConfig, isOperatorQaEnabled } from "./operatorQa";
 
 const environment = { nodeEnv: "development", flag: "true" };
 const input = { ...environment, appOrigin: "http://localhost:3001", projectToken: "phc_synthetic_qa", confirmed: true };
 const uuid = "12345678-1234-4234-8234-123456789abc";
+const userAgent = "Mozilla/5.0 Chrome/140.0.0.0";
 const properties = { screen: "/community/private-id?email=private", mode: "create", hasImage: false,
   error: "network", distinct_id: "$posthog_cookieless", $cookieless_mode: true, email: "private",
   environment: "production", $current_url: "private", $set: { name: "private" } };
+
+beforeEach(() => {
+  vi.stubGlobal("navigator", { userAgent });
+  vi.stubGlobal("location", new URL(input.appOrigin));
+});
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("operator-only cookieless analytics QA", () => {
   it("requires an explicit local development process and manual participation", () => {
@@ -33,6 +40,7 @@ describe("operator-only cookieless analytics QA", () => {
       expect(output).toMatchObject({ uuid, event, properties: {
         screen: "/community/[postId]", environment: "test", distinct_id: "$posthog_cookieless",
         $cookieless_mode: true, token: input.projectToken, $process_person_profile: false, $geoip_disable: true,
+        $raw_user_agent: userAgent, $host: "localhost:3001",
       } });
       expect(JSON.stringify(output)).not.toMatch(/private|email|current_url|\$set|production/);
     }
@@ -66,7 +74,8 @@ describe("operator-only cookieless analytics QA", () => {
       for (const event of ANALYTICS_EVENTS) client.capture(event, properties);
       expect(send).toHaveBeenCalledTimes(5);
       expect(send.mock.calls.map(([request]) => request.data)).toEqual(ANALYTICS_EVENTS.map((event) => expect.objectContaining({
-        event, properties: expect.objectContaining({ environment: "test", $cookieless_mode: true, $geoip_disable: true }),
+        event, properties: expect.objectContaining({ environment: "test", $cookieless_mode: true, $geoip_disable: true,
+          $raw_user_agent: userAgent, $host: "localhost:3001" }),
       })));
       expect(JSON.stringify(send.mock.calls)).not.toMatch(/private|email|current_url|referrer/);
       client.capture("ui_action", properties);
