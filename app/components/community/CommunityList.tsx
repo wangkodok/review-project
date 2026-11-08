@@ -136,10 +136,12 @@ export default function CommunityList({ isAuthenticated }: { isAuthenticated: bo
   const categoriesQuery = useQuery({
     queryKey: ["categories"],
     queryFn: fetchCategories,
+    staleTime: 5 * 60 * 1000,
   });
   const regionsQuery = useQuery({
     queryKey: ["regions"],
     queryFn: fetchRegions,
+    staleTime: 5 * 60 * 1000,
   });
   const postsQuery = useInfiniteQuery({
     queryKey: ["posts", sort, regionSlug, categorySlug, withImage],
