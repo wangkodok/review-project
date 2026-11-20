@@ -9,6 +9,12 @@ const mocks = vi.hoisted(() => ({
   enforceRateLimit: vi.fn(),
   getRequestIp: vi.fn(),
   isReviewImageUploadEnabled: vi.fn(),
+  reportServerError: vi.fn(),
+}));
+
+vi.mock("@/app/lib/observability/report", () => ({
+  reportServerError: mocks.reportServerError,
+  observeServerOperation: (_operation: string, run: () => Promise<unknown>) => run(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: mocks.getServerSession }));
@@ -68,6 +74,15 @@ describe("POST /api/posts", () => {
     mocks.createPost.mockResolvedValue({ status: "ok", post: { id: "post-id" } });
   });
 
+  it("reports only a fixed code for an unexpected save failure and preserves the response", async () => {
+    mocks.createPost.mockRejectedValueOnce(new Error("private synthetic review"));
+    const response = await POST(postRequest(JSON.stringify(reviewBody())));
+    expect(response.status).toBe(500);
+    expect((await response.json()).code).toBe("INTERNAL_SERVER_ERROR");
+    expect(mocks.reportServerError).toHaveBeenCalledExactlyOnceWith("review_create");
+    expect(mocks.createPost).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects an unauthenticated request before reading its body", async () => {
     mocks.getServerSession.mockResolvedValue(null);
 
@@ -78,6 +93,7 @@ describe("POST /api/posts", () => {
     expect((await response.json()).code).toBe("UNAUTHORIZED");
     expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
     expect(mocks.createPost).not.toHaveBeenCalled();
+    expect(mocks.reportServerError).not.toHaveBeenCalled();
   });
 
   it("returns 400 for malformed JSON", async () => {
@@ -198,6 +214,14 @@ describe("GET /api/posts", () => {
     mocks.getActiveCategoryBySlug.mockResolvedValue({ id: CATEGORY_ID });
     mocks.getActiveRegionBySlug.mockResolvedValue({ id: REGION_ID });
     mocks.getPosts.mockResolvedValue({ posts: [], page: 1, limit: 10, totalCount: 0, hasMore: false });
+  });
+
+  it("reports a fixed operation without forwarding the database error", async () => {
+    mocks.getPosts.mockRejectedValueOnce(new Error("private synthetic database detail"));
+    const response = await GET(new Request("http://localhost/api/posts?search=private"));
+    expect(response.status).toBe(500);
+    expect((await response.json()).code).toBe("INTERNAL_SERVER_ERROR");
+    expect(mocks.reportServerError).toHaveBeenCalledExactlyOnceWith("posts_list");
   });
 
   it("passes region, category, photo, and sort filters to the service", async () => {

@@ -8,6 +8,12 @@ const mocks = vi.hoisted(() => ({
   searchPosts: vi.fn(),
   enforceRateLimit: vi.fn(),
   getRequestIp: vi.fn(),
+  reportServerError: vi.fn(),
+}));
+
+vi.mock("@/app/lib/observability/report", () => ({
+  reportServerError: mocks.reportServerError,
+  observeServerOperation: (_operation: string, run: () => Promise<unknown>) => run(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: mocks.getServerSession }));
@@ -61,6 +67,7 @@ describe("GET /api/search/posts", () => {
     expect(response.status).toBe(429);
     expect(mocks.normalizeSearchKeyword).not.toHaveBeenCalled();
     expect(mocks.searchPosts).not.toHaveBeenCalled();
+    expect(mocks.reportServerError).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid search keyword", async () => {
@@ -123,7 +130,7 @@ describe("GET /api/search/posts", () => {
   });
 
   it("does not expose an internal search error", async () => {
-    mocks.searchPosts.mockRejectedValue(new Error("private database detail"));
+    mocks.searchPosts.mockRejectedValueOnce(new Error("private database detail"));
 
     const response = await GET(
       new Request("http://localhost/api/search/posts?q=라면"),
@@ -132,6 +139,7 @@ describe("GET /api/search/posts", () => {
 
     expect(response.status).toBe(500);
     expect(body.code).toBe("INTERNAL_SERVER_ERROR");
+    expect(mocks.reportServerError).toHaveBeenCalledExactlyOnceWith("search_posts");
     expect(JSON.stringify(body)).not.toContain("private database detail");
   });
 });
