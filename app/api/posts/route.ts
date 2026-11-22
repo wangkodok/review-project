@@ -8,6 +8,7 @@ import { getActiveRegionBySlug } from "@/app/lib/regions/service";
 import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
 import { isReviewImageUploadEnabled } from "@/app/lib/reviewImages/config";
 import { buildStructuredReviewContent } from "@/app/lib/posts/structuredReview";
+import { observeServerOperation, reportServerError } from "@/app/lib/observability/report";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -146,7 +147,7 @@ export async function GET(request: Request) {
     }
 
     const session = await getServerSession(authOptions);
-    const data = await getPosts({
+    const data = await observeServerOperation("posts_list", () => getPosts({
       page,
       limit,
       search,
@@ -155,7 +156,7 @@ export async function GET(request: Request) {
       categoryId: category?.id,
       regionId: region?.id,
       withImage,
-    });
+    }));
 
     return NextResponse.json({
       success: true,
@@ -163,6 +164,7 @@ export async function GET(request: Request) {
       message: "게시글 목록을 조회했습니다.",
     });
   } catch {
+    await reportServerError("posts_list");
     return NextResponse.json(
       {
         success: false,
@@ -249,8 +251,9 @@ export async function POST(request: Request) {
       badPoints: review.badPoints,
     });
 
-    const post = await createPost({
-      userId: session.user.id,
+    const userId = session.user.id;
+    const post = await observeServerOperation("review_create", () => createPost({
+      userId,
       storeName: review.storeName,
       regionId: review.regionId,
       title: review.menuName,
@@ -261,7 +264,7 @@ export async function POST(request: Request) {
       badPoints: review.badPoints,
       overallReview: review.overallReview,
       imageId: review.imageId ?? null,
-    });
+    }));
 
     if (post.status === "invalid_category") {
       return NextResponse.json(
@@ -336,6 +339,7 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch {
+    await reportServerError("review_create");
     return NextResponse.json(
       {
         success: false,

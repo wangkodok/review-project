@@ -5,6 +5,7 @@ import { getActiveCategoryBySlug } from "@/app/lib/categories/service";
 import { getActiveRegionBySlug } from "@/app/lib/regions/service";
 import { normalizeSearchKeyword, searchPosts } from "@/app/lib/search/service";
 import { enforceRateLimit, getRequestIp } from "@/app/lib/security/rateLimit";
+import { observeServerOperation, reportServerError } from "@/app/lib/observability/report";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -122,7 +123,7 @@ export async function GET(request: Request) {
     }
 
     const session = await getServerSession(authOptions);
-    const data = await searchPosts({
+    const data = await observeServerOperation("search_posts", () => searchPosts({
       keyword,
       page,
       limit,
@@ -130,7 +131,7 @@ export async function GET(request: Request) {
       sort,
       categoryId: category?.id,
       regionId: region?.id,
-    });
+    }));
 
     return NextResponse.json({
       success: true,
@@ -138,6 +139,7 @@ export async function GET(request: Request) {
       message: "게시글을 검색했습니다.",
     });
   } catch {
+    await reportServerError("search_posts");
     return NextResponse.json(
       {
         success: false,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getSentryConfig } from "../observability/config";
 import {
   buildContentSecurityPolicy,
   getR2UploadOrigin,
@@ -8,6 +9,15 @@ const ACCOUNT_ID = "0123456789abcdef0123456789abcdef";
 const R2_ORIGIN = `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
 describe("content security policy", () => {
+  it("adds only a validated Sentry origin while preserving the default OFF policy", () => {
+    const sentryConfig = getSentryConfig({ flag: "true", nodeEnv: "production", deploymentEnv: "production",
+      dsn: `https://${"a".repeat(32)}@o123.ingest.us.sentry.io/456` });
+    const baseline = buildContentSecurityPolicy({ nodeEnv: "production" });
+    expect(buildContentSecurityPolicy({ nodeEnv: "production", sentryConfig: null })).toBe(baseline);
+    expect(buildContentSecurityPolicy({ nodeEnv: "production", sentryConfig })).toContain("connect-src 'self' https://o123.ingest.us.sentry.io");
+    expect(buildContentSecurityPolicy({ nodeEnv: "production", sentryConfig: { ...sentryConfig!, dsn: "https://evil.test" } })).toBe(baseline);
+    expect(buildContentSecurityPolicy({ nodeEnv: "development", sentryConfig })).not.toContain("sentry.io");
+  });
   it("allows_QA_ingestion_only_in_an_explicit_local_development_process", () => {
     expect(buildContentSecurityPolicy({ nodeEnv: "development", operatorQaEnabled: true })).toContain("connect-src 'self' ws: wss: https://us.i.posthog.com");
     expect(buildContentSecurityPolicy({ nodeEnv: "production", operatorQaEnabled: true })).not.toContain("posthog.com");
