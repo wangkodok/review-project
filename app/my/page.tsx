@@ -7,7 +7,7 @@ export default async function MyPage() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
-    return <GuestLoginScreen />;
+    return <GuestLoginScreen showPolicyLinks />;
   }
 
   return <ProfileInfo />;

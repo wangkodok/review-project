@@ -2,7 +2,11 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import LoginOptions from "./LoginOptions";
 
-export default function GuestLoginScreen() {
+export default function GuestLoginScreen({
+  showPolicyLinks = false,
+}: {
+  showPolicyLinks?: boolean;
+}) {
   return (
     <section className="guest-login-screen fixed inset-y-0 left-1/2 z-30 w-full max-w-[var(--app-frame-max-width)] -translate-x-1/2 overflow-y-auto bg-white px-4">
       <header className="-mx-4 flex h-14 items-center">
@@ -28,7 +32,11 @@ export default function GuestLoginScreen() {
           <br />
           익명으로 편하게 남겨보세요.
         </p>
-        <LoginOptions className="mt-9" variant="my-guest" />
+        <LoginOptions
+          className="mt-9"
+          showPolicyLinks={showPolicyLinks}
+          variant="my-guest"
+        />
       </div>
     </section>
   );

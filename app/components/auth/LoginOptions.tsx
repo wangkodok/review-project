@@ -19,6 +19,7 @@ type LoginProviderId = (typeof LOGIN_PROVIDER_ORDER)[number];
 type LoginOptionsProps = {
   callbackUrl?: string;
   className?: string;
+  showPolicyLinks?: boolean;
   variant?: "default" | "my-guest" | "review-write-dialog";
 };
 
@@ -44,6 +45,7 @@ export function registerLoginPageShowReset(
 export default function LoginOptions({
   callbackUrl = "/my",
   className = "",
+  showPolicyLinks = false,
   variant = "default",
 }: LoginOptionsProps) {
   const [availableProviders, setAvailableProviders] = useState<
@@ -61,6 +63,8 @@ export default function LoginOptions({
   const isMyGuestVariant = variant === "my-guest";
   const isReviewWriteDialogVariant = variant === "review-write-dialog";
   const isKoreanVariant = isMyGuestVariant || isReviewWriteDialogVariant;
+  const shouldShowPolicyLinks =
+    !isKoreanVariant || (isMyGuestVariant && showPolicyLinks);
 
   useEffect(() => {
     let isCancelled = false;
@@ -206,7 +210,7 @@ export default function LoginOptions({
         </div>
       ) : null}
 
-      {!isKoreanVariant ? (
+      {shouldShowPolicyLinks ? (
         <p className="mt-4 text-center text-xs leading-5 text-neutral-500">
           로그인 전에{" "}
           <Link
